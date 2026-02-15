@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 
 // Your backend URL - Change this to match your Thunder Client IP
-const API_URL = 'http://192.168.1.6:5000';
+const API_URL = 'http://192.168.1.7:5000';
 
 export default function CropRecommendationScreen({ navigation, route }) {
   const { location, season, soilType, waterSource, userData } = route.params;

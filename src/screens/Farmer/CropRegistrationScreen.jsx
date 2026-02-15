@@ -14,7 +14,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import axios from 'axios';
 
-const API_URL = 'http://192.168.1.6:5000'; // Change to your IP
+const API_URL = 'http://192.168.1.7:5000'; // Change to your IP
 
 export default function CropRegistrationScreen({ navigation, route }) {
   const { selectedCrops, userData } = route.params || {};
