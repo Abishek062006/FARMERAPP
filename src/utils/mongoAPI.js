@@ -89,9 +89,15 @@ export const getUserByFirebaseUid = async (firebaseUid) => {
     }
 
     console.log('✅ User fetched via API:', data.user.email);
+    console.log('🔍 Backend returned firebaseUid:', data.user.firebaseUid); // ✅ DEBUG
+    
+    // ✅ Return user data with firebaseUid
     return {
       success: true,
-      user: data.user,
+      user: {
+        ...data.user,
+        firebaseUid: data.user.firebaseUid || firebaseUid, // Use backend's or fallback
+      },
     };
 
   } catch (error) {

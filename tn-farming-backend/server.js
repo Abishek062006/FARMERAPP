@@ -6,7 +6,7 @@ const connectDB = require('./config/db');
 const userRoutes = require('./routes/users');
 const landRoutes = require('./routes/lands');
 const aiRoutes = require('./routes/ai');
-
+const cropRoutes = require('./routes/crops');
 // Load environment variables FIRST
 dotenv.config();
 
@@ -35,6 +35,7 @@ app.use((req, res, next) => {
 app.use('/api/users', userRoutes);
 app.use('/api/lands', landRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/crops', cropRoutes);
 
 // Health check route
 app.get('/', (req, res) => {

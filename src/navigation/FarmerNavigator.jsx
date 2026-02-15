@@ -9,6 +9,9 @@ import TerraceFarmingDashboard from '../screens/Farmer/TerraceFarmingDashboard';
 import LandRegistrationScreen from '../screens/Farmer/LandRegistrationScreen';
 import LandListScreen from '../screens/Farmer/LandListScreen';
 import LandDetailsScreen from '../screens/Farmer/LandDetailsScreen';
+import LocationSetupScreen from '../screens/Farmer/LocationSetupScreen';
+import CropRecommendationScreen from '../screens/Farmer/CropRecommendationScreen';
+import CropRegistrationScreen from '../screens/Farmer/CropRegistrationScreen'; // ✅ ADD THIS
 
 import { COLORS } from '../constants/colors';
 
@@ -16,8 +19,6 @@ const Stack = createStackNavigator();
 
 const FarmerNavigator = ({ userData }) => {
   
-  // For now, use Terrace dashboard for all types
-  // We'll add other dashboards in Day 4-5
   const DashboardComponent = TerraceFarmingDashboard;
   
   const dashboardTitle = 
@@ -32,10 +33,7 @@ const FarmerNavigator = ({ userData }) => {
       'Logout',
       'Are you sure you want to logout?',
       [
-        { 
-          text: 'Cancel', 
-          style: 'cancel' 
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Logout',
           style: 'destructive',
@@ -57,14 +55,9 @@ const FarmerNavigator = ({ userData }) => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: COLORS.secondary,
-        },
+        headerStyle: { backgroundColor: COLORS.secondary },
         headerTintColor: COLORS.primary,
-        headerTitleStyle: {
-          fontWeight: 'bold',
-          fontSize: 20,
-        },
+        headerTitleStyle: { fontWeight: 'bold', fontSize: 20 },
       }}
     >
       {/* Main Dashboard */}
@@ -91,7 +84,41 @@ const FarmerNavigator = ({ userData }) => {
         }}
       />
 
-      {/* Land List Screen */}
+      <Stack.Screen 
+        name="LocationSetup" 
+        component={LocationSetupScreen}
+        options={{ 
+          title: 'Location & Season',
+          headerStyle: { backgroundColor: '#4CAF50' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+
+      <Stack.Screen 
+        name="CropRecommendation" 
+        component={CropRecommendationScreen}
+        options={{ 
+          title: 'AI Recommendations',
+          headerStyle: { backgroundColor: '#4CAF50' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+
+      {/* ✅ ADD THIS SCREEN */}
+      <Stack.Screen 
+        name="CropRegistration" 
+        component={CropRegistrationScreen}
+        options={{ 
+          title: 'Register Crop',
+          headerStyle: { backgroundColor: '#4CAF50' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+
+      {/* Land Screens */}
       <Stack.Screen 
         name="LandList" 
         component={LandListScreen}
@@ -99,7 +126,6 @@ const FarmerNavigator = ({ userData }) => {
         options={{ headerShown: false }}
       />
 
-      {/* Land Registration Screen */}
       <Stack.Screen 
         name="LandRegistration" 
         component={LandRegistrationScreen}
@@ -107,15 +133,12 @@ const FarmerNavigator = ({ userData }) => {
         options={{ headerShown: false }}
       />
 
-      {/* Land Details Screen */}
       <Stack.Screen 
         name="LandDetails" 
         component={LandDetailsScreen}
         initialParams={{ userData }}
         options={{ headerShown: false }}
       />
-
-      {/* More screens will be added in upcoming days */}
     </Stack.Navigator>
   );
 };
