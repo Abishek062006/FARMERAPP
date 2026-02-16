@@ -23,6 +23,7 @@
     "expo-image-manipulator": "^14.0.8",
     "expo-image-picker": "~17.0.10",
     "expo-location": "~19.0.8",
+    "expo-media-library": "~18.2.1",
     "expo-status-bar": "~3.0.9",
     "firebase": "^12.9.0",
     "formik": "^2.4.9",

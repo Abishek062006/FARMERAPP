@@ -17,11 +17,14 @@
   "license": "MIT",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "axios": "^1.13.5",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "form-data": "^4.0.5",
     "groq-sdk": "^0.37.0",
     "mongoose": "^9.2.1",
+    "multer": "^2.0.2",
     "node-fetch": "^3.3.2"
   },
   "devDependencies": {

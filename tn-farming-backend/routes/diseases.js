@@ -1,325 +1,178 @@
 const express = require('express');
 const router = express.Router();
-const Disease = require('../models/Disease');
-const Crop = require('../models/Crop');
+console.log('🔥 DISEASES ROUTES LOADED!');
+const multer = require('multer');
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
+const FormData = require('form-data');
+
+// Python AI Service URL
+const AI_SERVICE_URL = 'http://localhost:5001';
+
+// Configure multer for image upload
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = 'uploads/diseases/';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, `disease_${Date.now()}${path.extname(file.originalname)}`);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+});
 
 /**
- * POST /api/diseases
- * Log a disease detection
+ * POST /api/disease/detect
+ * Detect disease using Python AI service
  */
-router.post('/', async (req, res) => {
+router.post('/detect', upload.single('image'), async (req, res) => {
   try {
-    const {
-      cropId,
-      firebaseUid,
-      symptoms,
-      diseaseName,
-      diseaseNameTamil,
-      confidence,
-      cause,
-      severity,
-      treatment,
-      preventiveMeasures,
-      organicTreatment,
-      photos,
-      affectedArea,
-      notes
-    } = req.body;
-
-    console.log('🦠 Logging disease detection for crop:', cropId);
-
-    // Validate required fields
-    if (!cropId || !firebaseUid || !diseaseName || !treatment) {
+    console.log('\n🔍 === DISEASE DETECTION REQUEST ===');
+    
+    if (!req.file) {
+      console.log('❌ No file received');
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields (cropId, firebaseUid, diseaseName, treatment)'
+        message: 'No image file provided'
       });
     }
 
-    // Verify crop exists
-    const crop = await Crop.findById(cropId);
-    if (!crop) {
-      return res.status(404).json({
-        success: false,
-        message: 'Crop not found'
-      });
-    }
+    console.log('📸 File received:', req.file.filename);
+    console.log('📸 File size:', req.file.size, 'bytes');
 
-    const newDisease = new Disease({
-      cropId,
-      firebaseUid,
-      detectedDate: new Date(),
-      symptoms: symptoms || [],
-      diseaseName,
-      diseaseNameTamil: diseaseNameTamil || '',
-      confidence: confidence || 0,
-      cause: cause || 'unknown',
-      severity: severity || 'moderate',
-      treatment,
-      preventiveMeasures: preventiveMeasures || [],
-      organicTreatment: organicTreatment || '',
-      photos: photos || [],
-      status: 'detected',
-      affectedArea: affectedArea || '',
-      notes: notes || ''
-    });
-
-    await newDisease.save();
-
-    // Update crop health score
-    const healthReduction = severity === 'critical' ? 40 : severity === 'severe' ? 30 : severity === 'moderate' ? 20 : 10;
-    const newHealthScore = Math.max(0, crop.healthScore - healthReduction);
-    
-    await Crop.findByIdAndUpdate(cropId, {
-      $set: { healthScore: newHealthScore }
-    });
-
-    console.log('✅ Disease logged:', newDisease._id);
-
-    res.status(201).json({
-      success: true,
-      message: 'Disease logged successfully',
-      disease: newDisease,
-      updatedHealthScore: newHealthScore
-    });
-
-  } catch (error) {
-    console.error('❌ Error logging disease:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to log disease',
-      error: error.message
-    });
-  }
-});
-
-
-/**
- * GET /api/diseases/crop/:cropId
- * Get all diseases for a crop
- */
-router.get('/crop/:cropId', async (req, res) => {
-  try {
-    const { cropId } = req.params;
-    const { status } = req.query;
-
-    console.log('🦠 Fetching diseases for crop:', cropId);
-
-    const filter = { cropId };
-    if (status) {
-      filter.status = status;
-    }
-
-    const diseases = await Disease.find(filter).sort({ detectedDate: -1 });
-
-    res.json({
-      success: true,
-      count: diseases.length,
-      diseases
-    });
-
-  } catch (error) {
-    console.error('❌ Error fetching diseases:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch diseases',
-      error: error.message
-    });
-  }
-});
-
-
-/**
- * GET /api/diseases/user/:firebaseUid
- * Get all diseases for a user (across all crops)
- */
-router.get('/user/:firebaseUid', async (req, res) => {
-  try {
-    const { firebaseUid } = req.params;
-    const { active } = req.query;
-
-    console.log('🦠 Fetching diseases for user:', firebaseUid);
-
-    const filter = { firebaseUid };
-    if (active === 'true') {
-      filter.status = { $in: ['detected', 'treating', 'worsening'] };
-    }
-
-    const diseases = await Disease.find(filter)
-      .populate('cropId')
-      .sort({ detectedDate: -1 });
-
-    res.json({
-      success: true,
-      count: diseases.length,
-      diseases
-    });
-
-  } catch (error) {
-    console.error('❌ Error fetching user diseases:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch diseases',
-      error: error.message
-    });
-  }
-});
-
-
-/**
- * PUT /api/diseases/:diseaseId/status
- * Update disease status
- */
-router.put('/:diseaseId/status', async (req, res) => {
-  try {
-    const { diseaseId } = req.params;
-    const { status, notes } = req.body;
-
-    console.log('🔄 Updating disease status:', diseaseId, '->', status);
-
-    const validStatuses = ['detected', 'treating', 'improving', 'resolved', 'worsening'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
-      });
-    }
-
-    const updateData = { status };
-    
-    if (status === 'treating' && !req.body.treatmentStartDate) {
-      updateData.treatmentStartDate = new Date();
-    }
-    
-    if (status === 'resolved') {
-      updateData.resolvedDate = new Date();
-    }
-
-    if (notes) {
-      updateData.notes = notes;
-    }
-
-    const updatedDisease = await Disease.findByIdAndUpdate(
-      diseaseId,
-      { $set: updateData },
-      { new: true }
-    );
-
-    if (!updatedDisease) {
-      return res.status(404).json({
-        success: false,
-        message: 'Disease record not found'
-      });
-    }
-
-    // If resolved, improve crop health score
-    if (status === 'resolved') {
-      const crop = await Crop.findById(updatedDisease.cropId);
-      if (crop) {
-        const healthImprovement = 20;
-        const newHealthScore = Math.min(100, crop.healthScore + healthImprovement);
-        await Crop.findByIdAndUpdate(crop._id, {
-          $set: { healthScore: newHealthScore }
-        });
+    // Check if Python AI service is running
+    try {
+      await axios.get(`${AI_SERVICE_URL}/health`, { timeout: 5000 });
+      console.log('✅ Python AI service is running');
+    } catch (error) {
+      console.error('❌ Python AI service not running!');
+      console.error('💡 Start it: cd ai-service && python app.py');
+      
+      // Clean up uploaded file
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
       }
+      
+      return res.status(503).json({
+        success: false,
+        message: 'AI service unavailable. Please start Python AI server.',
+        error: 'Python AI service down'
+      });
     }
 
-    res.json({
-      success: true,
-      message: 'Disease status updated',
-      disease: updatedDisease
-    });
+    // Create form data for Python service
+    const formData = new FormData();
+    formData.append('image', fs.createReadStream(req.file.path));
 
-  } catch (error) {
-    console.error('❌ Error updating disease status:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update disease status',
-      error: error.message
-    });
-  }
-});
+    console.log('🤖 Calling Python AI service...');
 
-
-/**
- * PUT /api/diseases/:diseaseId
- * Update disease information
- */
-router.put('/:diseaseId', async (req, res) => {
-  try {
-    const { diseaseId } = req.params;
-    const updates = req.body;
-
-    console.log('✏️ Updating disease:', diseaseId);
-
-    // Don't allow changing cropId or firebaseUid
-    delete updates.cropId;
-    delete updates.firebaseUid;
-    delete updates.detectedDate;
-
-    const updatedDisease = await Disease.findByIdAndUpdate(
-      diseaseId,
-      { $set: updates },
-      { new: true, runValidators: true }
+    // Call Python AI service
+    const aiResponse = await axios.post(
+      `${AI_SERVICE_URL}/predict`,
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders()
+        },
+        timeout: 30000, // 30 seconds
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
+      }
     );
 
-    if (!updatedDisease) {
-      return res.status(404).json({
-        success: false,
-        message: 'Disease record not found'
-      });
+    console.log('✅ Python AI response received');
+
+    // Clean up uploaded file
+    if (fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+      console.log('🗑️  Temp file deleted');
     }
+
+    // Format response for frontend
+    const prediction = aiResponse.data.prediction;
+    const primaryDisease = prediction.primary_disease;
+    
+    const responseData = {
+      healthy: prediction.healthy,
+      healthScore: prediction.healthScore,
+      confidence: prediction.confidence,
+      plantName: primaryDisease.name.split(' - ')[0] || 'Unknown Plant',
+      diseases: prediction.healthy ? [] : [{
+        name: primaryDisease.name,
+        commonNames: [primaryDisease.scientific],
+        probability: primaryDisease.confidence,
+        description: primaryDisease.description,
+        cause: primaryDisease.symptoms,
+        treatment: primaryDisease.treatment,
+        url: null
+      }],
+      alternatives: prediction.alternatives || []
+    };
+
+    console.log(`🎯 Final diagnosis: ${responseData.healthy ? 'Healthy' : responseData.diseases[0]?.name} (${responseData.confidence}%)`);
+    console.log('✅ === DETECTION COMPLETE ===\n');
 
     res.json({
       success: true,
-      message: 'Disease updated successfully',
-      disease: updatedDisease
+      data: responseData,
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('❌ Error updating disease:', error);
+    console.error('❌ Detection error:', error.message);
+    
+    // Clean up file on error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Failed to update disease',
-      error: error.message
+      message: 'Disease detection failed',
+      error: error.response?.data?.error || error.message
     });
   }
 });
-
 
 /**
- * DELETE /api/diseases/:diseaseId
- * Delete a disease record
+ * GET /api/disease/test
+ * Test AI service connection
  */
-router.delete('/:diseaseId', async (req, res) => {
+router.get('/test', async (req, res) => {
   try {
-    const { diseaseId } = req.params;
-
-    console.log('🗑️ Deleting disease:', diseaseId);
-
-    const deletedDisease = await Disease.findByIdAndDelete(diseaseId);
-
-    if (!deletedDisease) {
-      return res.status(404).json({
-        success: false,
-        message: 'Disease record not found'
-      });
-    }
-
+    const aiHealth = await axios.get(`${AI_SERVICE_URL}/health`, { timeout: 5000 });
+    
     res.json({
       success: true,
-      message: 'Disease record deleted successfully'
+      backend: 'running',
+      aiService: aiHealth.data,
+      message: 'AI Disease Detection Ready!'
     });
-
+    
   } catch (error) {
-    console.error('❌ Error deleting disease:', error);
-    res.status(500).json({
+    res.json({
       success: false,
-      message: 'Failed to delete disease',
+      backend: 'running',
+      aiService: 'not running',
+      message: 'Start Python AI: cd ai-service && python app.py',
       error: error.message
     });
   }
 });
-
 
 module.exports = router;

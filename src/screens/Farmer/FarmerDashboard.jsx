@@ -236,6 +236,14 @@ export default function FarmerDashboard({ navigation, route }) {
           <Text style={styles.statLabel}>Harvested</Text>
         </View>
       </View>
+      <TouchableOpacity
+  style={styles.quickActionCard}
+  onPress={() => navigation.navigate('MarketPrices')} // ✅ Update this
+>
+  <Ionicons name="trending-up" size={32} color="#FF9800" />
+  <Text style={styles.quickActionText}>Market</Text>
+</TouchableOpacity>
+
 
       {/* Weather Card */}
       {weather && (
