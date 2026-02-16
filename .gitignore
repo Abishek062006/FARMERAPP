@@ -43,3 +43,8 @@ yarn-error.*
 .env
 tn-farming-backend/.env
 
+# Python
+venv/
+ai-service/venv/
+__pycache__/
+*.pyc

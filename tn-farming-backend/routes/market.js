@@ -4,46 +4,24 @@ const MarketPrice = require('../models/MarketPrice');
 
 /**
  * GET /api/market/prices/:cropName
- * Get current market prices for a crop
+ * Get market prices for a specific crop
  */
 router.get('/prices/:cropName', async (req, res) => {
   try {
     const { cropName } = req.params;
-    const { district, limit } = req.query;
 
-    console.log('💰 Fetching prices for:', cropName);
+    console.log('📊 Fetching prices for:', cropName);
 
-    // Get today's date (start of day)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Try to find in database
+    let prices = await MarketPrice.find({
+      cropName: new RegExp(cropName, 'i'),
+      date: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // Last 7 days
+    }).sort({ date: -1 });
 
-    const filter = {
-      cropName: new RegExp(cropName, 'i'), // Case-insensitive search
-      date: { $gte: today }
-    };
-
-    if (district) {
-      filter['market.district'] = new RegExp(district, 'i');
-    }
-
-    const prices = await MarketPrice.find(filter)
-      .sort({ modalPrice: -1 })
-      .limit(parseInt(limit) || 10);
-
+    // ✅ If no data in DB, generate mock data
     if (prices.length === 0) {
-      // If no prices for today, get latest available
-      const latestPrices = await MarketPrice.find({
-        cropName: new RegExp(cropName, 'i')
-      })
-        .sort({ date: -1 })
-        .limit(parseInt(limit) || 10);
-
-      return res.json({
-        success: true,
-        count: latestPrices.length,
-        prices: latestPrices,
-        note: 'No prices available for today. Showing latest prices.'
-      });
+      console.log('📊 No data in DB, generating mock prices...');
+      prices = generateMockPrices(cropName);
     }
 
     res.json({
@@ -56,68 +34,11 @@ router.get('/prices/:cropName', async (req, res) => {
     console.error('❌ Error fetching prices:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch prices',
+      message: 'Failed to fetch market prices',
       error: error.message
     });
   }
 });
-
-
-/**
- * GET /api/market/price-history/:cropName
- * Get price history for a crop
- */
-router.get('/price-history/:cropName', async (req, res) => {
-  try {
-    const { cropName } = req.params;
-    const { days, market } = req.query;
-
-    console.log('📊 Fetching price history for:', cropName);
-
-    const daysCount = parseInt(days) || 30;
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - daysCount);
-
-    const filter = {
-      cropName: new RegExp(cropName, 'i'),
-      date: { $gte: startDate }
-    };
-
-    if (market) {
-      filter['market.name'] = new RegExp(market, 'i');
-    }
-
-    const priceHistory = await MarketPrice.find(filter)
-      .sort({ date: 1 })
-      .select('date modalPrice minPrice maxPrice market trend');
-
-    // Calculate statistics
-    const prices = priceHistory.map(p => p.modalPrice);
-    const stats = {
-      average: prices.length > 0 ? (prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2) : 0,
-      highest: prices.length > 0 ? Math.max(...prices) : 0,
-      lowest: prices.length > 0 ? Math.min(...prices) : 0,
-      current: prices.length > 0 ? prices[prices.length - 1] : 0
-    };
-
-    res.json({
-      success: true,
-      count: priceHistory.length,
-      history: priceHistory,
-      statistics: stats,
-      period: `${daysCount} days`
-    });
-
-  } catch (error) {
-    console.error('❌ Error fetching price history:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch price history',
-      error: error.message
-    });
-  }
-});
-
 
 /**
  * GET /api/market/best-markets/:cropName
@@ -129,30 +50,20 @@ router.get('/best-markets/:cropName', async (req, res) => {
 
     console.log('🏆 Finding best markets for:', cropName);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const bestMarkets = await MarketPrice.find({
+    let prices = await MarketPrice.find({
       cropName: new RegExp(cropName, 'i'),
-      date: { $gte: today }
-    })
-      .sort({ modalPrice: -1 })
-      .limit(5)
-      .select('market modalPrice minPrice maxPrice trend');
+      date: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+    }).sort({ modalPrice: -1 }).limit(5);
 
-    if (bestMarkets.length === 0) {
-      return res.json({
-        success: true,
-        count: 0,
-        markets: [],
-        message: 'No market data available for today'
-      });
+    // Generate mock if no data
+    if (prices.length === 0) {
+      const mockPrices = generateMockPrices(cropName);
+      prices = mockPrices.sort((a, b) => b.modalPrice - a.modalPrice).slice(0, 5);
     }
 
     res.json({
       success: true,
-      count: bestMarkets.length,
-      markets: bestMarkets
+      markets: prices
     });
 
   } catch (error) {
@@ -165,113 +76,44 @@ router.get('/best-markets/:cropName', async (req, res) => {
   }
 });
 
-
 /**
- * POST /api/market/prices
- * Add/Update market price (Admin/System use)
+ * Generate mock market prices
  */
-router.post('/prices', async (req, res) => {
-  try {
-    const {
-      cropName,
-      tamilName,
-      market,
-      date,
-      minPrice,
-      maxPrice,
-      modalPrice,
-      unit,
-      arrivals,
-      source
-    } = req.body;
+function generateMockPrices(cropName) {
+  const markets = [
+    { name: 'Koyambedu Market', district: 'Chennai', state: 'Tamil Nadu' },
+    { name: 'Madurai Market', district: 'Madurai', state: 'Tamil Nadu' },
+    { name: 'Coimbatore Market', district: 'Coimbatore', state: 'Tamil Nadu' },
+    { name: 'Salem Market', district: 'Salem', state: 'Tamil Nadu' },
+    { name: 'Trichy Market', district: 'Tiruchirappalli', state: 'Tamil Nadu' },
+  ];
 
-    console.log('💰 Adding/Updating price for:', cropName);
+  const basePrice = Math.floor(Math.random() * 2000) + 1000; // 1000-3000
 
-    // Validate required fields
-    if (!cropName || !tamilName || !market || !date || !minPrice || !maxPrice || !modalPrice) {
-      return res.status(400).json({
-        success: false,
-        message: 'Missing required fields'
-      });
-    }
+  return markets.map(market => {
+    const variation = Math.random() * 500 - 250; // ±250
+    const modalPrice = Math.floor(basePrice + variation);
+    const minPrice = Math.floor(modalPrice * 0.8);
+    const maxPrice = Math.floor(modalPrice * 1.2);
+    const priceChange = (Math.random() * 10 - 5).toFixed(1); // -5% to +5%
 
-    // Check if price already exists for this crop, market, and date
-    const existingPrice = await MarketPrice.findOne({
-      cropName,
-      'market.name': market.name,
-      date: new Date(date)
-    });
-
-    if (existingPrice) {
-      // Update existing price
-      existingPrice.minPrice = minPrice;
-      existingPrice.maxPrice = maxPrice;
-      existingPrice.modalPrice = modalPrice;
-      existingPrice.unit = unit || 'kg';
-      existingPrice.arrivals = arrivals || 0;
-      existingPrice.lastUpdated = new Date();
-
-      // Calculate trend (compare with previous day)
-      const previousDay = new Date(date);
-      previousDay.setDate(previousDay.getDate() - 1);
-      
-      const previousPrice = await MarketPrice.findOne({
-        cropName,
-        'market.name': market.name,
-        date: previousDay
-      });
-
-      if (previousPrice) {
-        const priceChange = ((modalPrice - previousPrice.modalPrice) / previousPrice.modalPrice) * 100;
-        existingPrice.priceChange = parseFloat(priceChange.toFixed(2));
-        
-        if (priceChange > 2) existingPrice.trend = 'increasing';
-        else if (priceChange < -2) existingPrice.trend = 'decreasing';
-        else existingPrice.trend = 'stable';
-      }
-
-      await existingPrice.save();
-
-      return res.json({
-        success: true,
-        message: 'Price updated successfully',
-        price: existingPrice
-      });
-    }
-
-    // Create new price entry
-    const newPrice = new MarketPrice({
-      cropName,
-      tamilName,
-      market,
-      date: new Date(date),
-      minPrice,
-      maxPrice,
-      modalPrice,
-      unit: unit || 'kg',
-      priceChange: 0,
-      trend: 'stable',
-      arrivals: arrivals || 0,
-      source: source || 'Manual'
-    });
-
-    await newPrice.save();
-
-    res.status(201).json({
-      success: true,
-      message: 'Price added successfully',
-      price: newPrice
-    });
-
-  } catch (error) {
-    console.error('❌ Error adding price:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to add price',
-      error: error.message
-    });
-  }
-});
-
+    return {
+      _id: `mock_${market.name}_${Date.now()}`,
+      cropName: cropName,
+      market: market,
+      marketName: market.name,
+      district: market.district,
+      state: market.state,
+      modalPrice: modalPrice,
+      minPrice: minPrice,
+      maxPrice: maxPrice,
+      unit: 'quintal',
+      date: new Date(),
+      lastUpdated: new Date(),
+      trend: priceChange > 0 ? 'up' : priceChange < 0 ? 'down' : 'stable',
+      priceChange: parseFloat(priceChange)
+    };
+  });
+}
 
 module.exports = router;

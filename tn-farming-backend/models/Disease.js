@@ -1,84 +1,83 @@
 const mongoose = require('mongoose');
 
 const diseaseSchema = new mongoose.Schema({
+  firebaseUid: {
+    type: String,
+    required: true,
+    index: true
+  },
   cropId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Crop',
     required: true,
     index: true
   },
-  firebaseUid: {
-    type: String,
-    required: true,
-    index: true
-  },
-  detectedDate: {
-    type: Date,
-    default: Date.now,
-    index: true
-  },
-  symptoms: [{
-    type: String,
-    trim: true
-  }],
   diseaseName: {
     type: String,
     required: true
   },
-  diseaseNameTamil: {
-    type: String
-  },
-  confidence: {
-    type: Number,  // AI confidence percentage
-    min: 0,
-    max: 100
-  },
-  cause: {
+  scientificName: {
     type: String,
-    enum: ['fungal', 'bacterial', 'viral', 'pest', 'nutrient', 'environmental', 'unknown']
+    default: ''
   },
   severity: {
     type: String,
-    enum: ['mild', 'moderate', 'severe', 'critical'],
+    enum: ['mild', 'moderate', 'severe', 'unknown'],
     default: 'moderate'
+  },
+  affectedArea: {
+    type: String,
+    default: 'leaves'
+  },
+  symptoms: {
+    type: String,
+    default: ''
+  },
+  causes: {
+    type: String,
+    default: ''
   },
   treatment: {
     type: String,
-    required: true
+    default: ''
   },
-  preventiveMeasures: [{
+  pesticides: [{
     type: String
   }],
-  organicTreatment: {
-    type: String
+  prevention: {
+    type: String,
+    default: ''
   },
-  photos: [{
-    url: String,
-    uploadDate: Date
-  }],
+  confidence: {
+    type: Number,
+    min: 0,
+    max: 1,
+    default: 0
+  },
+  imageUrl: {
+    type: String,
+    default: ''
+  },
+  detectedDate: {
+    type: Date,
+    default: Date.now
+  },
   status: {
     type: String,
-    enum: ['detected', 'treating', 'improving', 'resolved', 'worsening'],
-    default: 'detected'
-  },
-  treatmentStartDate: {
-    type: Date
-  },
-  resolvedDate: {
-    type: Date
+    enum: ['active', 'treating', 'resolved'],
+    default: 'active'
   },
   notes: {
-    type: String
-  },
-  affectedArea: {
-    type: String  // e.g., "20% of plants", "leaves only"
+    type: String,
+    maxlength: 1000
   }
 }, {
   timestamps: true
 });
 
 // Indexes
+diseaseSchema.index({ firebaseUid: 1, status: 1 });
 diseaseSchema.index({ cropId: 1, status: 1 });
-diseaseSchema.index({ firebaseUid: 1, detectedDate: -1 });
+diseaseSchema.index({ detectedDate: -1 });
 
 module.exports = mongoose.model('Disease', diseaseSchema);

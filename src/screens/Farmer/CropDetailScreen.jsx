@@ -8,8 +8,11 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Modal,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/config';
 
@@ -22,6 +25,10 @@ export default function CropDetailScreen({ navigation, route }) {
   const [tasks, setTasks] = useState([]);
   const [diseases, setDiseases] = useState([]);
   const [weather, setWeather] = useState(null);
+  const [scanningDisease, setScanningDisease] = useState(false);
+  const [showDiseaseModal, setShowDiseaseModal] = useState(false);
+  const [diseaseResult, setDiseaseResult] = useState(null);
+  const [capturedImage, setCapturedImage] = useState(null);
 
   const firebaseUid = userData?.firebaseUid || userData?.uid;
 
@@ -92,6 +99,231 @@ export default function CropDetailScreen({ navigation, route }) {
     loadCropDetails();
   };
 
+  const handleScanPlant = () => {
+    Alert.alert(
+      'Scan Plant Health',
+      'Choose an option to detect diseases',
+      [
+        {
+          text: 'Take Photo',
+          onPress: () => openCamera(),
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: () => pickImageFromGallery(),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Camera permission is required to scan plants');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setCapturedImage(result.assets[0].uri);
+      await detectDisease(result.assets[0].uri);
+    }
+  };
+
+  const pickImageFromGallery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setCapturedImage(result.assets[0].uri);
+      await detectDisease(result.assets[0].uri);
+    }
+  };
+
+  // FIXED: Complete disease detection function
+  const detectDisease = async (imageUri) => {
+    try {
+      setScanningDisease(true);
+      setShowDiseaseModal(true);
+      setDiseaseResult(null); // Clear previous result
+
+      console.log('🔍 Detecting disease from image...');
+
+      // Create form data for image upload
+      const formData = new FormData();
+      formData.append('image', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'plant.jpg',
+      });
+
+      // Call Python AI disease detection endpoint
+      console.log('📍 Calling:', `${API_ENDPOINTS.DISEASES}/detect`);
+      
+      const response = await axios.post(
+        `${API_ENDPOINTS.DISEASES}/detect`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+          timeout: 30000,
+        }
+      );
+
+      console.log('✅ Disease detection response:', response.data);
+
+      if (response.data.success && response.data.data) {
+        const aiData = response.data.data;
+        
+        console.log('📊 AI Data:', aiData);
+        console.log('📊 Healthy:', aiData.healthy);
+        console.log('📊 Diseases:', aiData.diseases);
+        
+        // Check if plant is healthy
+        if (aiData.healthy) {
+          Alert.alert('Good News! 🌿', 'Your plant appears healthy!', [
+            {
+              text: 'OK',
+              onPress: () => {
+                setShowDiseaseModal(false);
+                setCapturedImage(null);
+              }
+            }
+          ]);
+        } else {
+          // Get disease info
+          const disease = aiData.diseases && aiData.diseases.length > 0 ? aiData.diseases[0] : null;
+          
+          if (!disease) {
+            Alert.alert('Error', 'No disease information available');
+            setShowDiseaseModal(false);
+            setCapturedImage(null);
+            return;
+          }
+          
+          console.log('🦠 Disease detected:', disease.name);
+          
+          // Format treatment data
+          let treatmentText = '';
+          if (disease.treatment) {
+            if (disease.treatment.chemical && Array.isArray(disease.treatment.chemical)) {
+              treatmentText = disease.treatment.chemical.join('. ');
+            } else if (disease.treatment.biological && Array.isArray(disease.treatment.biological)) {
+              treatmentText = disease.treatment.biological.join('. ');
+            } else if (typeof disease.treatment === 'string') {
+              treatmentText = disease.treatment;
+            }
+          }
+          
+          // Format pesticides
+          let pesticides = [];
+          if (disease.treatment) {
+            if (disease.treatment.chemical && Array.isArray(disease.treatment.chemical)) {
+              pesticides = disease.treatment.chemical;
+            } else if (disease.treatment.biological && Array.isArray(disease.treatment.biological)) {
+              pesticides = disease.treatment.biological;
+            }
+          }
+          
+          // Format for UI
+          const diseaseResultData = {
+            isHealthy: false,
+            diseaseName: disease.name || 'Unknown Disease',
+            scientificName: disease.commonNames && disease.commonNames.length > 0 
+              ? disease.commonNames[0] 
+              : '',
+            severity: 'moderate',
+            affectedArea: 'leaves',
+            symptoms: disease.cause || disease.description || 'No symptoms information available',
+            treatment: treatmentText || 'Consult an agricultural expert for treatment recommendations',
+            confidence: (aiData.confidence || disease.probability || 50) / 100,
+            pesticides: pesticides
+          };
+          
+          console.log('✅ Setting disease result:', diseaseResultData);
+          setDiseaseResult(diseaseResultData);
+        }
+      } else {
+        console.error('❌ Invalid response:', response.data);
+        Alert.alert('Error', response.data.message || 'Failed to analyze image');
+        setShowDiseaseModal(false);
+        setCapturedImage(null);
+      }
+    } catch (error) {
+      console.error('❌ Error detecting disease:', error);
+      console.error('❌ Error response:', error.response?.data);
+      
+      let errorMessage = 'Could not analyze the image. Please try again with a clearer photo.';
+      
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Request timed out. The AI service might be slow.';
+      } else if (error.response?.status === 503) {
+        errorMessage = 'AI service is not running. Please start the Python server.';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      Alert.alert('Detection Failed', errorMessage);
+      setShowDiseaseModal(false);
+      setCapturedImage(null);
+    } finally {
+      setScanningDisease(false);
+    }
+  };
+
+  const handleSaveDisease = async () => {
+    if (!diseaseResult) return;
+
+    try {
+      const diseaseData = {
+        cropId: cropData._id,
+        firebaseUid,
+        diseaseName: diseaseResult.diseaseName,
+        severity: diseaseResult.severity || 'moderate',
+        affectedArea: diseaseResult.affectedArea || 'leaves',
+        symptoms: diseaseResult.symptoms || '',
+        treatment: diseaseResult.treatment || '',
+        confidence: diseaseResult.confidence || 0,
+        imageUrl: capturedImage,
+      };
+
+      const response = await axios.post(API_ENDPOINTS.DISEASES, diseaseData);
+
+      if (response.data.success) {
+        Alert.alert('Saved!', 'Disease logged successfully', [
+          {
+            text: 'OK',
+            onPress: () => {
+              setShowDiseaseModal(false);
+              setCapturedImage(null);
+              setDiseaseResult(null);
+              loadCropDetails(); // Refresh to show new disease
+            }
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('❌ Error saving disease:', error);
+      Alert.alert('Error', 'Failed to save disease information');
+    }
+  };
+
   const getDaysElapsed = () => {
     const today = new Date();
     const planting = new Date(cropData.plantingDate);
@@ -133,7 +365,7 @@ export default function CropDetailScreen({ navigation, route }) {
 
       if (response.data.success) {
         Alert.alert('Success', `Stage updated to ${newStage}`);
-        loadCropDetails(); // Refresh
+        loadCropDetails();
       }
     } catch (error) {
       console.error('❌ Error updating stage:', error);
@@ -264,6 +496,19 @@ export default function CropDetailScreen({ navigation, route }) {
         </View>
       </View>
 
+      {/* Disease Scan Button */}
+      <View style={styles.scanSection}>
+        <TouchableOpacity
+          style={styles.scanButton}
+          onPress={handleScanPlant}
+        >
+          <Ionicons name="scan" size={24} color="#fff" />
+          <Text style={styles.scanButtonText}>Scan Plant Health</Text>
+          <Ionicons name="camera" size={20} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.scanSubtext}>AI-powered disease detection</Text>
+      </View>
+
       {/* Progress Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Growth Progress</Text>
@@ -321,53 +566,33 @@ export default function CropDetailScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* Stage Update Actions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Update Growth Stage</Text>
-        <View style={styles.stageButtons}>
-          <TouchableOpacity
-            style={[styles.stageButton, cropData.currentStage === 'germination' && styles.stageButtonActive]}
-            onPress={() => handleUpdateStage('germination')}
-          >
-            <Text style={styles.stageButtonIcon}>🌱</Text>
-            <Text style={styles.stageButtonText}>Germination</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-  onPress={() => navigation.navigate('TaskManagement', { crop: cropData, userData })}
->
-  <Ionicons name="add-circle" size={28} color="#4CAF50" />
-</TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.stageButton, cropData.currentStage === 'vegetative' && styles.stageButtonActive]}
-            onPress={() => handleUpdateStage('vegetative')}
-          >
-            <Text style={styles.stageButtonIcon}>🌿</Text>
-            <Text style={styles.stageButtonText}>Vegetative</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.stageButton, cropData.currentStage === 'flowering' && styles.stageButtonActive]}
-            onPress={() => handleUpdateStage('flowering')}
-          >
-            <Text style={styles.stageButtonIcon}>🌸</Text>
-            <Text style={styles.stageButtonText}>Flowering</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.stageButton, cropData.currentStage === 'fruiting' && styles.stageButtonActive]}
-            onPress={() => handleUpdateStage('fruiting')}
-          >
-            <Text style={styles.stageButtonIcon}>🍅</Text>
-            <Text style={styles.stageButtonText}>Fruiting</Text>
-          </TouchableOpacity>
+      {/* Health Issues */}
+      {diseases.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Health Issues ({diseases.length})</Text>
+          <View style={styles.diseasesCard}>
+            {diseases.map((disease, index) => (
+              <View key={index} style={styles.diseaseItem}>
+                <Ionicons name="warning" size={24} color="#F44336" />
+                <View style={styles.diseaseContent}>
+                  <Text style={styles.diseaseName}>{disease.diseaseName}</Text>
+                  <Text style={styles.diseaseStatus}>Status: {disease.status}</Text>
+                  {disease.severity && (
+                    <Text style={styles.diseaseSeverity}>Severity: {disease.severity}</Text>
+                  )}
+                </View>
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Tasks Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Tasks ({tasks.length})</Text>
           <TouchableOpacity
-            onPress={() => Alert.alert('Coming Soon', 'Task creation feature coming in next update!')}
+            onPress={() => navigation.navigate('TaskManagement', { crop: cropData, userData })}
           >
             <Ionicons name="add-circle" size={28} color="#4CAF50" />
           </TouchableOpacity>
@@ -394,37 +619,11 @@ export default function CropDetailScreen({ navigation, route }) {
                     {new Date(task.date).toLocaleDateString('en-IN')}
                   </Text>
                 </View>
-                <View style={[
-                  styles.priorityBadge,
-                  task.priority === 'high' && styles.priorityHigh,
-                  task.priority === 'medium' && styles.priorityMedium,
-                  task.priority === 'low' && styles.priorityLow,
-                ]}>
-                  <Text style={styles.priorityText}>{task.priority}</Text>
-                </View>
               </View>
             ))}
           </View>
         )}
       </View>
-
-      {/* Health Issues */}
-      {diseases.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Health Issues ({diseases.length})</Text>
-          <View style={styles.diseasesCard}>
-            {diseases.map((disease, index) => (
-              <View key={index} style={styles.diseaseItem}>
-                <Ionicons name="warning" size={24} color="#F44336" />
-                <View style={styles.diseaseContent}>
-                  <Text style={styles.diseaseName}>{disease.diseaseName}</Text>
-                  <Text style={styles.diseaseStatus}>Status: {disease.status}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
 
       {/* Crop Details */}
       <View style={styles.section}>
@@ -485,6 +684,140 @@ export default function CropDetailScreen({ navigation, route }) {
       </View>
 
       <View style={{ height: 40 }} />
+
+      {/* Disease Detection Modal */}
+      <Modal
+        visible={showDiseaseModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          setShowDiseaseModal(false);
+          setCapturedImage(null);
+          setDiseaseResult(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Disease Detection</Text>
+              <TouchableOpacity onPress={() => {
+                setShowDiseaseModal(false);
+                setCapturedImage(null);
+                setDiseaseResult(null);
+              }}>
+                <Ionicons name="close" size={28} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {/* Captured Image */}
+              {capturedImage && (
+                <Image
+                  source={{ uri: capturedImage }}
+                  style={styles.capturedImage}
+                  resizeMode="cover"
+                />
+              )}
+
+              {scanningDisease ? (
+                <View style={styles.scanningContainer}>
+                  <ActivityIndicator size="large" color="#4CAF50" />
+                  <Text style={styles.scanningText}>Analyzing plant health...</Text>
+                  <Text style={styles.scanningSubtext}>Using TensorFlow AI Model</Text>
+                  <Text style={styles.scanningSubtext}>This may take a few seconds</Text>
+                </View>
+              ) : diseaseResult ? (
+                <View style={styles.resultContainer}>
+                  <View style={[
+                    styles.resultHeader,
+                    diseaseResult.isHealthy && styles.resultHeaderHealthy,
+                    !diseaseResult.isHealthy && styles.resultHeaderUnhealthy
+                  ]}>
+                    <Ionicons
+                      name={diseaseResult.isHealthy ? 'checkmark-circle' : 'warning'}
+                      size={32}
+                      color="#fff"
+                    />
+                    <Text style={styles.resultHeaderText}>
+                      {diseaseResult.isHealthy ? 'Plant is Healthy!' : 'Disease Detected'}
+                    </Text>
+                  </View>
+
+                  {!diseaseResult.isHealthy && (
+                    <>
+                      <View style={styles.resultSection}>
+                        <Text style={styles.resultLabel}>Disease:</Text>
+                        <Text style={styles.resultValue}>{diseaseResult.diseaseName}</Text>
+                        {diseaseResult.scientificName && (
+                          <Text style={styles.resultScientific}>{diseaseResult.scientificName}</Text>
+                        )}
+                      </View>
+
+                      {diseaseResult.confidence && (
+                        <View style={styles.resultSection}>
+                          <Text style={styles.resultLabel}>Confidence:</Text>
+                          <Text style={styles.resultValue}>
+                            {(diseaseResult.confidence * 100).toFixed(1)}%
+                          </Text>
+                        </View>
+                      )}
+
+                      {diseaseResult.severity && (
+                        <View style={styles.resultSection}>
+                          <Text style={styles.resultLabel}>Severity:</Text>
+                          <Text style={[
+                            styles.resultValue,
+                            styles.severityText,
+                            diseaseResult.severity === 'severe' && styles.severitySevere,
+                            diseaseResult.severity === 'moderate' && styles.severityModerate,
+                            diseaseResult.severity === 'mild' && styles.severityMild,
+                          ]}>
+                            {diseaseResult.severity.toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+
+                      {diseaseResult.symptoms && (
+                        <View style={styles.resultSection}>
+                          <Text style={styles.resultLabel}>Symptoms:</Text>
+                          <Text style={styles.resultText}>{diseaseResult.symptoms}</Text>
+                        </View>
+                      )}
+
+                      {diseaseResult.treatment && (
+                        <View style={styles.resultSection}>
+                          <Text style={styles.resultLabel}>Treatment:</Text>
+                          <Text style={styles.resultText}>{diseaseResult.treatment}</Text>
+                        </View>
+                      )}
+
+                      {diseaseResult.pesticides && diseaseResult.pesticides.length > 0 && (
+                        <View style={styles.resultSection}>
+                          <Text style={styles.resultLabel}>Recommended Pesticides:</Text>
+                          {diseaseResult.pesticides.map((pesticide, index) => (
+                            <View key={index} style={styles.pesticideItem}>
+                              <Ionicons name="medical" size={16} color="#4CAF50" />
+                              <Text style={styles.pesticideText}>{pesticide}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      <TouchableOpacity
+                        style={styles.saveButton}
+                        onPress={handleSaveDisease}
+                      >
+                        <Ionicons name="save" size={20} color="#fff" />
+                        <Text style={styles.saveButtonText}>Save to Health History</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              ) : null}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -578,6 +911,37 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  scanSection: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  scanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2196F3',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  scanButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+  },
+  scanSubtext: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
   },
   section: {
     marginBottom: 16,
@@ -688,38 +1052,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
   },
-  stageButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  stageButton: {
-    backgroundColor: '#fff',
-    flexBasis: '48%',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  stageButtonActive: {
-    borderColor: '#4CAF50',
-    backgroundColor: '#E8F5E9',
-  },
-  stageButtonIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  stageButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-  },
   emptyCard: {
     backgroundColor: '#fff',
     padding: 40,
@@ -766,25 +1098,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
   },
-  priorityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  priorityHigh: {
-    backgroundColor: '#FFEBEE',
-  },
-  priorityMedium: {
-    backgroundColor: '#FFF3E0',
-  },
-  priorityLow: {
-    backgroundColor: '#E8F5E9',
-  },
-  priorityText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-  },
   diseasesCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -814,6 +1127,12 @@ const styles = StyleSheet.create({
   diseaseStatus: {
     fontSize: 12,
     color: '#666',
+    marginTop: 2,
+    textTransform: 'capitalize',
+  },
+  diseaseSeverity: {
+    fontSize: 12,
+    color: '#FF9800',
     marginTop: 2,
     textTransform: 'capitalize',
   },
@@ -882,6 +1201,139 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: '#fff',
     fontSize: 15,
+    fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  capturedImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  scanningContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  scanningText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 16,
+  },
+  scanningSubtext: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
+  },
+  resultContainer: {
+    gap: 16,
+  },
+  resultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  resultHeaderHealthy: {
+    backgroundColor: '#4CAF50',
+  },
+  resultHeaderUnhealthy: {
+    backgroundColor: '#F44336',
+  },
+  resultHeaderText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  resultSection: {
+    backgroundColor: '#f5f5f5',
+    padding: 16,
+    borderRadius: 12,
+  },
+  resultLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 8,
+  },
+  resultValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  resultScientific: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  resultText: {
+    fontSize: 15,
+    color: '#333',
+    lineHeight: 22,
+  },
+  severityText: {
+    fontWeight: 'bold',
+  },
+  severitySevere: {
+    color: '#F44336',
+  },
+  severityModerate: {
+    color: '#FF9800',
+  },
+  severityMild: {
+    color: '#4CAF50',
+  },
+  pesticideItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 8,
+  },
+  pesticideText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4CAF50',
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+    marginTop: 8,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });

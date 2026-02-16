@@ -14,6 +14,8 @@ import CropRegistrationScreen from '../screens/Farmer/CropRegistrationScreen';
 import PlotDivisionScreen from '../screens/Farmer/PlotDivisionScreen';
 import CropDetailScreen from '../screens/Farmer/CropDetailScreen';
 import TaskManagementScreen from '../screens/Farmer/TaskManagementScreen';
+import MarketPricesScreen from '../screens/Farmer/MarketPricesScreen';
+
 
 // ❌ Comment out until we create the file
 // import DiseaseLoggingScreen from '../screens/Farmer/DiseaseLoggingScreen';
@@ -98,6 +100,17 @@ const FarmerNavigator = ({ userData }) => {
           headerTitleStyle: { fontWeight: 'bold' },
         }}
       />
+      <Stack.Screen 
+  name="MarketPrices" 
+  component={MarketPricesScreen}
+  options={{ 
+    title: 'Market Prices',
+    headerStyle: { backgroundColor: '#4CAF50' },
+    headerTintColor: '#fff',
+    headerTitleStyle: { fontWeight: 'bold' },
+  }}
+/>
+
 
       {/* Plot Division */}
       <Stack.Screen 
