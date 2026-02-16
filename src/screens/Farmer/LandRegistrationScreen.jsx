@@ -1,569 +1,574 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   StyleSheet,
-  TouchableOpacity,
   ScrollView,
-  StatusBar,
+  TextInput,
+  TouchableOpacity,
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Formik } from 'formik';
-import * as Yup from 'yup';
-import { createLand } from '../../utils/landAPI';
+import { Ionicons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
-import { COLORS } from '../../constants/colors';
+import axios from 'axios';
+import { API_ENDPOINTS } from '../../utils/config';
 
-const LandSchema = Yup.object().shape({
-  name: Yup.string().min(2, 'Too Short!').required('Land name is required'),
-  sizeValue: Yup.number().min(0.01, 'Size must be greater than 0').required('Size is required'),
-  sizeUnit: Yup.string().required('Unit is required'),
-  soilType: Yup.string().required('Soil type is required'),
-});
+export default function LandRegistrationScreen({ navigation, route }) {
+  const { userData } = route.params || {};
 
-const LandRegistrationScreen = ({ navigation, route }) => {
+  // Form state
   const [loading, setLoading] = useState(false);
-  const [gettingLocation, setGettingLocation] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState(null);
+  const [fetchingLocation, setFetchingLocation] = useState(false);
 
-  const userData = route.params?.userData;
+  // Land details
+  const [landName, setLandName] = useState('');
+  const [location, setLocation] = useState({
+    coordinates: { lat: 0, lng: 0 },
+    city: '',
+    district: '',
+    state: 'Tamil Nadu',
+    pincode: '',
+    address: '',
+  });
 
-  // Get current location
-  const getCurrentLocation = async () => {
+  const [size, setSize] = useState({ value: '', unit: 'acres' });
+  const [waterSource, setWaterSource] = useState('borewell');
+  const [soilType, setSoilType] = useState('red');
+  const [farmingType, setFarmingType] = useState('normal');
+  const [notes, setNotes] = useState('');
+
+  // Options
+  const sizeUnits = ['acres', 'hectares', 'sqft', 'sqm'];
+  
+  const waterSources = [
+    { label: 'Borewell (போர்வெல்)', value: 'borewell' },
+    { label: 'Canal (கால்வாய்)', value: 'canal' },
+    { label: 'Rainwater (மழைநீர்)', value: 'rainwater' },
+    { label: 'Drip Irrigation (சொட்டுநீர்)', value: 'drip' },
+    { label: 'Sprinkler (தெளிப்பான்)', value: 'sprinkler' },
+    { label: 'River (ஆறு)', value: 'river' },
+    { label: 'Well (கிணறு)', value: 'well' },
+    { label: 'Pond (குளம்)', value: 'pond' },
+    { label: 'Tank (தொட்டி)', value: 'tank' },
+    { label: 'None (இல்லை)', value: 'none' },
+  ];
+
+  const soilTypes = [
+    { label: 'Red Soil (சிவப்பு மண்)', value: 'red' },
+    { label: 'Black Soil (கருப்பு மண்)', value: 'black' },
+    { label: 'Alluvial Soil (வண்டல் மண்)', value: 'alluvial' },
+    { label: 'Clay Soil (களிமண்)', value: 'clay' },
+    { label: 'Loamy Soil (வண்டல் களிமண்)', value: 'loamy' },
+    { label: 'Sandy Soil (மணல் மண்)', value: 'sandy' },
+    { label: 'Laterite Soil (லேட்டரைட் மண்)', value: 'laterite' },
+  ];
+
+  const farmingTypes = [
+    {
+      value: 'normal',
+      label: 'Normal Farming (பாரம்பரிய விவசாயம்)',
+      description: 'Traditional field farming - Max 2 crops',
+      icon: '🌾',
+    },
+    {
+      value: 'organic',
+      label: 'Organic Farming (இயற்கை விவசாயம்)',
+      description: 'Chemical-free farming - Max 2 crops',
+      icon: '🌱',
+    },
+    {
+      value: 'terrace',
+      label: 'Terrace Farming (மொட்டை மாடி விவசாயம்)',
+      description: 'Container/terrace gardening - Max 10 crops',
+      icon: '🪴',
+    },
+  ];
+
+  // Fetch GPS location
+  const fetchCurrentLocation = async () => {
     try {
-      setGettingLocation(true);
-      console.log('📍 Getting current location...');
+      setFetchingLocation(true);
 
+      // Request permission
       const { status } = await Location.requestForegroundPermissionsAsync();
-      
       if (status !== 'granted') {
         Alert.alert('Permission Denied', 'Location permission is required');
-        return null;
+        setFetchingLocation(false);
+        return;
       }
 
-      const location = await Location.getCurrentPositionAsync({});
-      
-      console.log('✅ Location obtained:', location.coords);
-      
-      setCurrentLocation({
-        lat: location.coords.latitude,
-        lng: location.coords.longitude,
+      // Get location
+      const currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
       });
 
-      Alert.alert('Success', 'Location captured successfully!');
-      
-      return {
-        lat: location.coords.latitude,
-        lng: location.coords.longitude,
-      };
+      const { latitude, longitude } = currentLocation.coords;
 
+      // Reverse geocode
+      const reverseGeocode = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      if (reverseGeocode.length > 0) {
+        const place = reverseGeocode[0];
+        
+        setLocation({
+          coordinates: { lat: latitude, lng: longitude },
+          city: place.city || place.subregion || '',
+          district: place.district || place.subregion || '',
+          state: place.region || 'Tamil Nadu',
+          pincode: place.postalCode || '',
+          address: `${place.street || ''} ${place.name || ''}`.trim(),
+        });
+
+        Alert.alert('Success', 'Location detected successfully!');
+      }
+
+      setFetchingLocation(false);
     } catch (error) {
-      console.error('❌ Location error:', error);
-      Alert.alert('Error', 'Failed to get location');
-      return null;
-    } finally {
-      setGettingLocation(false);
+      console.error('Location error:', error);
+      Alert.alert('Error', 'Failed to get location. Please enter manually.');
+      setFetchingLocation(false);
     }
   };
 
-  const handleSubmit = async (values) => {
-    setLoading(true);
+  // Validate and submit
+  const handleSubmit = async () => {
+    // Validate
+    if (!landName.trim()) {
+      Alert.alert('Required', 'Please enter land name');
+      return;
+    }
+
+    if (!location.city || !location.district) {
+      Alert.alert('Required', 'Please provide location details');
+      return;
+    }
+
+    if (!size.value || parseFloat(size.value) <= 0) {
+      Alert.alert('Required', 'Please enter valid land size');
+      return;
+    }
 
     try {
-      console.log('📝 Submitting land registration...');
+      setLoading(true);
 
-      // Prepare land data
       const landData = {
-        firebaseUid: userData.uid,
-        name: values.name,
+        firebaseUid: userData.firebaseUid || userData.uid,
+        landName: landName.trim(),
+        location,
         size: {
-          value: parseFloat(values.sizeValue),
-          unit: values.sizeUnit,
+          value: parseFloat(size.value),
+          unit: size.unit,
         },
-        location: {
-          coordinates: currentLocation || {},
-          address: values.address || '',
-          city: values.city || userData.location?.city || 'Chennai',
-          district: values.district || userData.location?.district || 'Chennai',
-          pincode: values.pincode || '',
-        },
-        soilType: values.soilType,
-        waterSource: values.waterSource || null,
-        notes: values.notes || '',
+        waterSource,
+        soilType,
+        farmingType,
+        notes: notes.trim(),
       };
 
-      console.log('Land data:', landData);
+      console.log('📤 Registering land:', landData);
 
-      // Call API
-      const result = await createLand(landData);
+      const response = await axios.post(API_ENDPOINTS.LANDS, landData);
 
-      if (result.success) {
-        console.log('✅ Land registered successfully');
-        
+      if (response.data.success) {
         Alert.alert(
           'Success! 🎉',
           'Land registered successfully!',
           [
             {
-              text: 'OK',
+              text: 'Start Farming',
               onPress: () => {
-                navigation.goBack();
+                // Navigate to crop recommendation
+                navigation.navigate('CropRecommendation', {
+                  landId: response.data.land._id,
+                  land: response.data.land,
+                  userData,
+                });
               },
+            },
+            {
+              text: 'View Dashboard',
+              onPress: () => navigation.navigate('Dashboard'),
             },
           ]
         );
-      } else {
-        console.error('❌ Land registration failed:', result.error);
-        Alert.alert('Error', result.error || 'Failed to register land');
       }
-
     } catch (error) {
-      console.error('❌ Submit error:', error);
-      Alert.alert('Error', 'Something went wrong');
+      console.error('❌ Error registering land:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to register land');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-      <View style={styles.container}>
-        
+    <ScrollView style={styles.container}>
+      <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Register Land</Text>
-          <Text style={styles.headerSubtitle}>Add your farming land details</Text>
+          <Ionicons name="leaf" size={50} color="#4CAF50" />
+          <Text style={styles.headerTitle}>Register Your Land</Text>
+          <Text style={styles.headerSubtitle}>
+            Let's get started with your farming journey
+          </Text>
         </View>
 
-        {/* Form */}
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          <Formik
-            initialValues={{
-              name: '',
-              sizeValue: '',
-              sizeUnit: 'acres',
-              address: '',
-              city: userData?.location?.city || 'Chennai',
-              district: userData?.location?.district || 'Chennai',
-              pincode: '',
-              soilType: 'loam',
-              waterSource: 'borewell',
-              notes: '',
-            }}
-            validationSchema={LandSchema}
-            onSubmit={handleSubmit}
+        {/* Land Name */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>
+            Land Name <Text style={styles.required}>*</Text>
+          </Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g., North Field, Terrace Garden"
+            value={landName}
+            onChangeText={setLandName}
+          />
+        </View>
+
+        {/* Location Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="location" size={24} color="#4CAF50" />
+            <Text style={styles.sectionTitle}>Location</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.gpsButton}
+            onPress={fetchCurrentLocation}
+            disabled={fetchingLocation}
           >
-            {({ handleChange, handleBlur, handleSubmit, values, errors, touched, setFieldValue }) => (
-              <View style={styles.form}>
-                
-                {/* Land Name */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Land Name *</Text>
-                  <TextInput
-                    style={[styles.input, touched.name && errors.name && styles.inputError]}
-                    placeholder="e.g., North Field, Terrace Garden"
-                    placeholderTextColor={COLORS.textLight}
-                    onChangeText={handleChange('name')}
-                    onBlur={handleBlur('name')}
-                    value={values.name}
-                  />
-                  {touched.name && errors.name && (
-                    <Text style={styles.errorText}>{errors.name}</Text>
-                  )}
-                </View>
-
-                {/* Land Size */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Land Size *</Text>
-                  <View style={styles.rowInputs}>
-                    <TextInput
-                      style={[styles.input, styles.sizeInput, touched.sizeValue && errors.sizeValue && styles.inputError]}
-                      placeholder="Enter size"
-                      placeholderTextColor={COLORS.textLight}
-                      onChangeText={handleChange('sizeValue')}
-                      onBlur={handleBlur('sizeValue')}
-                      value={values.sizeValue}
-                      keyboardType="decimal-pad"
-                    />
-                    <View style={styles.unitPicker}>
-                      {['acres', 'cents', 'sqft', 'hectares'].map((unit) => (
-                        <TouchableOpacity
-                          key={unit}
-                          style={[
-                            styles.unitButton,
-                            values.sizeUnit === unit && styles.unitButtonSelected,
-                          ]}
-                          onPress={() => setFieldValue('sizeUnit', unit)}
-                        >
-                          <Text
-                            style={[
-                              styles.unitButtonText,
-                              values.sizeUnit === unit && styles.unitButtonTextSelected,
-                            ]}
-                          >
-                            {unit}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                  {touched.sizeValue && errors.sizeValue && (
-                    <Text style={styles.errorText}>{errors.sizeValue}</Text>
-                  )}
-                </View>
-
-                {/* Location */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Location</Text>
-                  <TouchableOpacity
-                    style={styles.locationButton}
-                    onPress={getCurrentLocation}
-                    disabled={gettingLocation}
-                  >
-                    {gettingLocation ? (
-                      <ActivityIndicator color={COLORS.primary} />
-                    ) : (
-                      <>
-                        <Text style={styles.locationButtonIcon}>📍</Text>
-                        <Text style={styles.locationButtonText}>
-                          {currentLocation ? '✅ Location Captured' : 'Get Current Location'}
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                  {currentLocation && (
-                    <Text style={styles.locationInfo}>
-                      Lat: {currentLocation.lat.toFixed(6)}, Lng: {currentLocation.lng.toFixed(6)}
-                    </Text>
-                  )}
-                </View>
-
-                {/* Address */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Address</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Street, Village, etc."
-                    placeholderTextColor={COLORS.textLight}
-                    onChangeText={handleChange('address')}
-                    onBlur={handleBlur('address')}
-                    value={values.address}
-                    multiline
-                  />
-                </View>
-
-                {/* City & District */}
-                <View style={styles.rowInputs}>
-                  <View style={[styles.inputGroup, styles.halfWidth]}>
-                    <Text style={styles.label}>City</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="City"
-                      placeholderTextColor={COLORS.textLight}
-                      onChangeText={handleChange('city')}
-                      onBlur={handleBlur('city')}
-                      value={values.city}
-                    />
-                  </View>
-
-                  <View style={[styles.inputGroup, styles.halfWidth]}>
-                    <Text style={styles.label}>District</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="District"
-                      placeholderTextColor={COLORS.textLight}
-                      onChangeText={handleChange('district')}
-                      onBlur={handleBlur('district')}
-                      value={values.district}
-                    />
-                  </View>
-                </View>
-
-                {/* Soil Type */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Soil Type *</Text>
-                  <View style={styles.chipContainer}>
-                    {['clay', 'loam', 'sandy', 'red', 'black', 'alluvial'].map((soil) => (
-                      <TouchableOpacity
-                        key={soil}
-                        style={[
-                          styles.chip,
-                          values.soilType === soil && styles.chipSelected,
-                        ]}
-                        onPress={() => setFieldValue('soilType', soil)}
-                      >
-                        <Text
-                          style={[
-                            styles.chipText,
-                            values.soilType === soil && styles.chipTextSelected,
-                          ]}
-                        >
-                          {soil.charAt(0).toUpperCase() + soil.slice(1)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Water Source */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Water Source</Text>
-                  <View style={styles.chipContainer}>
-                    {['borewell', 'canal', 'rain', 'river', 'pond', 'drip'].map((water) => (
-                      <TouchableOpacity
-                        key={water}
-                        style={[
-                          styles.chip,
-                          values.waterSource === water && styles.chipSelected,
-                        ]}
-                        onPress={() => setFieldValue('waterSource', water)}
-                      >
-                        <Text
-                          style={[
-                            styles.chipText,
-                            values.waterSource === water && styles.chipTextSelected,
-                          ]}
-                        >
-                          {water.charAt(0).toUpperCase() + water.slice(1)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Notes */}
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Additional Notes</Text>
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="Any additional information..."
-                    placeholderTextColor={COLORS.textLight}
-                    onChangeText={handleChange('notes')}
-                    onBlur={handleBlur('notes')}
-                    value={values.notes}
-                    multiline
-                    numberOfLines={4}
-                  />
-                </View>
-
-                {/* Submit Button */}
-                <TouchableOpacity
-                  style={[styles.submitButton, loading && styles.buttonDisabled]}
-                  onPress={handleSubmit}
-                  disabled={loading}
-                  activeOpacity={0.8}
-                >
-                  {loading ? (
-                    <View style={styles.loadingContainer}>
-                      <ActivityIndicator color={COLORS.secondary} />
-                      <Text style={styles.loadingText}>Registering...</Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.submitButtonText}>Register Land</Text>
-                  )}
-                </TouchableOpacity>
-
-              </View>
+            {fetchingLocation ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="navigate" size={20} color="#fff" />
+                <Text style={styles.gpsButtonText}>Detect GPS Location</Text>
+              </>
             )}
-          </Formik>
-        </ScrollView>
+          </TouchableOpacity>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>City <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., Chennai"
+              value={location.city}
+              onChangeText={(text) => setLocation({ ...location, city: text })}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>District <Text style={styles.required}>*</Text></Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., Kanchipuram"
+              value={location.district}
+              onChangeText={(text) => setLocation({ ...location, district: text })}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Pincode</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., 600001"
+              keyboardType="numeric"
+              value={location.pincode}
+              onChangeText={(text) => setLocation({ ...location, pincode: text })}
+            />
+          </View>
+        </View>
+
+        {/* Land Size */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="resize" size={24} color="#4CAF50" />
+            <Text style={styles.sectionTitle}>Land Size</Text>
+          </View>
+
+          <View style={styles.row}>
+            <View style={[styles.formGroup, { flex: 2 }]}>
+              <Text style={styles.label}>Size <Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., 2.5"
+                keyboardType="decimal-pad"
+                value={size.value}
+                onChangeText={(text) => setSize({ ...size, value: text })}
+              />
+            </View>
+
+            <View style={[styles.formGroup, { flex: 1, marginLeft: 12 }]}>
+              <Text style={styles.label}>Unit</Text>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={size.unit}
+                  onValueChange={(value) => setSize({ ...size, unit: value })}
+                  style={styles.picker}
+                >
+                  {sizeUnits.map((unit) => (
+                    <Picker.Item key={unit} label={unit} value={unit} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Water Source */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Water Source <Text style={styles.required}>*</Text></Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={waterSource}
+              onValueChange={setWaterSource}
+              style={styles.picker}
+            >
+              {waterSources.map((source) => (
+                <Picker.Item
+                  key={source.value}
+                  label={source.label}
+                  value={source.value}
+                />
+              ))}
+            </Picker>
+          </View>
+        </View>
+
+        {/* Soil Type */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Soil Type <Text style={styles.required}>*</Text></Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={soilType}
+              onValueChange={setSoilType}
+              style={styles.picker}
+            >
+              {soilTypes.map((soil) => (
+                <Picker.Item
+                  key={soil.value}
+                  label={soil.label}
+                  value={soil.value}
+                />
+              ))}
+            </Picker>
+          </View>
+        </View>
+
+        {/* Farming Type */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="flower" size={24} color="#4CAF50" />
+            <Text style={styles.sectionTitle}>Farming Type</Text>
+          </View>
+
+          {farmingTypes.map((type) => (
+            <TouchableOpacity
+              key={type.value}
+              style={[
+                styles.farmingTypeCard,
+                farmingType === type.value && styles.farmingTypeCardSelected,
+              ]}
+              onPress={() => setFarmingType(type.value)}
+            >
+              <View style={styles.farmingTypeContent}>
+                <Text style={styles.farmingTypeIcon}>{type.icon}</Text>
+                <View style={styles.farmingTypeText}>
+                  <Text style={styles.farmingTypeLabel}>{type.label}</Text>
+                  <Text style={styles.farmingTypeDescription}>{type.description}</Text>
+                </View>
+                {farmingType === type.value && (
+                  <Ionicons name="checkmark-circle" size={28} color="#4CAF50" />
+                )}
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Notes */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Additional Notes (Optional)</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Any additional information about your land..."
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            numberOfLines={4}
+          />
+        </View>
+
+        {/* Submit Button */}
+        <TouchableOpacity
+          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+          onPress={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Ionicons name="checkmark-circle" size={24} color="#fff" />
+              <Text style={styles.submitButtonText}>Register Land</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        <View style={{ height: 40 }} />
       </View>
-    </>
+    </ScrollView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#f5f5f5',
+  },
+  content: {
+    padding: 16,
   },
   header: {
-    backgroundColor: COLORS.primary,
-    paddingTop: 50,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
-  },
-  backButton: {
-    marginBottom: 15,
-  },
-  backButtonText: {
-    color: COLORS.secondary,
-    fontSize: 16,
-    fontWeight: '600',
+    alignItems: 'center',
+    marginBottom: 24,
+    backgroundColor: '#fff',
+    padding: 24,
+    borderRadius: 12,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.secondary,
+    color: '#333',
+    marginTop: 12,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: COLORS.secondary,
-    marginTop: 5,
-    opacity: 0.9,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  form: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: COLORS.cardBackground,
-    padding: 16,
-    borderRadius: 12,
-    fontSize: 16,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    color: COLORS.text,
-  },
-  inputError: {
-    borderColor: COLORS.error,
-  },
-  errorText: {
-    color: COLORS.error,
-    fontSize: 12,
-    marginTop: 4,
-  },
-  rowInputs: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  halfWidth: {
-    flex: 1,
-  },
-  sizeInput: {
-    flex: 1,
-  },
-  unitPicker: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 5,
-    flex: 2,
-  },
-  unitButton: {
-    backgroundColor: COLORS.cardBackground,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-  },
-  unitButtonSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  unitButtonText: {
-    fontSize: 12,
-    color: COLORS.text,
-    fontWeight: '600',
-  },
-  unitButtonTextSelected: {
-    color: COLORS.secondary,
-  },
-  locationButton: {
-    backgroundColor: COLORS.primary + '20',
-    padding: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderStyle: 'dashed',
-  },
-  locationButtonIcon: {
-    fontSize: 24,
-    marginRight: 10,
-  },
-  locationButtonText: {
-    color: COLORS.primary,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  locationInfo: {
-    fontSize: 12,
-    color: COLORS.textLight,
+    color: '#666',
     marginTop: 8,
     textAlign: 'center',
   },
-  chipContainer: {
+  section: {
+    marginBottom: 24,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+  },
+  sectionHeader: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  chip: {
-    backgroundColor: COLORS.cardBackground,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: COLORS.border,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 8,
   },
-  chipSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+  formGroup: {
+    marginBottom: 16,
   },
-  chipText: {
-    fontSize: 14,
-    color: COLORS.text,
+  label: {
+    fontSize: 16,
     fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
   },
-  chipTextSelected: {
-    color: COLORS.secondary,
+  required: {
+    color: '#F44336',
+  },
+  input: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
   },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
-  submitButton: {
-    backgroundColor: COLORS.primary,
-    padding: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 10,
-    shadowColor: COLORS.secondary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+  row: {
+    flexDirection: 'row',
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  pickerContainer: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    overflow: 'hidden',
   },
-  loadingContainer: {
+  picker: {
+    height: 50,
+  },
+  gpsButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
+    backgroundColor: '#2196F3',
+    padding: 14,
+    borderRadius: 8,
+    marginBottom: 16,
   },
-  loadingText: {
-    color: COLORS.secondary,
+  gpsButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  farmingTypeCard: {
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  farmingTypeCardSelected: {
+    borderColor: '#4CAF50',
+    backgroundColor: '#E8F5E9',
+  },
+  farmingTypeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  farmingTypeIcon: {
+    fontSize: 40,
+    marginRight: 16,
+  },
+  farmingTypeText: {
+    flex: 1,
+  },
+  farmingTypeLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  farmingTypeDescription: {
+    fontSize: 13,
+    color: '#666',
+  },
+  submitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4CAF50',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 24,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#ccc',
   },
   submitButtonText: {
-    color: COLORS.secondary,
+    color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
 });
-
-export default LandRegistrationScreen;

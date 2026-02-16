@@ -1,257 +1,254 @@
 const express = require('express');
 const router = express.Router();
 const Land = require('../models/Land');
-const User = require('../models/User');
+const Plot = require('../models/Plot');
+const Crop = require('../models/Crop');
 
-// @route   POST /api/lands
-// @desc    Add new land
-// @access  Public
+/**
+ * POST /api/lands
+ * Create a new land
+ */
 router.post('/', async (req, res) => {
   try {
-    console.log('📝 Adding new land...');
-    console.log('Request body:', req.body);
-
     const {
       firebaseUid,
-      name,
-      size,
+      landName,
       location,
-      soilType,
+      size,
       waterSource,
-      notes,
+      soilType,
+      farmingType,
+      photos,
+      notes
     } = req.body;
 
-    // Validation
-    if (!firebaseUid || !name || !size) {
+    console.log('🌾 Creating new land for user:', firebaseUid);
+
+    // Validate required fields
+    if (!firebaseUid || !landName || !location || !size || !waterSource || !soilType || !farmingType) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: firebaseUid, name, size',
+        message: 'Missing required fields'
       });
     }
 
-    // Get user from database
-    const user = await User.findOne({ firebaseUid });
-    
-    if (!user) {
-      return res.status(404).json({
+    // Validate farming type
+    if (!['normal', 'organic', 'terrace'].includes(farmingType)) {
+      return res.status(400).json({
         success: false,
-        error: 'User not found',
+        message: 'Invalid farming type. Must be: normal, organic, or terrace'
       });
     }
 
     // Create new land
-    const land = new Land({
-      userId: user._id,
+    const newLand = new Land({
       firebaseUid,
-      name,
-      size: {
-        value: size.value,
-        unit: size.unit || 'acres',
-      },
-      location: location || {},
-      soilType: soilType || 'loam',
-      waterSource: waterSource || null,
+      landName,
+      location,
+      size,
+      waterSource,
+      soilType,
+      farmingType,
+      photos: photos || [],
       notes: notes || '',
+      totalPlots: 0,
+      isActive: true
     });
 
-    await land.save();
+    await newLand.save();
 
-    console.log('✅ Land added successfully:', land._id);
+    console.log('✅ Land created:', newLand._id);
 
     res.status(201).json({
       success: true,
-      message: 'Land added successfully',
-      landId: land._id,
-      land: {
-        id: land._id,
-        name: land.name,
-        size: land.size,
-        location: land.location,
-        soilType: land.soilType,
-        waterSource: land.waterSource,
-        createdAt: land.createdAt,
-      },
+      message: 'Land registered successfully',
+      land: newLand
     });
 
   } catch (error) {
-    console.error('❌ Add land error:', error);
+    console.error('❌ Error creating land:', error);
     res.status(500).json({
       success: false,
-      error: 'Server error: ' + error.message,
+      message: 'Failed to create land',
+      error: error.message
     });
   }
 });
 
-// @route   GET /api/lands/user/:firebaseUid
-// @desc    Get all lands for a user
-// @access  Public
-router.get('/user/:firebaseUid', async (req, res) => {
+
+/**
+ * GET /api/lands/:firebaseUid
+ * Get all lands for a user
+ */
+router.get('/:firebaseUid', async (req, res) => {
   try {
-    console.log('🔍 Fetching lands for user:', req.params.firebaseUid);
+    const { firebaseUid } = req.params;
+
+    console.log('📍 Fetching lands for user:', firebaseUid);
 
     const lands = await Land.find({ 
-      firebaseUid: req.params.firebaseUid,
+      firebaseUid, 
       isActive: true 
     }).sort({ createdAt: -1 });
 
-    console.log('✅ Found', lands.length, 'lands');
-
-    res.status(200).json({
+    res.json({
       success: true,
       count: lands.length,
-      lands: lands.map(land => ({
-        id: land._id,
-        name: land.name,
-        size: land.size,
-        location: land.location,
-        soilType: land.soilType,
-        waterSource: land.waterSource,
-        images: land.images,
-        notes: land.notes,
-        createdAt: land.createdAt,
-      })),
+      lands
     });
 
   } catch (error) {
-    console.error('❌ Get lands error:', error);
+    console.error('❌ Error fetching lands:', error);
     res.status(500).json({
       success: false,
-      error: 'Server error: ' + error.message,
+      message: 'Failed to fetch lands',
+      error: error.message
     });
   }
 });
 
-// @route   GET /api/lands/:landId
-// @desc    Get specific land details
-// @access  Public
-router.get('/:landId', async (req, res) => {
-  try {
-    console.log('🔍 Fetching land details:', req.params.landId);
 
-    const land = await Land.findById(req.params.landId);
+/**
+ * GET /api/lands/details/:landId
+ * Get single land details with crops and plots
+ */
+router.get('/details/:landId', async (req, res) => {
+  try {
+    const { landId } = req.params;
+
+    console.log('🔍 Fetching land details:', landId);
+
+    const land = await Land.findById(landId);
 
     if (!land) {
       return res.status(404).json({
         success: false,
-        error: 'Land not found',
+        message: 'Land not found'
       });
     }
 
-    console.log('✅ Land found:', land.name);
+    // Get all plots for this land
+    const plots = await Plot.find({ landId }).populate('cropId');
 
-    res.status(200).json({
+    // Get all crops for this land
+    const crops = await Crop.find({ landId, isActive: true });
+
+    res.json({
       success: true,
-      land: {
-        id: land._id,
-        name: land.name,
-        size: land.size,
-        location: land.location,
-        soilType: land.soilType,
-        waterSource: land.waterSource,
-        images: land.images,
-        notes: land.notes,
-        isActive: land.isActive,
-        createdAt: land.createdAt,
-        updatedAt: land.updatedAt,
-      },
+      land,
+      plots,
+      crops,
+      totalPlots: plots.length,
+      activeCrops: crops.length
     });
 
   } catch (error) {
-    console.error('❌ Get land error:', error);
+    console.error('❌ Error fetching land details:', error);
     res.status(500).json({
       success: false,
-      error: 'Server error: ' + error.message,
+      message: 'Failed to fetch land details',
+      error: error.message
     });
   }
 });
 
-// @route   PUT /api/lands/:landId
-// @desc    Update land
-// @access  Public
+
+/**
+ * PUT /api/lands/:landId
+ * Update land information
+ */
 router.put('/:landId', async (req, res) => {
   try {
-    console.log('📝 Updating land:', req.params.landId);
+    const { landId } = req.params;
+    const updates = req.body;
 
-    const land = await Land.findById(req.params.landId);
+    console.log('✏️ Updating land:', landId);
 
-    if (!land) {
+    // Don't allow changing firebaseUid
+    delete updates.firebaseUid;
+    delete updates.totalPlots; // Managed automatically
+
+    const updatedLand = await Land.findByIdAndUpdate(
+      landId,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedLand) {
       return res.status(404).json({
         success: false,
-        error: 'Land not found',
+        message: 'Land not found'
       });
     }
 
-    // Update fields
-    const updateFields = ['name', 'size', 'location', 'soilType', 'waterSource', 'notes'];
-    
-    updateFields.forEach(field => {
-      if (req.body[field] !== undefined) {
-        land[field] = req.body[field];
-      }
-    });
-
-    await land.save();
-
-    console.log('✅ Land updated successfully');
-
-    res.status(200).json({
+    res.json({
       success: true,
       message: 'Land updated successfully',
-      land: {
-        id: land._id,
-        name: land.name,
-        size: land.size,
-        location: land.location,
-        soilType: land.soilType,
-        waterSource: land.waterSource,
-        notes: land.notes,
-        updatedAt: land.updatedAt,
-      },
+      land: updatedLand
     });
 
   } catch (error) {
-    console.error('❌ Update land error:', error);
+    console.error('❌ Error updating land:', error);
     res.status(500).json({
       success: false,
-      error: 'Server error: ' + error.message,
+      message: 'Failed to update land',
+      error: error.message
     });
   }
 });
 
-// @route   DELETE /api/lands/:landId
-// @desc    Delete land (soft delete)
-// @access  Public
+
+/**
+ * DELETE /api/lands/:landId
+ * Soft delete a land (set isActive to false)
+ */
 router.delete('/:landId', async (req, res) => {
   try {
-    console.log('🗑️ Deleting land:', req.params.landId);
+    const { landId } = req.params;
 
-    const land = await Land.findById(req.params.landId);
+    console.log('🗑️ Deleting land:', landId);
 
-    if (!land) {
-      return res.status(404).json({
+    // Check if land has active crops
+    const activeCrops = await Crop.countDocuments({ 
+      landId, 
+      isActive: true 
+    });
+
+    if (activeCrops > 0) {
+      return res.status(400).json({
         success: false,
-        error: 'Land not found',
+        message: `Cannot delete land with ${activeCrops} active crop(s). Please harvest or remove crops first.`
       });
     }
 
-    // Soft delete
-    land.isActive = false;
-    await land.save();
+    // Soft delete (set isActive to false)
+    const deletedLand = await Land.findByIdAndUpdate(
+      landId,
+      { $set: { isActive: false } },
+      { new: true }
+    );
 
-    console.log('✅ Land deleted successfully');
+    if (!deletedLand) {
+      return res.status(404).json({
+        success: false,
+        message: 'Land not found'
+      });
+    }
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: 'Land deleted successfully',
+      message: 'Land deleted successfully'
     });
 
   } catch (error) {
-    console.error('❌ Delete land error:', error);
+    console.error('❌ Error deleting land:', error);
     res.status(500).json({
       success: false,
-      error: 'Server error: ' + error.message,
+      message: 'Failed to delete land',
+      error: error.message
     });
   }
 });
+
 
 module.exports = router;

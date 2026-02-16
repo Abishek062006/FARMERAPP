@@ -4,22 +4,26 @@ import { TouchableOpacity, Text, Alert } from 'react-native';
 import { signOut } from 'firebase/auth';
 import { auth } from '../utils/firebase';
 
-// Import screens
-import TerraceFarmingDashboard from '../screens/Farmer/TerraceFarmingDashboard';
+// ✅ ONLY SCREENS THAT EXIST
+import FarmerDashboard from '../screens/Farmer/FarmerDashboard';
 import LandRegistrationScreen from '../screens/Farmer/LandRegistrationScreen';
 import LandListScreen from '../screens/Farmer/LandListScreen';
 import LandDetailsScreen from '../screens/Farmer/LandDetailsScreen';
-import LocationSetupScreen from '../screens/Farmer/LocationSetupScreen';
 import CropRecommendationScreen from '../screens/Farmer/CropRecommendationScreen';
-import CropRegistrationScreen from '../screens/Farmer/CropRegistrationScreen'; // ✅ ADD THIS
+import CropRegistrationScreen from '../screens/Farmer/CropRegistrationScreen';
+import PlotDivisionScreen from '../screens/Farmer/PlotDivisionScreen';
+import CropDetailScreen from '../screens/Farmer/CropDetailScreen';
+import TaskManagementScreen from '../screens/Farmer/TaskManagementScreen';
+
+// ❌ Comment out until we create the file
+// import DiseaseLoggingScreen from '../screens/Farmer/DiseaseLoggingScreen';
 
 import { COLORS } from '../constants/colors';
 
 const Stack = createStackNavigator();
 
 const FarmerNavigator = ({ userData }) => {
-  
-  const DashboardComponent = TerraceFarmingDashboard;
+  const DashboardComponent = FarmerDashboard;
   
   const dashboardTitle = 
     userData?.farmingType === 'terrace' ? 'Terrace Farming' :
@@ -27,7 +31,6 @@ const FarmerNavigator = ({ userData }) => {
     userData?.farmingType === 'organic' ? 'Organic Farming' :
     'Farming Dashboard';
 
-  // Logout handler
   const handleLogout = async () => {
     Alert.alert(
       'Logout',
@@ -84,17 +87,7 @@ const FarmerNavigator = ({ userData }) => {
         }}
       />
 
-      <Stack.Screen 
-        name="LocationSetup" 
-        component={LocationSetupScreen}
-        options={{ 
-          title: 'Location & Season',
-          headerStyle: { backgroundColor: '#4CAF50' },
-          headerTintColor: '#fff',
-          headerTitleStyle: { fontWeight: 'bold' },
-        }}
-      />
-
+      {/* Crop Recommendation */}
       <Stack.Screen 
         name="CropRecommendation" 
         component={CropRecommendationScreen}
@@ -106,7 +99,19 @@ const FarmerNavigator = ({ userData }) => {
         }}
       />
 
-      {/* ✅ ADD THIS SCREEN */}
+      {/* Plot Division */}
+      <Stack.Screen 
+        name="PlotDivision" 
+        component={PlotDivisionScreen}
+        options={{ 
+          title: 'Divide Your Land',
+          headerStyle: { backgroundColor: '#4CAF50' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+
+      {/* Crop Registration */}
       <Stack.Screen 
         name="CropRegistration" 
         component={CropRegistrationScreen}
@@ -118,26 +123,79 @@ const FarmerNavigator = ({ userData }) => {
         }}
       />
 
-      {/* Land Screens */}
+      {/* Crop Detail */}
+      <Stack.Screen 
+        name="CropDetail" 
+        component={CropDetailScreen}
+        options={{ 
+          title: 'Crop Details',
+          headerStyle: { backgroundColor: '#4CAF50' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+
+      {/* Task Management */}
+      <Stack.Screen 
+        name="TaskManagement" 
+        component={TaskManagementScreen}
+        options={{ 
+          title: 'Manage Tasks',
+          headerStyle: { backgroundColor: '#4CAF50' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+
+      {/* ❌ Disease Logging - Comment out until file is created */}
+      {/* 
+      <Stack.Screen 
+        name="DiseaseLogging" 
+        component={DiseaseLoggingScreen}
+        options={{ 
+          title: 'Log Disease',
+          headerStyle: { backgroundColor: '#4CAF50' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      />
+      */}
+
+      {/* Land Management */}
       <Stack.Screen 
         name="LandList" 
         component={LandListScreen}
         initialParams={{ userData }}
-        options={{ headerShown: false }}
+        options={{ 
+          title: 'My Lands',
+          headerStyle: { backgroundColor: '#4CAF50' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
       />
 
       <Stack.Screen 
         name="LandRegistration" 
         component={LandRegistrationScreen}
         initialParams={{ userData }}
-        options={{ headerShown: false }}
+        options={{ 
+          title: 'Register Land',
+          headerStyle: { backgroundColor: '#4CAF50' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
       />
 
       <Stack.Screen 
         name="LandDetails" 
         component={LandDetailsScreen}
         initialParams={{ userData }}
-        options={{ headerShown: false }}
+        options={{ 
+          title: 'Land Details',
+          headerStyle: { backgroundColor: '#4CAF50' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
       />
     </Stack.Navigator>
   );

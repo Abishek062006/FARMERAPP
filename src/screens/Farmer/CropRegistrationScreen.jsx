@@ -13,11 +13,10 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import axios from 'axios';
-
-const API_URL = 'http://192.168.1.7:5000'; // Change to your IP
+import { API_ENDPOINTS } from '../../utils/config';
 
 export default function CropRegistrationScreen({ navigation, route }) {
-  const { selectedCrops, userData } = route.params || {};
+  const { selectedCrops, land, plots, plotAllocations, userData } = route.params || {};
   
   const [loading, setLoading] = useState(false);
   const [currentCropIndex, setCurrentCropIndex] = useState(0);
@@ -28,20 +27,24 @@ export default function CropRegistrationScreen({ navigation, route }) {
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState('plants');
   const [variety, setVariety] = useState('');
+  
+  // Terrace farming specific
   const [containerType, setContainerType] = useState('pot');
   const [containerSize, setContainerSize] = useState('10L');
   const [location, setLocation] = useState('terrace');
+  
   const [notes, setNotes] = useState('');
 
   const currentCrop = selectedCrops ? selectedCrops[currentCropIndex] : null;
+  const currentPlot = plots ? plots[currentCropIndex] : null;
+  const currentAllocation = plotAllocations ? plotAllocations[currentCropIndex] : null;
 
-  // ✅ DEBUG: Log userData on mount
   useEffect(() => {
-    console.log('🔍 CropRegistration - userData:', userData);
-    console.log('🔍 firebaseUid:', userData?.firebaseUid);
-    console.log('🔍 uid:', userData?.uid); // ✅ CHECK BOTH
+    console.log('🌱 CropRegistration - userData:', userData);
+    console.log('🌱 Total crops to register:', selectedCrops?.length);
+    console.log('🌱 Plots:', plots);
+    console.log('🌱 Land:', land);
     
-    // ✅ Check for both firebaseUid and uid
     const userFirebaseUid = userData?.firebaseUid || userData?.uid;
     
     if (!userData || !userFirebaseUid) {
@@ -49,6 +52,8 @@ export default function CropRegistrationScreen({ navigation, route }) {
       navigation.navigate('Dashboard');
     }
   }, []);
+
+  const units = ['plants', 'seeds', 'kg', 'grams', 'saplings'];
 
   const containerTypes = [
     { value: 'pot', label: 'Pot (தொட்டி)' },
@@ -82,7 +87,6 @@ export default function CropRegistrationScreen({ navigation, route }) {
       return;
     }
 
-    // ✅ CHECK FIREBASE UID - Support both firebaseUid and uid
     const userFirebaseUid = userData?.firebaseUid || userData?.uid;
     
     if (!userFirebaseUid) {
@@ -94,22 +98,33 @@ export default function CropRegistrationScreen({ navigation, route }) {
       setLoading(true);
 
       const cropData = {
-        firebaseUid: userFirebaseUid, // ✅ USE EITHER FIELD
+        firebaseUid: userFirebaseUid,
+        landId: land._id,
+        plotId: currentPlot ? currentPlot._id : null,
         name: currentCrop.name,
         tamilName: currentCrop.tamilName,
         variety: variety || 'Standard',
         plantingDate: plantingDate.toISOString().split('T')[0],
+        duration: currentCrop.duration,
         quantity: parseInt(quantity),
         unit,
-        containerType,
-        containerSize,
-        location,
-        notes,
+        farmingType: land.farmingType,
       };
+
+      // Add terrace-specific fields
+      if (land.farmingType === 'terrace') {
+        cropData.containerType = containerType;
+        cropData.containerSize = containerSize;
+        cropData.location = location;
+      }
+
+      if (notes.trim()) {
+        cropData.notes = notes.trim();
+      }
 
       console.log('📤 Registering crop:', cropData);
 
-      const response = await axios.post(`${API_URL}/api/crops`, cropData);
+      const response = await axios.post(API_ENDPOINTS.CROPS, cropData);
 
       if (response.data.success) {
         console.log('✅ Crop registered:', response.data.crop._id);
@@ -117,12 +132,23 @@ export default function CropRegistrationScreen({ navigation, route }) {
         // Check if there are more crops to register
         if (currentCropIndex < selectedCrops.length - 1) {
           Alert.alert(
-            'Success!',
+            'Success! 🎉',
             `${currentCrop.name} registered! Register next crop?`,
             [
               {
-                text: 'Skip',
-                onPress: () => navigation.navigate('Dashboard'),
+                text: 'Skip Remaining',
+                onPress: () => {
+                  Alert.alert(
+                    'Success!',
+                    `${currentCropIndex + 1} crop(s) registered successfully!`,
+                    [
+                      {
+                        text: 'Go to Dashboard',
+                        onPress: () => navigation.navigate('Dashboard'),
+                      },
+                    ]
+                  );
+                },
               },
               {
                 text: 'Next Crop',
@@ -165,7 +191,7 @@ export default function CropRegistrationScreen({ navigation, route }) {
 
   if (!currentCrop) {
     return (
-      <View style={styles.container}>
+      <View style={styles.centerContainer}>
         <Text style={styles.errorText}>No crop selected</Text>
         <TouchableOpacity
           style={styles.backButton}
@@ -187,6 +213,18 @@ export default function CropRegistrationScreen({ navigation, route }) {
         </Text>
       </View>
 
+      {/* Progress Bar */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressBar}>
+          <View 
+            style={[
+              styles.progressFill, 
+              { width: `${((currentCropIndex + 1) / selectedCrops.length) * 100}%` }
+            ]} 
+          />
+        </View>
+      </View>
+
       {/* Crop Info Card */}
       <View style={styles.cropCard}>
         <View style={styles.cropIconContainer}>
@@ -200,6 +238,20 @@ export default function CropRegistrationScreen({ navigation, route }) {
           </Text>
         </View>
       </View>
+
+      {/* Plot Info (if available) */}
+      {currentAllocation && (
+        <View style={styles.plotInfoCard}>
+          <Ionicons name="grid" size={20} color="#4CAF50" />
+          <View style={styles.plotInfoText}>
+            <Text style={styles.plotInfoLabel}>Allocated Plot</Text>
+            <Text style={styles.plotInfoValue}>
+              {currentAllocation.area.value} {currentAllocation.area.unit} 
+              ({currentAllocation.percentage.toFixed(1)}% of land)
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* Form */}
       <View style={styles.form}>
@@ -231,15 +283,28 @@ export default function CropRegistrationScreen({ navigation, route }) {
         {/* Quantity */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>
-            Number of Plants <Text style={styles.required}>*</Text>
+            Quantity <Text style={styles.required}>*</Text>
           </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g., 10"
-            keyboardType="numeric"
-            value={quantity}
-            onChangeText={setQuantity}
-          />
+          <View style={styles.row}>
+            <TextInput
+              style={[styles.input, { flex: 2 }]}
+              placeholder="e.g., 100"
+              keyboardType="numeric"
+              value={quantity}
+              onChangeText={setQuantity}
+            />
+            <View style={[styles.pickerContainer, { flex: 1, marginLeft: 12 }]}>
+              <Picker
+                selectedValue={unit}
+                onValueChange={setUnit}
+                style={styles.picker}
+              >
+                {units.map((u) => (
+                  <Picker.Item key={u} label={u} value={u} />
+                ))}
+              </Picker>
+            </View>
+          </View>
         </View>
 
         {/* Variety */}
@@ -247,67 +312,72 @@ export default function CropRegistrationScreen({ navigation, route }) {
           <Text style={styles.label}>Variety (Optional)</Text>
           <TextInput
             style={styles.input}
-            placeholder="e.g., Hybrid, Organic"
+            placeholder="e.g., Hybrid, Local, Organic"
             value={variety}
             onChangeText={setVariety}
           />
         </View>
 
-        {/* Container Type */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Container Type</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={containerType}
-              onValueChange={setContainerType}
-              style={styles.picker}
-            >
-              {containerTypes.map((type) => (
-                <Picker.Item
-                  key={type.value}
-                  label={type.label}
-                  value={type.value}
-                />
-              ))}
-            </Picker>
-          </View>
-        </View>
+        {/* Terrace Farming Specific Fields */}
+        {land.farmingType === 'terrace' && (
+          <>
+            {/* Container Type */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Container Type</Text>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={containerType}
+                  onValueChange={setContainerType}
+                  style={styles.picker}
+                >
+                  {containerTypes.map((type) => (
+                    <Picker.Item
+                      key={type.value}
+                      label={type.label}
+                      value={type.value}
+                    />
+                  ))}
+                </Picker>
+              </View>
+            </View>
 
-        {/* Container Size */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Container Size</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={containerSize}
-              onValueChange={setContainerSize}
-              style={styles.picker}
-            >
-              {containerSizes.map((size) => (
-                <Picker.Item key={size} label={size} value={size} />
-              ))}
-            </Picker>
-          </View>
-        </View>
+            {/* Container Size */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Container Size</Text>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={containerSize}
+                  onValueChange={setContainerSize}
+                  style={styles.picker}
+                >
+                  {containerSizes.map((size) => (
+                    <Picker.Item key={size} label={size} value={size} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
 
-        {/* Location */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Location</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={location}
-              onValueChange={setLocation}
-              style={styles.picker}
-            >
-              {locations.map((loc) => (
-                <Picker.Item
-                  key={loc.value}
-                  label={loc.label}
-                  value={loc.value}
-                />
-              ))}
-            </Picker>
-          </View>
-        </View>
+            {/* Location */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Location</Text>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={location}
+                  onValueChange={setLocation}
+                  style={styles.picker}
+                >
+                  {locations.map((loc) => (
+                    <Picker.Item
+                      key={loc.value}
+                      label={loc.label}
+                      value={loc.value}
+                    />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Notes */}
         <View style={styles.formGroup}>
@@ -332,21 +402,49 @@ export default function CropRegistrationScreen({ navigation, route }) {
         {loading ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.registerButtonText}>
-            Register {currentCrop.name} 🌱
-          </Text>
+          <>
+            <Ionicons name="checkmark-circle" size={24} color="#fff" />
+            <Text style={styles.registerButtonText}>
+              Register {currentCrop.name}
+            </Text>
+          </>
         )}
       </TouchableOpacity>
 
       {/* Skip Button */}
-      {selectedCrops.length > 1 && (
+      {selectedCrops.length > 1 && currentCropIndex < selectedCrops.length - 1 && (
         <TouchableOpacity
           style={styles.skipButton}
-          onPress={() => navigation.navigate('Dashboard')}
+          onPress={() => {
+            Alert.alert(
+              'Skip Registration',
+              'Skip remaining crops and go to dashboard?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Skip',
+                  onPress: () => {
+                    Alert.alert(
+                      'Success!',
+                      `${currentCropIndex + 1} crop(s) registered!`,
+                      [
+                        {
+                          text: 'Go to Dashboard',
+                          onPress: () => navigation.navigate('Dashboard'),
+                        },
+                      ]
+                    );
+                  },
+                },
+              ]
+            );
+          }}
         >
           <Text style={styles.skipButtonText}>Skip Remaining Crops</Text>
         </TouchableOpacity>
       )}
+
+      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
@@ -355,6 +453,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   header: {
     backgroundColor: '#fff',
@@ -371,6 +475,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 4,
+  },
+  progressContainer: {
+    backgroundColor: '#fff',
+    padding: 16,
+    paddingTop: 0,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
   },
   cropCard: {
     flexDirection: 'row',
@@ -398,6 +517,7 @@ const styles = StyleSheet.create({
   },
   cropInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   cropName: {
     fontSize: 20,
@@ -413,6 +533,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4CAF50',
     marginTop: 4,
+  },
+  plotInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 8,
+  },
+  plotInfoText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  plotInfoLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  plotInfoValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#2E7D32',
+    marginTop: 2,
   },
   form: {
     padding: 16,
@@ -441,6 +584,9 @@ const styles = StyleSheet.create({
     height: 100,
     textAlignVertical: 'top',
   },
+  row: {
+    flexDirection: 'row',
+  },
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -466,10 +612,12 @@ const styles = StyleSheet.create({
     height: 50,
   },
   registerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#4CAF50',
     padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
     marginHorizontal: 16,
     marginTop: 8,
   },
@@ -480,12 +628,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
   skipButton: {
     padding: 16,
     alignItems: 'center',
     marginTop: 8,
-    marginBottom: 32,
   },
   skipButtonText: {
     color: '#666',
@@ -495,15 +643,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#666',
     textAlign: 'center',
-    marginTop: 50,
+    marginBottom: 20,
   },
   backButton: {
     backgroundColor: '#4CAF50',
     padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 20,
+    paddingHorizontal: 32,
   },
   backButtonText: {
     color: '#fff',

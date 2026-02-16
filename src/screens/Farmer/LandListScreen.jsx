@@ -3,426 +3,371 @@ import {
   View,
   Text,
   StyleSheet,
+  FlatList,
   TouchableOpacity,
-  ScrollView,
-  StatusBar,
-  Alert,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
-import { getUserLands, deleteLand } from '../../utils/landAPI';
-import { COLORS } from '../../constants/colors';
+import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
+import { API_ENDPOINTS } from '../../utils/config';
 
-const LandListScreen = ({ navigation, route }) => {
+export default function LandListScreen({ navigation, route }) {
   const { userData } = route.params || {};
-  
   const [lands, setLands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch lands
+  useEffect(() => {
+    fetchLands();
+  }, []);
+
   const fetchLands = async () => {
     try {
-      console.log('🔍 Fetching lands for user:', userData?.uid);
-      
-      const result = await getUserLands(userData?.uid);
-      
-      if (result.success) {
-        console.log('✅ Fetched', result.count, 'lands');
-        setLands(result.lands);
-      } else {
-        console.error('❌ Failed to fetch lands:', result.error);
-        Alert.alert('Error', result.error || 'Failed to fetch lands');
+      setLoading(true);
+      const firebaseUid = userData?.firebaseUid || userData?.uid;
+
+      console.log('📍 Fetching lands for user:', firebaseUid);
+
+      const response = await axios.get(`${API_ENDPOINTS.LANDS}/${firebaseUid}`);
+
+      if (response.data.success) {
+        setLands(response.data.lands);
+        console.log(`✅ Fetched ${response.data.count} lands`);
       }
     } catch (error) {
-      console.error('❌ Fetch error:', error);
-      Alert.alert('Error', 'Something went wrong');
+      console.error('❌ Error fetching lands:', error);
+      Alert.alert('Error', 'Failed to load lands');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  // Initial load
-  useEffect(() => {
-    fetchLands();
-  }, []);
-
-  // Pull to refresh
-  const onRefresh = () => {
+  const handleRefresh = () => {
     setRefreshing(true);
     fetchLands();
   };
 
-  // Delete land with confirmation
-  const handleDelete = (landId, landName) => {
-    Alert.alert(
-      'Delete Land',
-      `Are you sure you want to delete "${landName}"?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('🗑️ Deleting land:', landId);
-              
-              const result = await deleteLand(landId);
-              
-              if (result.success) {
-                console.log('✅ Land deleted successfully');
-                Alert.alert('Success', 'Land deleted successfully');
-                fetchLands(); // Refresh list
-              } else {
-                console.error('❌ Delete failed:', result.error);
-                Alert.alert('Error', result.error || 'Failed to delete land');
-              }
-            } catch (error) {
-              console.error('❌ Delete error:', error);
-              Alert.alert('Error', 'Something went wrong');
-            }
-          },
-        },
-      ]
+  const handleAddLand = () => {
+    navigation.navigate('LandRegistration', { userData });
+  };
+
+  const handleLandPress = (land) => {
+    navigation.navigate('LandDetails', { land, userData });
+  };
+
+  const getFarmingTypeInfo = (type) => {
+    switch (type) {
+      case 'normal':
+        return { icon: '🌾', color: '#FF9800', label: 'Normal' };
+      case 'organic':
+        return { icon: '🌱', color: '#4CAF50', label: 'Organic' };
+      case 'terrace':
+        return { icon: '🪴', color: '#2196F3', label: 'Terrace' };
+      default:
+        return { icon: '🌿', color: '#666', label: 'Unknown' };
+    }
+  };
+
+  const renderLandCard = ({ item }) => {
+    const farmingInfo = getFarmingTypeInfo(item.farmingType);
+
+    return (
+      <TouchableOpacity
+        style={styles.landCard}
+        onPress={() => handleLandPress(item)}
+        activeOpacity={0.7}
+      >
+        {/* Header */}
+        <View style={styles.cardHeader}>
+          <View style={styles.landNameContainer}>
+            <Ionicons name="location" size={24} color="#4CAF50" />
+            <Text style={styles.landName}>{item.landName}</Text>
+          </View>
+          <View style={[styles.typeBadge, { backgroundColor: farmingInfo.color }]}>
+            <Text style={styles.typeBadgeText}>
+              {farmingInfo.icon} {farmingInfo.label}
+            </Text>
+          </View>
+        </View>
+
+        {/* Location */}
+        <View style={styles.infoRow}>
+          <Ionicons name="pin" size={16} color="#666" />
+          <Text style={styles.infoText}>
+            {item.location.city}, {item.location.district}
+          </Text>
+        </View>
+
+        {/* Size */}
+        <View style={styles.infoRow}>
+          <Ionicons name="resize" size={16} color="#666" />
+          <Text style={styles.infoText}>
+            {item.size.value} {item.size.unit}
+          </Text>
+        </View>
+
+        {/* Water Source */}
+        <View style={styles.infoRow}>
+          <Ionicons name="water" size={16} color="#666" />
+          <Text style={styles.infoText}>
+            {item.waterSource.charAt(0).toUpperCase() + item.waterSource.slice(1)}
+          </Text>
+        </View>
+
+        {/* Soil Type */}
+        <View style={styles.infoRow}>
+          <Ionicons name="leaf" size={16} color="#666" />
+          <Text style={styles.infoText}>
+            {item.soilType.charAt(0).toUpperCase() + item.soilType.slice(1)} Soil
+          </Text>
+        </View>
+
+        {/* Stats */}
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{item.totalPlots || 0}</Text>
+            <Text style={styles.statLabel}>Plots</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>
+              {new Date(item.createdAt).toLocaleDateString()}
+            </Text>
+            <Text style={styles.statLabel}>Registered</Text>
+          </View>
+        </View>
+
+        {/* Arrow */}
+        <View style={styles.arrowContainer}>
+          <Ionicons name="chevron-forward" size={24} color="#999" />
+        </View>
+      </TouchableOpacity>
     );
   };
 
-  // Render loading state
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading lands...</Text>
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text style={styles.loadingText}>Loading your lands...</Text>
       </View>
     );
   }
 
   return (
-    <>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-      <View style={styles.container}>
-        
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Lands</Text>
-          <Text style={styles.headerSubtitle}>
-            {lands.length} {lands.length === 1 ? 'land' : 'lands'} registered
-          </Text>
-        </View>
-
-        {/* Empty State */}
-        {lands.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🌾</Text>
-            <Text style={styles.emptyTitle}>No Lands Yet</Text>
-            <Text style={styles.emptySubtitle}>Start by adding your first land!</Text>
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => navigation.navigate('LandRegistration', { userData })}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.addButtonText}>+ Add First Land</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            {/* Land List */}
-            <ScrollView
-              style={styles.listContainer}
-              contentContainerStyle={styles.listContent}
-              refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-              }
-            >
-              {lands.map((land) => (
-                <View key={land.id} style={styles.landCard}>
-                  {/* Land Header */}
-                  <View style={styles.landHeader}>
-                    <View style={styles.landTitleContainer}>
-                      <Text style={styles.landName}>{land.name}</Text>
-                      <Text style={styles.landSize}>
-                        {land.size.value} {land.size.unit}
-                      </Text>
-                    </View>
-                    <View style={styles.landIcon}>
-                      <Text style={styles.landIconText}>
-                        {land.soilType === 'clay' ? '🟤' :
-                         land.soilType === 'loam' ? '🟫' :
-                         land.soilType === 'sandy' ? '🟡' :
-                         land.soilType === 'red' ? '🔴' :
-                         land.soilType === 'black' ? '⚫' : '🌱'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Land Details */}
-                  <View style={styles.landDetails}>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>📍 Location:</Text>
-                      <Text style={styles.detailValue}>
-                        {land.location?.city || 'Not specified'}
-                      </Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>🌾 Soil Type:</Text>
-                      <Text style={styles.detailValue}>
-                        {land.soilType?.charAt(0).toUpperCase() + land.soilType?.slice(1)}
-                      </Text>
-                    </View>
-                    {land.waterSource && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>💧 Water:</Text>
-                        <Text style={styles.detailValue}>
-                          {land.waterSource?.charAt(0).toUpperCase() + land.waterSource?.slice(1)}
-                        </Text>
-                      </View>
-                    )}
-                    {land.notes && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>📝 Notes:</Text>
-                        <Text style={styles.detailValue} numberOfLines={2}>
-                          {land.notes}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Action Buttons */}
-                  <View style={styles.actionButtons}>
-                    <TouchableOpacity
-                      style={styles.viewButton}
-                      onPress={() => navigation.navigate('LandDetails', { landId: land.id, userData })}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.viewButtonText}>👁️ View Details</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => handleDelete(land.id, land.name)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.deleteButtonText}>🗑️ Delete</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-
-            {/* Floating Add Button */}
-            <TouchableOpacity
-              style={styles.floatingButton}
-              onPress={() => navigation.navigate('LandRegistration', { userData })}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.floatingButtonText}>+ Add Land</Text>
-            </TouchableOpacity>
-          </>
-        )}
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>My Lands</Text>
+        <Text style={styles.headerSubtitle}>
+          {lands.length} land(s) registered
+        </Text>
       </View>
-    </>
+
+      {/* Empty State */}
+      {lands.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="map-outline" size={80} color="#ccc" />
+          <Text style={styles.emptyTitle}>No Lands Yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Start your farming journey by registering your first land
+          </Text>
+          <TouchableOpacity style={styles.addButton} onPress={handleAddLand}>
+            <Ionicons name="add-circle" size={24} color="#fff" />
+            <Text style={styles.addButtonText}>Register First Land</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          {/* Land List */}
+          <FlatList
+            data={lands}
+            renderItem={renderLandCard}
+            keyExtractor={(item) => item._id}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={['#4CAF50']}
+              />
+            }
+          />
+
+          {/* Add Land FAB */}
+          <TouchableOpacity style={styles.fab} onPress={handleAddLand}>
+            <Ionicons name="add" size={32} color="#fff" />
+          </TouchableOpacity>
+        </>
+      )}
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#f5f5f5',
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
   },
   header: {
-    backgroundColor: COLORS.primary,
-    paddingTop: 50,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
-  },
-  backButton: {
-    marginBottom: 15,
-  },
-  backButtonText: {
-    color: COLORS.secondary,
-    fontSize: 16,
-    fontWeight: '600',
+    backgroundColor: '#fff',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: COLORS.secondary,
+    color: '#333',
   },
   headerSubtitle: {
     fontSize: 14,
-    color: COLORS.secondary,
-    marginTop: 5,
-    opacity: 0.9,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: COLORS.textLight,
+    color: '#666',
+    marginTop: 4,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+    padding: 40,
   },
   emptyTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 8,
+    color: '#333',
+    marginTop: 20,
   },
   emptySubtitle: {
     fontSize: 16,
-    color: COLORS.textLight,
+    color: '#666',
     textAlign: 'center',
-    marginBottom: 24,
+    marginTop: 8,
   },
   addButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 24,
     paddingVertical: 16,
     borderRadius: 12,
+    marginTop: 32,
   },
   addButtonText: {
-    color: COLORS.secondary,
-    fontSize: 16,
+    color: '#fff',
+    fontSize: 18,
     fontWeight: 'bold',
-  },
-  listContainer: {
-    flex: 1,
+    marginLeft: 8,
   },
   listContent: {
     padding: 16,
-    paddingBottom: 100,
   },
   landCard: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 2,
-    borderColor: COLORS.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  landHeader: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  landTitleContainer: {
+  landNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
   landName: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 4,
+    color: '#333',
+    marginLeft: 8,
+    flex: 1,
   },
-  landSize: {
-    fontSize: 16,
-    color: COLORS.primary,
-    fontWeight: '600',
+  typeBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  landIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary + '20',
-    justifyContent: 'center',
-    alignItems: 'center',
+  typeBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
-  landIconText: {
-    fontSize: 24,
-  },
-  landDetails: {
-    marginBottom: 16,
-  },
-  detailRow: {
+  infoRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  detailLabel: {
+  infoText: {
     fontSize: 14,
-    color: COLORS.textLight,
-    width: 100,
+    color: '#666',
+    marginLeft: 8,
   },
-  detailValue: {
-    fontSize: 14,
-    color: COLORS.text,
-    fontWeight: '500',
-    flex: 1,
-  },
-  actionButtons: {
+  statsRow: {
     flexDirection: 'row',
-    gap: 10,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
   },
-  viewButton: {
+  statItem: {
     flex: 1,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 12,
-    borderRadius: 10,
     alignItems: 'center',
   },
-  viewButtonText: {
-    color: COLORS.secondary,
-    fontSize: 14,
+  statDivider: {
+    width: 1,
+    backgroundColor: '#eee',
+  },
+  statValue: {
+    fontSize: 16,
     fontWeight: 'bold',
+    color: '#4CAF50',
   },
-  deleteButton: {
-    flex: 1,
-    backgroundColor: COLORS.error,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
+  statLabel: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
   },
-  deleteButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  floatingButton: {
+  arrowContainer: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
+    right: 16,
+    top: '50%',
+    marginTop: -12,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 60,
+    height: 60,
     borderRadius: 30,
-    shadowColor: COLORS.secondary,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 8,
   },
-  floatingButtonText: {
-    color: COLORS.secondary,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
 });
-
-export default LandListScreen;

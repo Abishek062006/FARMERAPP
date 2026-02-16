@@ -1,114 +1,82 @@
 const mongoose = require('mongoose');
 
-const LandSchema = new mongoose.Schema({
-  // User Reference
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    index: true,
-  },
+const landSchema = new mongoose.Schema({
   firebaseUid: {
     type: String,
     required: true,
-    index: true,
+    index: true
   },
-  
-  // Basic Info
-  name: {
+  landName: {
     type: String,
     required: true,
-    trim: true,
+    trim: true
   },
-  
-  // Size
-  size: {
-    value: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    unit: {
-      type: String,
-      enum: ['acres', 'cents', 'sqft', 'hectares'],
-      default: 'acres',
-    },
-  },
-  
-  // Location
   location: {
     coordinates: {
-      lat: { type: Number },
-      lng: { type: Number },
+      lat: { type: Number, required: true },
+      lng: { type: Number, required: true }
     },
-    address: {
-      type: String,
-      trim: true,
-    },
-    city: {
-      type: String,
-      trim: true,
-    },
-    district: {
-      type: String,
-      trim: true,
-    },
-    pincode: {
-      type: String,
-      trim: true,
-    },
+    city: { type: String, required: true },
+    district: { type: String, required: true },
+    state: { type: String, required: true, default: 'Tamil Nadu' },
+    pincode: { type: String },
+    address: { type: String }
   },
-  
-  // Soil & Water
-  soilType: {
-    type: String,
-    enum: ['clay', 'loam', 'sandy', 'red', 'black', 'alluvial', 'other'],
-    default: 'loam',
+  size: {
+    value: { type: Number, required: true, min: 0 },
+    unit: { 
+      type: String, 
+      required: true,
+      enum: ['acres', 'hectares', 'sqft', 'sqm']
+    }
   },
   waterSource: {
     type: String,
-    enum: ['borewell', 'canal', 'rain', 'river', 'pond', 'drip', 'other'],
+    required: true,
+    enum: [
+      'borewell',
+      'canal',
+      'rainwater',
+      'drip',
+      'sprinkler',
+      'river',
+      'well',
+      'pond',
+      'tank',
+      'none'
+    ]
   },
-  
-  // Images
-  images: [{
-    url: String,
-    uploadedAt: {
-      type: Date,
-      default: Date.now,
-    },
+  soilType: {
+    type: String,
+    required: true,
+    enum: ['red', 'black', 'alluvial', 'clay', 'loamy', 'sandy', 'laterite']
+  },
+  farmingType: {
+    type: String,
+    required: true,
+    enum: ['normal', 'organic', 'terrace']
+  },
+  photos: [{
+    type: String  // URLs to uploaded images
   }],
-  
-  // Status
+  totalPlots: {
+    type: Number,
+    default: 0
+  },
   isActive: {
     type: Boolean,
-    default: true,
+    default: true
   },
-  
-  // Additional Info
   notes: {
     type: String,
-    trim: true,
-  },
-  
-  // Timestamps
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
+    maxlength: 500
+  }
+}, {
+  timestamps: true  // Adds createdAt and updatedAt
 });
 
-// Update timestamp on save
-LandSchema.pre('save', function() {
-  this.updatedAt = Date.now();
-});
+// Index for faster queries
+landSchema.index({ firebaseUid: 1, isActive: 1 });
+landSchema.index({ 'location.city': 1, 'location.district': 1 });
 
-// Indexes for faster queries
-LandSchema.index({ firebaseUid: 1, isActive: 1 });
-LandSchema.index({ userId: 1 });
-
-module.exports = mongoose.model('Land', LandSchema);
+module.exports = mongoose.model('Land', landSchema);

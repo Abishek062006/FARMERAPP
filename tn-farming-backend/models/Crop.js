@@ -1,147 +1,157 @@
 const mongoose = require('mongoose');
 
-const progressUpdateSchema = new mongoose.Schema({
-  date: {
-    type: Date,
-    default: Date.now,
-  },
-  stage: {
-    type: String,
-    enum: ['seedling', 'vegetative', 'flowering', 'fruiting', 'mature'],
-  },
-  notes: String,
-  images: [String],
-  healthScore: {
-    type: Number,
-    min: 0,
-    max: 100,
-    default: 80,
-  },
-  observations: String,
-});
-
 const cropSchema = new mongoose.Schema({
-  // User & Land References
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
   firebaseUid: {
     type: String,
     required: true,
+    index: true
   },
   landId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Land',
-    default: null,
+    required: true,
+    index: true
   },
   plotId: {
-    type: String,
-    default: null,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Plot',
+    default: null
   },
-
-  // Crop Details
   name: {
     type: String,
     required: true,
+    trim: true
   },
   tamilName: {
     type: String,
     required: true,
+    trim: true
   },
-  variety: String,
-  category: {
+  variety: {
     type: String,
-    enum: ['grain', 'vegetable', 'fruit', 'spice', 'pulse', 'oilseed', 'fiber', 'other'],
+    default: 'Standard'
   },
-
-  // Planting Information
   plantingDate: {
     type: Date,
-    required: true,
+    required: true
   },
   expectedHarvestDate: {
     type: Date,
-    required: true,
+    required: true
   },
-  actualHarvestDate: Date,
-
-  // Quantity
+  duration: {
+    type: Number,
+    required: true
+  },
   quantity: {
     type: Number,
     required: true,
+    min: 1
   },
   unit: {
     type: String,
-    enum: ['acres', 'cents', 'hectares', 'sqft', 'plants'],
     required: true,
+    enum: ['plants', 'seeds', 'kg', 'grams', 'saplings']
   },
-
-  // For Terrace Farming Only
+  farmingType: {
+    type: String,
+    required: true,
+    enum: ['normal', 'organic', 'terrace']
+  },
+  
+  // For terrace farming only
   containerType: {
     type: String,
-    enum: ['pot', 'grow-bag', 'tray', 'raised-bed', 'other'],
+    enum: ['pot', 'grow-bag', 'tray', 'raised-bed', 'ground', null],
+    default: null
   },
-  containerSize: String,
+  containerSize: {
+    type: String,
+    enum: ['5L', '10L', '15L', '20L', '25L', '30L', '50L', null],
+    default: null
+  },
   location: {
     type: String,
-    enum: ['balcony', 'terrace', 'rooftop', 'window', 'indoor', 'outdoor'],
+    enum: ['balcony', 'terrace', 'rooftop', 'window', 'indoor', 'outdoor', null],
+    default: null
   },
-
-  // Growth Tracking
+  
+  // Growth tracking
   currentStage: {
     type: String,
-    enum: ['preparation', 'sowing', 'seedling', 'vegetative', 'flowering', 'fruiting', 'mature', 'harvested'],
-    default: 'sowing',
+    enum: ['germination', 'vegetative', 'flowering', 'fruiting', 'harvest', 'completed'],
+    default: 'germination'
   },
-  status: {
-    type: String,
-    enum: ['active', 'harvested', 'failed', 'diseased'],
-    default: 'active',
+  daysElapsed: {
+    type: Number,
+    default: 0
   },
   healthScore: {
     type: Number,
     min: 0,
     max: 100,
-    default: 80,
+    default: 100
   },
-
-  // Progress Updates
-  progressUpdates: [progressUpdateSchema],
-
-  // Media
-  images: [String],
-
-  // Additional Info
-  notes: String,
-  diseases: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Disease',
+  
+  // Additional data
+  photos: [{
+    url: String,
+    uploadDate: Date,
+    description: String
   }],
-  expenses: {
-    type: Number,
-    default: 0,
+  notes: {
+    type: String,
+    maxlength: 1000
   },
-
-  // Timestamps
-  createdAt: {
-    type: Date,
-    default: Date.now,
+  
+  // Status flags
+  isActive: {
+    type: Boolean,
+    default: true
   },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
+  isHarvested: {
+    type: Boolean,
+    default: false
   },
+  harvestDate: {
+    type: Date
+  },
+  actualYield: {
+    value: Number,
+    unit: String
+  },
+  
+  // Market data (cached)
+  lastKnownPrice: {
+    value: Number,
+    date: Date
+  }
 }, {
-  timestamps: true, // ✅ USE BUILT-IN TIMESTAMPS
+  timestamps: true
 });
 
-// Indexes for better query performance
-cropSchema.index({ firebaseUid: 1, status: 1 });
-cropSchema.index({ landId: 1 });
-cropSchema.index({ createdAt: -1 });
+// Indexes
+cropSchema.index({ firebaseUid: 1, isActive: 1 });
+cropSchema.index({ landId: 1, isActive: 1 });
+cropSchema.index({ plantingDate: 1 });
+cropSchema.index({ expectedHarvestDate: 1 });
 
-const Crop = mongoose.model('Crop', cropSchema);
+// Virtual for days remaining
+cropSchema.virtual('daysRemaining').get(function() {
+  if (!this.expectedHarvestDate) return 0;
+  const today = new Date();
+  const diff = this.expectedHarvestDate - today;
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+});
 
-module.exports = Crop;
+// ✅ FIXED: Calculate days elapsed before saving (no next() needed in Mongoose 6+)
+cropSchema.pre('save', function() {
+  if (this.plantingDate) {
+    const today = new Date();
+    const diff = today - this.plantingDate;
+    this.daysElapsed = Math.floor(diff / (1000 * 60 * 60 * 24));
+  }
+  // ✅ No next() call - Mongoose 6+ handles this automatically
+});
+
+module.exports = mongoose.model('Crop', cropSchema);
