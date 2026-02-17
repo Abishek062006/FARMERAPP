@@ -1,4 +1,4 @@
-const API_URL = 'http://192.168.1.7:5000/api'; // ← YOUR IP
+const API_URL = 'http://192.168.134.187:5000/api'; // ← YOUR IP
 
 /**
  * Get crop recommendations using Groq AI
@@ -117,7 +117,7 @@ export const askAI = async (question, language = 'en') => {
  * const formData = new FormData();
  * formData.append('image', imageFile);
  * 
- * const response = await fetch('http://192.168.1.7:5000/api/disease/detect', {
+ * const response = await fetch('http://192.168.134.187:5000/api/disease/detect', {
  *   method: 'POST',
  *   body: formData,
  * });

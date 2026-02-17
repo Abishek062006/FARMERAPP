@@ -1,5 +1,5 @@
 // Base API URL - REPLACE WITH YOUR IP ADDRESS
-const API_URL = 'http://192.168.1.7:5000/api'; // ⚠️ Change to YOUR IP!
+const API_URL = 'http://192.168.134.187:5000/api'; // ⚠️ Change to YOUR IP!
 
 /**
  * Add new land

@@ -1,9 +1,9 @@
 // ⚠️ CHANGE THIS TO YOUR COMPUTER'S IP ADDRESS
 // Windows: Open CMD → type "ipconfig" → look for IPv4 Address
 // Mac/Linux: Open Terminal → type "ifconfig" → look for inet address
-// Example: 192.168.1.7, 192.168.0.105, etc.
+// Example:  192.168.134.187, 192.168.0.105, etc.
 
-export const API_URL = 'http://192.168.1.7:5000'; // ⚠️ UPDATE THIS!
+export const API_URL = 'http://192.168.134.187:5000'; // ⚠️ UPDATE THIS!
 
 // API Endpoints
 export const API_ENDPOINTS = {
