@@ -7,8 +7,10 @@ const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
 
+
 // Python AI Service URL
 const AI_SERVICE_URL = 'http://localhost:5001';
+
 
 // Configure multer for image upload
 const storage = multer.diskStorage({
@@ -24,6 +26,7 @@ const storage = multer.diskStorage({
   }
 });
 
+
 const upload = multer({
   storage: storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
@@ -35,6 +38,7 @@ const upload = multer({
     }
   }
 });
+
 
 /**
  * POST /api/disease/detect
@@ -96,6 +100,8 @@ router.post('/detect', upload.single('image'), async (req, res) => {
     );
 
     console.log('✅ Python AI response received');
+    // Helpful during debugging:
+    // console.log('Python Response:', JSON.stringify(aiResponse.data, null, 2));
 
     // Clean up uploaded file
     if (fs.existsSync(req.file.path)) {
@@ -103,26 +109,34 @@ router.post('/detect', upload.single('image'), async (req, res) => {
       console.log('🗑️  Temp file deleted');
     }
 
-    // Format response for frontend
-    const prediction = aiResponse.data.prediction;
-    const primaryDisease = prediction.primary_disease;
-    
+    // ===== UPDATED MAPPING STARTS HERE =====
+    const prediction = aiResponse.data.prediction || {};
+    const primary = prediction.primary || {};
+    const top3 = prediction.top_3 || [];
+
+    const diseaseName = primary.class || 'Unknown Disease';
+    const confidence = primary.confidence ?? prediction.confidence ?? 0;
+
     const responseData = {
-      healthy: prediction.healthy,
-      healthScore: prediction.healthScore,
-      confidence: prediction.confidence,
-      plantName: primaryDisease.name.split(' - ')[0] || 'Unknown Plant',
-      diseases: prediction.healthy ? [] : [{
-        name: primaryDisease.name,
-        commonNames: [primaryDisease.scientific],
-        probability: primaryDisease.confidence,
-        description: primaryDisease.description,
-        cause: primaryDisease.symptoms,
-        treatment: primaryDisease.treatment,
-        url: null
-      }],
-      alternatives: prediction.alternatives || []
+      healthy: prediction.healthy ?? false,
+      healthScore: prediction.healthScore ?? null,
+      confidence: confidence,
+      plantName: (primary.class || 'Unknown Plant').split(' - ')[0],
+      diseases: (prediction.healthy
+        ? []
+        : [{
+            name: diseaseName,
+            commonNames: [primary.class || 'Unknown'],
+            probability: confidence,
+            description: primary.description || 'No description available',
+            cause: primary.symptoms || 'No symptoms data',
+            treatment: primary.treatment || 'No treatment data',
+            url: null
+          }]
+      ),
+      alternatives: prediction.alternatives || top3
     };
+    // ===== UPDATED MAPPING ENDS HERE =====
 
     console.log(`🎯 Final diagnosis: ${responseData.healthy ? 'Healthy' : responseData.diseases[0]?.name} (${responseData.confidence}%)`);
     console.log('✅ === DETECTION COMPLETE ===\n');
@@ -149,6 +163,7 @@ router.post('/detect', upload.single('image'), async (req, res) => {
   }
 });
 
+
 /**
  * GET /api/disease/test
  * Test AI service connection
@@ -174,5 +189,6 @@ router.get('/test', async (req, res) => {
     });
   }
 });
+
 
 module.exports = router;

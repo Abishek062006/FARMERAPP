@@ -3,7 +3,7 @@
 // Mac/Linux: Open Terminal → type "ifconfig" → look for inet address
 // Example:  192.168.134.187, 192.168.0.105, etc.
 
-export const API_URL = 'http://172.20.10.3:5000'; // ⚠️ UPDATE THIS!
+export const API_URL = 'http://172.20.10.8:5000'; // ⚠️ UPDATE THIS!
 
 // API Endpoints
 export const API_ENDPOINTS = {

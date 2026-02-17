@@ -1,4 +1,4 @@
-const API_URL = 'http://172.20.10.3:5000/api'; // ← YOUR IP
+const API_URL = 'http://172.20.10.8:5000/api'; // ← YOUR IP
 
 /**
  * Get crop recommendations using Groq AI
