@@ -142,7 +142,7 @@ export default function CropRecommendationScreen({ navigation, route }) {
       } else if (error.response) {
         errorMessage = error.response.data?.error || `Server error: ${error.response.status}`;
       } else if (error.request) {
-        errorMessage = 'Cannot connect to server. Please check if backend is running on http://192.168.134.187:5000';
+        errorMessage = 'Cannot connect to server. Please check if backend is running on http://172.20.10.3:5000';
       }
       
       Alert.alert(
@@ -219,7 +219,7 @@ export default function CropRecommendationScreen({ navigation, route }) {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container,]}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
