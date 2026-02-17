@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
 // ⚠️ CHANGE THIS TO YOUR COMPUTER'S IP ADDRESS
-const API_URL = 'http://192.168.134.187:5000'; // Update if your IP is different
+const API_URL = 'http://172.20.10.3:5000'; // Update if your IP is different
 
 export default function DiseaseDetectionScreen({ navigation, route }) {
   const { cropId, cropName } = route.params || {};
