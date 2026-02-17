@@ -7,18 +7,12 @@ const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
 
-
-// Python AI Service URL
 const AI_SERVICE_URL = 'http://localhost:5001';
 
-
-// Configure multer for image upload
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = 'uploads/diseases/';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
@@ -26,52 +20,112 @@ const storage = multer.diskStorage({
   }
 });
 
-
 const upload = multer({
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'));
-    }
+    file.mimetype.startsWith('image/') ? cb(null, true) : cb(new Error('Only image files are allowed'));
   }
 });
 
-
 /**
- * POST /api/disease/detect
- * Detect disease using Python AI service
+ * normalizeDiseaseNameForPesticide
+ * ─────────────────────────────────
+ * Converts ANY raw class name from the PlantVillage-trained model
+ * into the key format used in pesticide_rules.py.
+ *
+ * Examples from your training folder:
+ *   "Tomato___Early_blight"              → "Tomato_Early_blight"
+ *   "Tomato__Target_Spot"                → "Tomato_Target_Spot"
+ *   "Tomato__Tomato_YellowLeaf__Curl_Virus" → "Tomato_Tomato_YellowLeaf_Curl_Virus"
+ *   "Pepper__bell___Bacterial_spot"      → "Pepper_bell_Bacterial_spot"
+ *   "Corn_(maize)___Common_rust_"        → "Corn_(maize)_Common_rust"
+ *   "Apple___Apple_scab"                 → "Apple_Apple_scab"
+ *   "Cherry_(including_sour)___Powdery_mildew" → "Cherry_(including_sour)_Powdery_mildew"
  */
+function normalizeDiseaseNameForPesticide(rawName) {
+  if (!rawName) return '';
+
+  let n = rawName;
+
+  // Step 1: Replace triple underscores → single
+  n = n.replace(/_{3}/g, '_');
+
+  // Step 2: Replace any remaining double underscores → single
+  n = n.replace(/_{2}/g, '_');
+
+  // Step 3: Strip leading and trailing underscores
+  n = n.replace(/^_+|_+$/g, '');
+
+  console.log(`🔄 Normalized: "${rawName}" → "${n}"`);
+  return n;
+}
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/diseases   ← This is what handleSaveDisease calls
+// ─────────────────────────────────────────────────────────────
+router.post('/', async (req, res) => {
+  try {
+    console.log('💾 Saving disease:', req.body.diseaseName);
+    const Disease = require('../models/Disease');
+
+    const newRecord = new Disease({
+      firebaseUid: req.body.firebaseUid,
+      cropId:      req.body.cropId,
+      diseaseName: req.body.diseaseName,
+      severity:    req.body.severity    || 'moderate',
+      affectedArea:req.body.affectedArea|| 'leaves',
+      confidence:  req.body.confidence  || 0,
+      pesticides:  req.body.pesticides  || [],
+      treatment:   req.body.treatment   || '',
+      symptoms:    req.body.symptoms    || '',
+      imageUrl:    req.body.imageUrl    || '',
+      status: 'active'
+    });
+
+    await newRecord.save();
+    console.log('✅ Disease saved:', newRecord._id);
+    res.json({ success: true, disease: newRecord });
+
+  } catch (err) {
+    console.error('❌ Save disease error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// GET /api/diseases/crop/:cropId
+// ─────────────────────────────────────────────────────────────
+router.get('/crop/:cropId', async (req, res) => {
+  try {
+    const Disease = require('../models/Disease');
+    const diseases = await Disease.find({ cropId: req.params.cropId }).sort({ createdAt: -1 });
+    res.json({ success: true, diseases });
+  } catch (err) {
+    console.error('❌ Fetch diseases error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/diseases/detect
+// ─────────────────────────────────────────────────────────────
 router.post('/detect', upload.single('image'), async (req, res) => {
   try {
     console.log('\n🔍 === DISEASE DETECTION REQUEST ===');
-    
+
     if (!req.file) {
-      console.log('❌ No file received');
-      return res.status(400).json({
-        success: false,
-        message: 'No image file provided'
-      });
+      return res.status(400).json({ success: false, message: 'No image file provided' });
     }
 
-    console.log('📸 File received:', req.file.filename);
-    console.log('📸 File size:', req.file.size, 'bytes');
+    console.log('📸 File:', req.file.filename, '|', req.file.size, 'bytes');
 
-    // Check if Python AI service is running
+    // Check Python AI service
     try {
       await axios.get(`${AI_SERVICE_URL}/health`, { timeout: 5000 });
-      console.log('✅ Python AI service is running');
-    } catch (error) {
-      console.error('❌ Python AI service not running!');
-      console.error('💡 Start it: cd ai-service && python app.py');
-      
-      // Clean up uploaded file
-      if (fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      
+      console.log('✅ Python AI service running');
+    } catch {
+      if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
       return res.status(503).json({
         success: false,
         message: 'AI service unavailable. Please start Python AI server.',
@@ -79,82 +133,81 @@ router.post('/detect', upload.single('image'), async (req, res) => {
       });
     }
 
-    // Create form data for Python service
+    // Forward image to Python
     const formData = new FormData();
     formData.append('image', fs.createReadStream(req.file.path));
 
-    console.log('🤖 Calling Python AI service...');
+    const aiResponse = await axios.post(`${AI_SERVICE_URL}/predict`, formData, {
+      headers: { ...formData.getHeaders() },
+      timeout: 30000,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
+    });
 
-    // Call Python AI service
-    const aiResponse = await axios.post(
-      `${AI_SERVICE_URL}/predict`,
-      formData,
-      {
-        headers: {
-          ...formData.getHeaders()
-        },
-        timeout: 30000, // 30 seconds
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity
-      }
-    );
-
-    console.log('✅ Python AI response received');
-    // Helpful during debugging:
-    // console.log('Python Response:', JSON.stringify(aiResponse.data, null, 2));
-
-    // Clean up uploaded file
+    // Cleanup
     if (fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
       console.log('🗑️  Temp file deleted');
     }
 
-    // ===== UPDATED MAPPING STARTS HERE =====
     const prediction = aiResponse.data.prediction || {};
-    const primary = prediction.primary || {};
-    const top3 = prediction.top_3 || [];
+    const primary    = prediction.primary || {};
 
     const diseaseName = primary.class || 'Unknown Disease';
-    const confidence = primary.confidence ?? prediction.confidence ?? 0;
+    const confidence  = primary.confidence ?? prediction.confidence ?? 0;
 
     const responseData = {
-      healthy: prediction.healthy ?? false,
+      healthy:     prediction.healthy ?? false,
       healthScore: prediction.healthScore ?? null,
-      confidence: confidence,
+      confidence,
       plantName: (primary.class || 'Unknown Plant').split(' - ')[0],
-      diseases: (prediction.healthy
-        ? []
-        : [{
-            name: diseaseName,
-            commonNames: [primary.class || 'Unknown'],
-            probability: confidence,
-            description: primary.description || 'No description available',
-            cause: primary.symptoms || 'No symptoms data',
-            treatment: primary.treatment || 'No treatment data',
-            url: null
-          }]
-      ),
-      alternatives: prediction.alternatives || top3
+      diseases: prediction.healthy ? [] : [{
+        name:        diseaseName,
+        commonNames: [primary.class || 'Unknown'],
+        probability: confidence,
+        description: primary.description || 'No description available',
+        cause:       primary.symptoms    || 'No symptoms data',
+        treatment:   primary.treatment   || 'No treatment data',
+        url: null
+      }],
+      alternatives: prediction.alternatives || prediction.top_3 || []
     };
-    // ===== UPDATED MAPPING ENDS HERE =====
 
-    console.log(`🎯 Final diagnosis: ${responseData.healthy ? 'Healthy' : responseData.diseases[0]?.name} (${responseData.confidence}%)`);
+    // ── Pesticide calculation ──────────────────────────────
+    let pesticideData = null;
+    const normalizedName = normalizeDiseaseNameForPesticide(diseaseName);
+
+    try {
+      const pesticideResponse = await axios.post(
+        `${AI_SERVICE_URL}/pesticide`,
+        {
+          disease:    normalizedName,
+          area_sqft:  Number(req.body.area_sqft) || 1000,
+          severity:   req.body.severity || 'moderate'
+        },
+        { timeout: 10000 }
+      );
+
+      pesticideData = pesticideResponse.data.recommendation;
+      console.log('✅ Pesticide:', pesticideData);
+
+    } catch (err) {
+      console.log('⚠️  Pesticide failed:', err.message);
+      console.log('⚠️  Tried key:', normalizedName);
+    }
+
+    console.log(`🎯 Result: ${responseData.healthy ? 'Healthy' : diseaseName} (${confidence}%)`);
     console.log('✅ === DETECTION COMPLETE ===\n');
 
     res.json({
       success: true,
-      data: responseData,
+      data: { ...responseData, pesticide: pesticideData },
       timestamp: new Date().toISOString()
     });
 
   } catch (error) {
     console.error('❌ Detection error:', error.message);
-    
-    // Clean up file on error
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     res.status(500).json({
       success: false,
       message: 'Disease detection failed',
@@ -163,32 +216,37 @@ router.post('/detect', upload.single('image'), async (req, res) => {
   }
 });
 
-
-/**
- * GET /api/disease/test
- * Test AI service connection
- */
+// GET /api/diseases/test
 router.get('/test', async (req, res) => {
   try {
     const aiHealth = await axios.get(`${AI_SERVICE_URL}/health`, { timeout: 5000 });
-    
-    res.json({
-      success: true,
-      backend: 'running',
-      aiService: aiHealth.data,
-      message: 'AI Disease Detection Ready!'
-    });
-    
+    res.json({ success: true, backend: 'running', aiService: aiHealth.data });
   } catch (error) {
-    res.json({
-      success: false,
-      backend: 'running',
-      aiService: 'not running',
-      message: 'Start Python AI: cd ai-service && python app.py',
-      error: error.message
-    });
+    res.json({ success: false, backend: 'running', aiService: 'not running', error: error.message });
   }
 });
 
+// POST /api/diseases/save  (legacy alias)
+router.post('/save', async (req, res) => {
+  try {
+    const Disease = require('../models/Disease');
+    const newRecord = new Disease({
+      firebaseUid: req.body.firebaseUid,
+      cropId:      req.body.cropId,
+      diseaseName: req.body.diseaseName,
+      severity:    req.body.severity    || 'moderate',
+      confidence:  req.body.confidence  || 0,
+      pesticides:  req.body.pesticides  || [],
+      treatment:   req.body.treatment   || '',
+      symptoms:    req.body.symptoms    || '',
+      status: 'active'
+    });
+    await newRecord.save();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Save (/save) error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 module.exports = router;
