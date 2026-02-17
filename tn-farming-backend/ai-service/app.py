@@ -8,6 +8,10 @@ import os
 import traceback
 import json
 
+# ✅ IMPORT pesticide engine
+from pesticide_engine import calculate_pesticide
+
+
 app = Flask(__name__)
 CORS(app)
 
@@ -148,6 +152,40 @@ def predict():
         print("❌ Prediction error:", e)
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ==============================
+# PESTICIDE RECOMMENDATION
+# ==============================
+
+@app.route("/pesticide", methods=["POST"])
+def pesticide_recommend():
+    try:
+        data = request.json
+
+        disease = data.get("disease")
+        area = float(data.get("area_sqft"))
+        severity = data.get("severity", "moderate")
+
+        result = calculate_pesticide(disease, area, severity)
+
+        if not result:
+            return jsonify({
+                "success": False,
+                "message": "No pesticide data found"
+            }), 404
+
+        return jsonify({
+            "success": True,
+            "recommendation": result
+        })
+
+    except Exception as e:
+        print("❌ Pesticide calculation error:", e)
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 
 # ==============================
