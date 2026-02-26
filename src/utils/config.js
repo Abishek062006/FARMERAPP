@@ -1,3 +1,5 @@
+// src/utils/config.js
+
 // ⚠️ CHANGE THIS TO YOUR COMPUTER'S IP ADDRESS
 // Windows: Open CMD → type "ipconfig" → look for IPv4 Address
 // Mac/Linux: Open Terminal → type "ifconfig" → look for inet address
@@ -29,8 +31,11 @@ export const API_ENDPOINTS = {
   DISEASES: `${API_URL}/api/diseases`,
 
   // Market Prices
-  MARKET:        `${API_URL}/api/market`,           // existing — for MarketPricesScreen
-  MARKET_PRICES: `${API_URL}/api/market/price`,     // ← NEW — for crop card live prices
+  MARKET:        `${API_URL}/api/market`,
+  MARKET_PRICES: `${API_URL}/api/market/price`,
+
+  // ✅ Crop Listings (Farmer → Vendor marketplace)
+  LISTINGS: `${API_URL}/api/listings`,
 
   // Weather
   WEATHER: `${API_URL}/api/weather`,

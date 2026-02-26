@@ -49,6 +49,7 @@ const VendorNavigator = ({ userData }) => {
       <Stack.Screen 
         name="VendorDashboard" 
         component={VendorDashboard}
+        initialParams={{ userData }}
         options={{
           title: 'Vendor Dashboard',
           headerRight: () => (
