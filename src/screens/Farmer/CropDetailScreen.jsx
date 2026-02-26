@@ -12,11 +12,13 @@ import {
   Image,
   Animated,
   Easing,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/config';
+import { getCurrentLocation } from '../../services/locationService';
 
 export default function CropDetailScreen({ navigation, route }) {
   const { crop, userData } = route.params || {};
@@ -37,6 +39,13 @@ export default function CropDetailScreen({ navigation, route }) {
   const [savedDiseaseName, setSavedDiseaseName] = useState(null);
   const [pesticideExpanded, setPesticideExpanded] = useState(true);
 
+  // ✅ Sell Harvest States
+  const [showSellModal, setShowSellModal] = useState(false);
+  const [sellQty, setSellQty] = useState('');
+  const [sellPrice, setSellPrice] = useState('');
+  const [sellLoading, setSellLoading] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+
   // Animations
   const pesticideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -51,7 +60,6 @@ export default function CropDetailScreen({ navigation, route }) {
 
   useEffect(() => {
     if (savedPesticideInfo) {
-      // Slide-in
       Animated.spring(pesticideAnim, {
         toValue: 1,
         tension: 55,
@@ -59,7 +67,6 @@ export default function CropDetailScreen({ navigation, route }) {
         useNativeDriver: true,
       }).start();
 
-      // Pulse the cost badge
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, { toValue: 1.09, duration: 850, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
@@ -230,7 +237,6 @@ export default function CropDetailScreen({ navigation, route }) {
       });
 
       if (response.data.success) {
-        // ✅ Move pesticide info to main screen card
         if (diseaseResult.pesticideInfo) {
           pesticideAnim.setValue(0);
           setSavedPesticideInfo(diseaseResult.pesticideInfo);
@@ -256,26 +262,92 @@ export default function CropDetailScreen({ navigation, route }) {
     }
   };
 
-  const getDaysElapsed = () => Math.floor((new Date() - new Date(cropData.plantingDate)) / (1000 * 60 * 60 * 24));
-  const getDaysRemaining = () => Math.max(0, cropData.duration - getDaysElapsed());
-  const getProgress = () => ((getDaysElapsed() / cropData.duration) * 100).toFixed(1);
-  const getStageIcon = (s) => ({ germination: '🌱', vegetative: '🌿', flowering: '🌸', fruiting: '🍅', harvest: '🌾', completed: '✅' }[s] || '🌱');
-  const getHealthColor = (s) => s >= 80 ? '#4CAF50' : s >= 60 ? '#FF9800' : '#F44336';
-  const getSeverityColor = (s) => s === 'severe' ? '#F44336' : s === 'mild' ? '#4CAF50' : '#FF9800';
+  // ✅ SELL HARVEST HANDLERS
+  const openSellModal = async () => {
+    try {
+      const loc = await getCurrentLocation();
+      setUserLocation(loc);
+    } catch {
+      setUserLocation({ city: 'Chennai', district: 'Chennai', state: 'Tamil Nadu' });
+    }
+    setSellQty('');
+    setSellPrice('');
+    setShowSellModal(true);
+  };
 
-  const handleMarkHarvested = () => {
-    Alert.alert('Mark as Harvested', 'Are you sure?', [
+  // ✅ UPDATED CODE
+const handleMarkHarvested = () => {
+  if (cropData.isHarvested) return;
+  Alert.alert(
+    '🌾 Harvest Crop',
+    'Mark this crop as harvested?',
+    [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Harvest', style: 'destructive',
+        text: 'Yes, Harvest',
         onPress: async () => {
           try {
             const r = await axios.put(`${API_ENDPOINTS.CROPS}/${cropData._id}/harvest`, { actualYield: 0 });
-            if (r.data.success) Alert.alert('Success!', 'Crop marked as harvested', [{ text: 'OK', onPress: () => navigation.goBack() }]);
-          } catch { Alert.alert('Error', 'Failed to mark as harvested'); }
+            if (r.data.success) {
+              setCropData(prev => ({ ...prev, isHarvested: true })); // ← ADD THIS LINE
+              Alert.alert(
+                '✅ Harvested!',
+                'Do you want to sell this harvest to vendors?',
+                [
+                  { text: 'Not Now', style: 'cancel', onPress: () => navigation.goBack() },
+                  { text: '🛒 Sell Now', onPress: () => openSellModal() },
+                ]
+              );
+            }
+          } catch {
+            Alert.alert('Error', 'Failed to mark as harvested');
+          }
         },
       },
-    ]);
+    ]
+  );
+};
+
+
+  const handlePostListing = async () => {
+    if (!sellQty || !sellPrice) {
+      Alert.alert('Missing Info', 'Please enter both quantity and price per kg.');
+      return;
+    }
+    const qty = parseFloat(sellQty);
+    const price = parseFloat(sellPrice);
+    if (isNaN(qty) || qty <= 0 || isNaN(price) || price <= 0) {
+      Alert.alert('Invalid Input', 'Please enter valid numbers for quantity and price.');
+      return;
+    }
+    setSellLoading(true);
+    try {
+      const r = await axios.post(API_ENDPOINTS.LISTINGS, {
+        cropId:      cropData._id,
+        farmerUid:   firebaseUid,
+        farmerName:  userData?.name || 'Farmer',
+        farmerPhone: userData?.phone || '',
+        cropName:    cropData.name,
+        quantityKg:  qty,
+        pricePerKg:  price,
+        location:    userLocation,
+      });
+      if (r.data.success) {
+        setShowSellModal(false);
+        Alert.alert(
+          '🎉 Listed Successfully!',
+          `Your ${cropData.name} is now visible to vendors in ${userLocation?.city}.`,
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      } else {
+        Alert.alert('Error', r.data.error || 'Failed to post listing');
+      }
+    } catch (err) {
+      console.error('❌ Post listing error:', err);
+      Alert.alert('Error', 'Failed to post listing. Check your connection.');
+    } finally {
+      setSellLoading(false);
+    }
   };
 
   const handleDeleteCrop = () => {
@@ -292,6 +364,13 @@ export default function CropDetailScreen({ navigation, route }) {
       },
     ]);
   };
+
+  const getDaysElapsed = () => Math.floor((new Date() - new Date(cropData.plantingDate)) / (1000 * 60 * 60 * 24));
+  const getDaysRemaining = () => Math.max(0, cropData.duration - getDaysElapsed());
+  const getProgress = () => ((getDaysElapsed() / cropData.duration) * 100).toFixed(1);
+  const getStageIcon = (s) => ({ germination: '🌱', vegetative: '🌿', flowering: '🌸', fruiting: '🍅', harvest: '🌾', completed: '✅' }[s] || '🌱');
+  const getHealthColor = (s) => s >= 80 ? '#4CAF50' : s >= 60 ? '#FF9800' : '#F44336';
+  const getSeverityColor = (s) => s === 'severe' ? '#F44336' : s === 'mild' ? '#4CAF50' : '#FF9800';
 
   if (loading) {
     return (
@@ -319,12 +398,10 @@ export default function CropDetailScreen({ navigation, route }) {
     if (!savedPesticideInfo) return null;
     const info = savedPesticideInfo;
     const landArea = cropData?.area || 1000;
-
     const slideY = pesticideAnim.interpolate({ inputRange: [0, 1], outputRange: [-50, 0] });
 
     return (
       <Animated.View style={[styles.pesticideMainCard, { opacity: pesticideAnim, transform: [{ translateY: slideY }] }]}>
-        {/* Header — tap to expand/collapse */}
         <TouchableOpacity
           style={styles.pesticideMainHeader}
           onPress={() => setPesticideExpanded(p => !p)}
@@ -356,8 +433,6 @@ export default function CropDetailScreen({ navigation, route }) {
 
         {pesticideExpanded && (
           <View style={styles.pesticideMainBody}>
-
-            {/* Land context chip */}
             <View style={styles.landContextRow}>
               <Ionicons name="map-outline" size={14} color="#2E7D32" />
               <Text style={styles.landContextText}>
@@ -367,13 +442,11 @@ export default function CropDetailScreen({ navigation, route }) {
               </Text>
             </View>
 
-            {/* Pesticide name */}
             <View style={styles.pesticideNameBanner}>
               <Ionicons name="flask-outline" size={18} color="#1B5E20" />
               <Text style={styles.pesticideNameBannerText}>{info.pesticide_name}</Text>
             </View>
 
-            {/* 3-column stat grid */}
             <View style={styles.pesticideGrid}>
               <View style={styles.pesticideGridItem}>
                 <Text style={styles.gridEmoji}>💧</Text>
@@ -394,7 +467,6 @@ export default function CropDetailScreen({ navigation, route }) {
               </View>
             </View>
 
-            {/* Total cost row */}
             <View style={styles.costRow}>
               <View style={styles.costRowLeft}>
                 <Ionicons name="cash-outline" size={20} color="#2E7D32" />
@@ -405,7 +477,6 @@ export default function CropDetailScreen({ navigation, route }) {
               </Animated.Text>
             </View>
 
-            {/* Tips */}
             <View style={styles.instructionBox}>
               <Text style={styles.instructionTitle}>📋 Application Tips</Text>
               <Text style={styles.instructionText}>
@@ -416,7 +487,6 @@ export default function CropDetailScreen({ navigation, route }) {
               </Text>
             </View>
 
-            {/* Dismiss */}
             <TouchableOpacity
               style={styles.dismissButton}
               onPress={() => { setSavedPesticideInfo(null); setSavedDiseaseName(null); }}
@@ -501,7 +571,7 @@ export default function CropDetailScreen({ navigation, route }) {
         </View>
       </View>
 
-      {/* ✅ PESTICIDE RECOMMENDATION CARD — appears here after saving */}
+      {/* ✅ PESTICIDE RECOMMENDATION CARD */}
       {savedPesticideInfo && (
         <View style={styles.section}>
           <PesticideRecommendationCard />
@@ -589,10 +659,25 @@ export default function CropDetailScreen({ navigation, route }) {
 
       {/* Action Buttons */}
       <View style={styles.actionsSection}>
-        <TouchableOpacity style={styles.harvestButton} onPress={handleMarkHarvested} disabled={cropData.isHarvested}>
+        <TouchableOpacity
+          style={[styles.harvestButton, cropData.isHarvested && { backgroundColor: '#aaa' }]}
+          onPress={handleMarkHarvested}
+          disabled={cropData.isHarvested}
+        >
           <Ionicons name="checkmark-circle" size={24} color="#fff" />
-          <Text style={styles.harvestButtonText}>{cropData.isHarvested ? 'Already Harvested' : 'Mark as Harvested'}</Text>
+          <Text style={styles.harvestButtonText}>
+            {cropData.isHarvested ? 'Already Harvested' : 'Mark as Harvested'}
+          </Text>
         </TouchableOpacity>
+
+        {/* ✅ Show Sell button separately if already harvested */}
+        {cropData.isHarvested && (
+          <TouchableOpacity style={styles.sellButton} onPress={openSellModal}>
+            <Ionicons name="storefront" size={22} color="#fff" />
+            <Text style={styles.sellButtonText}>🛒 Sell to Vendors</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteCrop}>
           <Ionicons name="trash" size={20} color="#fff" />
           <Text style={styles.deleteButtonText}>Delete Crop</Text>
@@ -680,7 +765,6 @@ export default function CropDetailScreen({ navigation, route }) {
                         </View>
                       ) : null}
 
-                      {/* ✅ Notice in modal — tells user pesticide will appear on main screen */}
                       {diseaseResult.pesticideInfo ? (
                         <View style={styles.pesticideModalNotice}>
                           <Ionicons name="flask-outline" size={20} color="#1B5E20" />
@@ -705,6 +789,99 @@ export default function CropDetailScreen({ navigation, route }) {
           </View>
         </View>
       </Modal>
+
+      {/* ===== SELL HARVEST MODAL ===== */}
+      <Modal
+        visible={showSellModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowSellModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🛒 Sell Your Harvest</Text>
+              <TouchableOpacity onPress={() => setShowSellModal(false)}>
+                <Ionicons name="close" size={28} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {/* Location chip */}
+              <View style={styles.locationChip}>
+                <Ionicons name="location" size={16} color="#2E7D32" />
+                <Text style={styles.locationChipText}>
+                  {userLocation
+                    ? `${userLocation.city}, ${userLocation.district}`
+                    : 'Detecting location...'}
+                </Text>
+              </View>
+
+              <Text style={styles.sellLabel}>Crop Name</Text>
+              <View style={styles.sellReadOnly}>
+                <Text style={styles.sellReadOnlyText}>{cropData.name}</Text>
+              </View>
+
+              <Text style={styles.sellLabel}>Quantity to Sell (kg)</Text>
+              <TextInput
+                style={styles.sellInput}
+                placeholder="e.g. 100"
+                keyboardType="numeric"
+                value={sellQty}
+                onChangeText={setSellQty}
+                placeholderTextColor="#aaa"
+              />
+
+              <Text style={styles.sellLabel}>Price per kg (₹)</Text>
+              <TextInput
+                style={styles.sellInput}
+                placeholder="e.g. 25"
+                keyboardType="numeric"
+                value={sellPrice}
+                onChangeText={setSellPrice}
+                placeholderTextColor="#aaa"
+              />
+
+              {sellQty && sellPrice && !isNaN(parseFloat(sellQty)) && !isNaN(parseFloat(sellPrice)) ? (
+                <View style={styles.totalBox}>
+                  <Text style={styles.totalLabel}>Total Value</Text>
+                  <Text style={styles.totalValue}>
+                    ₹{(parseFloat(sellQty) * parseFloat(sellPrice)).toFixed(0)}
+                  </Text>
+                  <Text style={styles.totalSub}>
+                    {sellQty} kg × ₹{sellPrice}/kg
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={styles.sellInfoBox}>
+                <Ionicons name="information-circle-outline" size={18} color="#1565C0" />
+                <Text style={styles.sellInfoText}>
+                  This listing will be visible to all vendors in {userLocation?.city || 'your city'}. Once a vendor accepts, it will be removed from the market.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.postButton, sellLoading && { opacity: 0.6 }]}
+                onPress={handlePostListing}
+                disabled={sellLoading}
+              >
+                {sellLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="megaphone" size={20} color="#fff" />
+                    <Text style={styles.postButtonText}>Post to Vendors</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <View style={{ height: 20 }} />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 }
@@ -778,7 +955,6 @@ const styles = StyleSheet.create({
   pesticideHeaderRight: { flexDirection: 'row', alignItems: 'center' },
   costBadge: { backgroundColor: '#FFD600', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
   costBadgeText: { color: '#1B5E20', fontWeight: 'bold', fontSize: 14 },
-
   pesticideMainBody: { backgroundColor: '#fff', padding: 16, gap: 14 },
 
   landContextRow: {
@@ -824,7 +1000,6 @@ const styles = StyleSheet.create({
   dismissButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 4 },
   dismissText: { fontSize: 12, color: '#bbb' },
 
-  // Modal pesticide notice
   pesticideModalNotice: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     backgroundColor: '#E8F5E9', padding: 14, borderRadius: 12,
@@ -833,7 +1008,7 @@ const styles = StyleSheet.create({
   pesticideModalNoticeTitle: { fontSize: 14, fontWeight: 'bold', color: '#1B5E20', marginBottom: 3 },
   pesticideModalNoticeText: { fontSize: 13, color: '#388E3C', lineHeight: 19 },
 
-  // ──── REST ────────────────────────────────────────────────────────────────
+  // ──── WEATHER ────────────────────────────────────────────────────────────
   weatherCard: { backgroundColor: '#fff', padding: 16, borderRadius: 12, elevation: 3 },
   weatherMain: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 16 },
   weatherInfo: { flex: 1 },
@@ -872,6 +1047,11 @@ const styles = StyleSheet.create({
   actionsSection: { paddingHorizontal: 16, gap: 12 },
   harvestButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#4CAF50', padding: 16, borderRadius: 12, gap: 8 },
   harvestButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+
+  // ✅ NEW — Sell Button
+  sellButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF6F00', padding: 16, borderRadius: 12, gap: 8 },
+  sellButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+
   deleteButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F44336', padding: 14, borderRadius: 12, gap: 8 },
   deleteButtonText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
 
@@ -899,4 +1079,43 @@ const styles = StyleSheet.create({
   severityMild: { color: '#4CAF50' },
   saveButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#4CAF50', padding: 16, borderRadius: 12, gap: 8, marginTop: 8 },
   saveButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+
+  // ✅ NEW — Sell Modal Styles
+  locationChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#E8F5E9', padding: 10, borderRadius: 10, marginBottom: 20,
+  },
+  locationChipText: { fontSize: 14, color: '#2E7D32', fontWeight: '600' },
+
+  sellLabel: { fontSize: 14, fontWeight: '600', color: '#555', marginBottom: 6, marginTop: 14 },
+  sellInput: {
+    borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
+    padding: 14, fontSize: 16, backgroundColor: '#fff', color: '#333',
+  },
+  sellReadOnly: {
+    borderWidth: 1, borderColor: '#eee', borderRadius: 10,
+    padding: 14, backgroundColor: '#f9f9f9',
+  },
+  sellReadOnlyText: { fontSize: 16, color: '#666' },
+
+  totalBox: {
+    backgroundColor: '#E8F5E9', borderRadius: 14, padding: 18,
+    alignItems: 'center', marginTop: 18,
+  },
+  totalLabel: { fontSize: 13, color: '#555', marginBottom: 4 },
+  totalValue: { fontSize: 28, fontWeight: 'bold', color: '#2E7D32' },
+  totalSub: { fontSize: 13, color: '#888', marginTop: 4 },
+
+  sellInfoBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: '#E3F2FD', padding: 14, borderRadius: 12,
+    marginTop: 20,
+  },
+  sellInfoText: { fontSize: 13, color: '#1565C0', lineHeight: 19, flex: 1 },
+
+  postButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FF6F00', padding: 16, borderRadius: 12, gap: 10, marginTop: 20,
+  },
+  postButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });

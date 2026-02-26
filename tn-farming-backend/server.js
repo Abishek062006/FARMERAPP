@@ -14,6 +14,7 @@ const taskRoutes = require('./routes/tasks');
 const diseaseRoutes = require('./routes/diseases');
 const marketRoutes = require('./routes/market');   // ← single import, no duplicate
 const weatherRoutes = require('./routes/weather');
+const listingRoutes = require('./routes/listings');
 
 // Load environment variables FIRST
 dotenv.config();
@@ -23,6 +24,7 @@ console.log('🔑 Groq API Key loaded:', process.env.GROQ_API_KEY ? 'YES' : 'NO'
 console.log('🔑 Groq API Key value:', process.env.GROQ_API_KEY?.substring(0, 20) + '...');
 console.log('🔑 Data.gov.in API Key loaded:', process.env.DATA_GOV_API_KEY ? 'YES' : 'NO'); // NEW
 
+
 // ✅ Import ALL models for initialization
 require('./models/User');
 require('./models/Land');
@@ -31,6 +33,7 @@ require('./models/Crop');
 require('./models/Task');
 require('./models/Disease');
 require('./models/MarketPrice');
+require('./models/CropListing');
 
 // Connect to MongoDB
 connectDB();
@@ -59,6 +62,7 @@ app.use('/api/tasks',    taskRoutes);
 app.use('/api/diseases', diseaseRoutes);
 app.use('/api/market',   marketRoutes);   // ← ONE line only (removed duplicate)
 app.use('/api/weather',  weatherRoutes);
+app.use('/api/listings', listingRoutes);
 // ──────────────────────────────────────────────────────────────────────────
 
 // Health check route

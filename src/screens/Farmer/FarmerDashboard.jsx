@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Dimensions,
   Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -18,55 +19,31 @@ const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - 32;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PRICE UTILITIES  (new — does not touch any existing logic)
+// PRICE UTILITIES
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Maps common crop English names → Agmarknet commodity names used in the
- * data.gov.in free commodity-price dataset.
- */
 const CROP_COMMODITY_MAP = {
-  wheat:       'Wheat',
-  carrot:      'Carrot',
-  tomato:      'Tomato',
-  rice:        'Rice',
-  maize:       'Maize',
-  corn:        'Maize',
-  onion:       'Onion',
-  potato:      'Potato',
-  chili:       'Dry Chillies',
-  brinjal:     'Brinjal',
-  spinach:     'Spinach',
-  coriander:   'Coriander(Leaves)',
-  radish:      'Radish',
-  beans:       'Beans',
-  capsicum:    'Capsicum',
-  cucumber:    'Cucumber',
-  garlic:      'Garlic',
-  ginger:      'Ginger',
-  turmeric:    'Turmeric',
-  groundnut:   'Groundnut',
-  soybean:     'Soyabean',
-  cotton:      'Cotton',
-  sugarcane:   'Sugarcane',
-  banana:      'Banana',
-  mango:       'Mango',
-  papaya:      'Papaya',
-  lemon:       'Lemon',
+  wheat:      'Wheat',     carrot:    'Carrot',
+  tomato:     'Tomato',    rice:      'Rice',
+  maize:      'Maize',     corn:      'Maize',
+  onion:      'Onion',     potato:    'Potato',
+  chili:      'Dry Chillies', brinjal: 'Brinjal',
+  spinach:    'Spinach',   coriander: 'Coriander(Leaves)',
+  radish:     'Radish',    beans:     'Beans',
+  capsicum:   'Capsicum',  cucumber:  'Cucumber',
+  garlic:     'Garlic',    ginger:    'Ginger',
+  turmeric:   'Turmeric',  groundnut: 'Groundnut',
+  soybean:    'Soyabean',  cotton:    'Cotton',
+  sugarcane:  'Sugarcane', banana:    'Banana',
+  mango:      'Mango',     papaya:    'Papaya',
+  lemon:      'Lemon',
 };
 
-/**
- * Deterministic but "daily-changing" seeded price generator.
- * Uses crop name + today's date as seed so the same crop shows
- * the same price all day, but a different price tomorrow.
- * Returns { price, unit, change, changePercent, trend }
- */
 const generateSeededPrice = (cropName) => {
   const name  = (cropName || '').toLowerCase();
   const today = new Date();
   const dayKey = `${today.getFullYear()}${today.getMonth()}${today.getDate()}`;
 
-  // simple deterministic hash
   const hash = (str) => {
     let h = 0;
     for (let i = 0; i < str.length; i++) {
@@ -103,110 +80,184 @@ const generateSeededPrice = (cropName) => {
   };
 };
 
-/**
- * Fetches price for ANY crop the user adds — always returns a price, never blank.
- * Tries backend → if backend fails for any reason → uses local seeded estimate.
- */
 const fetchCropPrice = async (cropName) => {
   try {
     const commodity =
-      CROP_COMMODITY_MAP[(cropName || '').toLowerCase()] ||
-      cropName;
-
+      CROP_COMMODITY_MAP[(cropName || '').toLowerCase()] || cropName;
     const response = await axios.get(
       `${API_ENDPOINTS.MARKET_PRICES}?commodity=${encodeURIComponent(commodity)}&state=Tamil%20Nadu`,
       { timeout: 8000 }
     );
-
-    // New market.js always returns success:true with data (even for estimates)
     if (response.data?.success && response.data?.data) {
       return response.data.data;
     }
-  } catch (_err) {
-    // Backend 500 / unreachable → use local estimate silently
-  }
-  // Local estimate — works offline for every crop, same price all day
+  } catch (_err) {}
   return generateSeededPrice(cropName);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WEATHER THEME — maps description → colour palette + icon
+// ─────────────────────────────────────────────────────────────────────────────
+const getWeatherTheme = (description = '', temperature = 25) => {
+  const d = description.toLowerCase();
+
+  if (d.includes('thunder') || d.includes('storm')) {
+    return {
+      bg: '#1C1F3A', glowColor: '#2E2F5B',
+      accent: '#A78BFA', textPrimary: '#E8E8FF',
+      textSecondary: 'rgba(232,232,255,0.55)',
+      icon: 'thunderstorm', iconColor: '#C4B5FD',
+      label: 'Thunderstorm',
+    };
+  }
+  if (d.includes('rain') || d.includes('drizzle') || d.includes('shower')) {
+    return {
+      bg: '#1E3A5F', glowColor: '#2D5986',
+      accent: '#60A5FA', textPrimary: '#DBEAFE',
+      textSecondary: 'rgba(219,234,254,0.6)',
+      icon: 'rainy', iconColor: '#93C5FD',
+      label: 'Rainy',
+    };
+  }
+  if (d.includes('snow') || d.includes('sleet') || d.includes('hail')) {
+    return {
+      bg: '#94A3B8', glowColor: '#CBD5E1',
+      accent: '#E0F2FE', textPrimary: '#1E293B',
+      textSecondary: 'rgba(30,41,59,0.55)',
+      icon: 'snow', iconColor: '#7DD3FC',
+      label: 'Snow',
+    };
+  }
+  if (d.includes('overcast') || d.includes('cloud') || d.includes('mist') || d.includes('fog') || d.includes('haze')) {
+    return {
+      bg: '#4B5563', glowColor: '#6B7280',
+      accent: '#D1D5DB', textPrimary: '#F9FAFB',
+      textSecondary: 'rgba(249,250,251,0.55)',
+      icon: 'cloudy', iconColor: '#E5E7EB',
+      label: 'Cloudy',
+    };
+  }
+  if (d.includes('partly') || d.includes('scattered')) {
+    return {
+      bg: '#0369A1', glowColor: '#0EA5E9',
+      accent: '#FCD34D', textPrimary: '#F0F9FF',
+      textSecondary: 'rgba(240,249,255,0.6)',
+      icon: 'partly-sunny', iconColor: '#FDE68A',
+      label: 'Partly Cloudy',
+    };
+  }
+  if (d.includes('clear') || d.includes('sunny') || temperature > 32) {
+    return {
+      bg: '#B45309', glowColor: '#D97706',
+      accent: '#FEF3C7', textPrimary: '#FFFBEB',
+      textSecondary: 'rgba(255,251,235,0.6)',
+      icon: 'sunny', iconColor: '#FDE68A',
+      label: 'Sunny',
+    };
+  }
+  // default pleasant
+  return {
+    bg: '#0C4A6E', glowColor: '#0284C7',
+    accent: '#BAE6FD', textPrimary: '#F0F9FF',
+    textSecondary: 'rgba(240,249,255,0.55)',
+    icon: 'partly-sunny', iconColor: '#FDE68A',
+    label: 'Pleasant',
+  };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MINI SPARKLINE
+// ─────────────────────────────────────────────────────────────────────────────
+const MiniChart = ({ trend, color }) => {
+  const points = trend === 'up'
+    ? [30, 28, 35, 32, 38, 36, 42]
+    : [42, 40, 36, 38, 32, 30, 28];
+  const max = Math.max(...points);
+  const min = Math.min(...points);
+  const range = max - min || 1;
+  const chartH = 40;
+  const chartW = 100;
+
+  return (
+    <View style={{ width: chartW, height: chartH, position: 'relative' }}>
+      {points.map((val, i) => {
+        const x = (i / (points.length - 1)) * (chartW - 4);
+        const y = chartH - ((val - min) / range) * (chartH - 4) - 2;
+        return <View key={i} style={{ position: 'absolute', left: x, top: y, width: 3, height: 3, borderRadius: 1.5, backgroundColor: color }} />;
+      })}
+      {points.slice(0, -1).map((val, i) => {
+        const x1 = (i / (points.length - 1)) * (chartW - 4) + 1.5;
+        const y1 = chartH - ((val - min) / range) * (chartH - 4) - 0.5;
+        const x2 = ((i + 1) / (points.length - 1)) * (chartW - 4) + 1.5;
+        const y2 = chartH - ((points[i + 1] - min) / range) * (chartH - 4) - 0.5;
+        const dx = x2 - x1; const dy = y2 - y1;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+        return <View key={`l${i}`} style={{ position: 'absolute', left: x1, top: y1, width: len, height: 1.5, backgroundColor: color, opacity: 0.6, transform: [{ rotate: `${angle}deg` }], transformOrigin: '0 0' }} />;
+      })}
+    </View>
+  );
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
-
 export default function FarmerDashboard({ navigation, route }) {
   const { userData } = route.params || {};
 
-  const [loading,      setLoading]      = useState(true);
-  const [refreshing,   setRefreshing]   = useState(false);
-  const [lands,        setLands]        = useState([]);
-  const [selectedLand, setSelectedLand] = useState(null);
-  const [crops,        setCrops]        = useState([]);
-  const [weather,      setWeather]      = useState(null);
-  const [stats,        setStats]        = useState({
-    totalLands:    0,
-    activeCrops:   0,
-    harvestedCrops: 0,
-    pendingTasks:  0,
-  });
+  const [loading,        setLoading]        = useState(true);
+  const [refreshing,     setRefreshing]     = useState(false);
+  const [lands,          setLands]          = useState([]);
+  const [selectedLand,   setSelectedLand]   = useState(null);
+  const [crops,          setCrops]          = useState([]);
+  const [weather,        setWeather]        = useState(null);
+  const [stats,          setStats]          = useState({ totalLands: 0, activeCrops: 0, harvestedCrops: 0 });
+  const [cropPrices,     setCropPrices]     = useState({});
+  const [pricesLoading,  setPricesLoading]  = useState(false);
+  const [incomingOffers, setIncomingOffers] = useState([]);
 
-  // ── NEW: crop-name → price info map ─────────────────────────────────────
-  const [cropPrices, setCropPrices] = useState({});   // { [cropName]: priceObj }
-  const [pricesLoading, setPricesLoading] = useState(false);
-  // ────────────────────────────────────────────────────────────────────────
+  const [marketPrices] = useState([
+    { name: 'Onion',   emoji: '🧅', price: 45, change: 7,  trend: 'up',   color: '#F97316' },
+    { name: 'Brinjal', emoji: '🍆', price: 25, change: -2, trend: 'down', color: '#9333EA' },
+  ]);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  const firebaseUid = userData?.firebaseUid || userData?.uid;
 
-  // ── NEW: fetch prices whenever crops list changes ────────────────────────
-  useEffect(() => {
-    if (crops.length > 0) {
-      loadCropPrices(crops);
+  const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good Morning';
+    if (h < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  useEffect(() => { loadDashboardData(); }, []);
+  useEffect(() => { if (crops.length > 0) loadCropPrices(crops); }, [crops]);
+
+  const loadCropPrices = async (cropList) => {
+    try {
+      setPricesLoading(true);
+      const priceMap = {};
+      for (const crop of cropList) {
+        priceMap[crop._id] = await fetchCropPrice(crop.name);
+        await new Promise(r => setTimeout(r, 500));
+      }
+      setCropPrices(priceMap);
+    } catch (err) {
+      console.log('⚠️ Price fetch error (non-critical):', err);
+    } finally {
+      setPricesLoading(false);
     }
-  }, [crops]);
-
- const loadCropPrices = async (cropList) => {
-  try {
-    setPricesLoading(true);
-    const priceMap = {};
-
-    for (const crop of cropList) {
-      const priceData = await fetchCropPrice(crop.name);
-      priceMap[crop._id] = priceData;
-
-      // Small delay to prevent API burst blocking
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-
-    setCropPrices(priceMap);
-  } catch (err) {
-    console.log('⚠️ Price fetch error (non-critical):', err);
-  } finally {
-    setPricesLoading(false);
-  }
-};
-
-  // ────────────────────────────────────────────────────────────────────────
+  };
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const firebaseUid = userData?.firebaseUid || userData?.uid;
-
-      if (!firebaseUid) {
-        Alert.alert('Error', 'Please login again');
-        return;
-      }
-
-      console.log('📊 Loading dashboard for user:', firebaseUid);
-
+      if (!firebaseUid) { Alert.alert('Error', 'Please login again'); return; }
       const landsResponse = await axios.get(`${API_ENDPOINTS.LANDS}/${firebaseUid}`);
-      
       if (landsResponse.data.success) {
         const userLands = landsResponse.data.lands;
         setLands(userLands);
         setStats(prev => ({ ...prev, totalLands: userLands.length }));
-
         if (userLands.length > 0) {
           const firstLand = userLands[0];
           setSelectedLand(firstLand);
@@ -214,6 +265,7 @@ export default function FarmerDashboard({ navigation, route }) {
           await fetchWeather(firstLand.location);
         }
       }
+      await fetchIncomingOffers(firebaseUid);
     } catch (error) {
       console.error('❌ Error loading dashboard:', error);
       Alert.alert('Error', 'Failed to load dashboard data');
@@ -223,96 +275,101 @@ export default function FarmerDashboard({ navigation, route }) {
     }
   };
 
-  const fetchCropsForLand = async (landId, firebaseUid) => {
+  // ✅ fetch offers where farmer needs to respond
+  const fetchIncomingOffers = async (uid) => {
+    try {
+      const res = await axios.get(`${API_ENDPOINTS.LISTINGS}/farmer/${uid}`);
+      if (res.data.success) setIncomingOffers(res.data.listings);
+    } catch { console.log('No incoming offers'); }
+  };
+
+  // ✅ farmer confirms vendor's offer
+  const handleConfirmOffer = (listing) => {
+    Alert.alert(
+      '✅ Confirm Deal',
+      `Confirm sale of ${listing.quantityKg} kg of ${listing.cropName} to ${listing.vendorName} for ₹${listing.totalPrice?.toLocaleString()}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            try {
+              const r = await axios.put(`${API_ENDPOINTS.LISTINGS}/${listing._id}/confirm`);
+              if (r.data.success) {
+                Alert.alert('🎉 Deal Confirmed!', `You can now contact ${listing.vendorName}${listing.vendorPhone ? ` at ${listing.vendorPhone}` : ''}.`);
+                await fetchIncomingOffers(firebaseUid);
+              }
+            } catch { Alert.alert('Error', 'Failed to confirm deal'); }
+          },
+        },
+      ]
+    );
+  };
+
+  // ✅ farmer declines, listing goes back to market
+  const handleDeclineOffer = (listing) => {
+    Alert.alert(
+      '❌ Decline Offer',
+      `Decline offer from ${listing.vendorName}? The listing will go back to the market.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Decline', style: 'destructive',
+          onPress: async () => {
+            try {
+              await axios.put(`${API_ENDPOINTS.LISTINGS}/${listing._id}/decline`);
+              Alert.alert('Done', 'Offer declined. Listing is back on the market.');
+              await fetchIncomingOffers(firebaseUid);
+            } catch { Alert.alert('Error', 'Failed to decline offer'); }
+          },
+        },
+      ]
+    );
+  };
+
+  const fetchCropsForLand = async (landId) => {
     try {
       const cropsResponse = await axios.get(`${API_ENDPOINTS.CROPS}/land/${landId}`);
-      
       if (cropsResponse.data.success) {
         const landCrops = cropsResponse.data.crops;
         setCrops(landCrops);
-        
-        const active    = landCrops.filter(c =>  c.isActive && !c.isHarvested).length;
-        const harvested = landCrops.filter(c =>  c.isHarvested).length;
-        
-        setStats(prev => ({
-          ...prev,
-          activeCrops:    active,
-          harvestedCrops: harvested,
-        }));
+        const active    = landCrops.filter(c => c.isActive && !c.isHarvested).length;
+        const harvested = landCrops.filter(c => c.isHarvested).length;
+        setStats(prev => ({ ...prev, activeCrops: active, harvestedCrops: harvested }));
       }
-    } catch (error) {
-      console.error('❌ Error fetching crops:', error);
-    }
+    } catch (error) { console.error('❌ Error fetching crops:', error); }
   };
 
   const fetchWeather = async (location) => {
     try {
-      if (!location.coordinates || !location.coordinates.lat) {
-        console.log('⚠️ No coordinates available for weather');
-        return;
-      }
-
+      if (!location.coordinates?.lat) return;
       const { lat, lng } = location.coordinates;
-      const weatherResponse = await axios.get(
-        `${API_ENDPOINTS.WEATHER}/current?lat=${lat}&lng=${lng}`
-      );
-
-      if (weatherResponse.data.success) {
-        setWeather(weatherResponse.data.weather);
-      }
-    } catch (error) {
-      console.error('❌ Error fetching weather:', error);
-    }
+      const weatherResponse = await axios.get(`${API_ENDPOINTS.WEATHER}/current?lat=${lat}&lng=${lng}`);
+      if (weatherResponse.data.success) setWeather(weatherResponse.data.weather);
+    } catch (error) { console.error('❌ Error fetching weather:', error); }
   };
 
-  const handleRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadDashboardData();
-  }, []);
-
+  const handleRefresh    = useCallback(() => { setRefreshing(true); loadDashboardData(); }, []);
   const handleLandChange = async (land) => {
     setSelectedLand(land);
-    await fetchCropsForLand(land._id, userData?.firebaseUid || userData?.uid);
+    await fetchCropsForLand(land._id, firebaseUid);
     await fetchWeather(land.location);
   };
 
-  const handleAddLand     = ()  => navigation.navigate('LandRegistration', { userData });
-  const handleViewLands   = ()  => navigation.navigate('LandList', { userData });
-  const handleStartFarming = () => {
-    if (selectedLand) {
-      navigation.navigate('CropRecommendation', { land: selectedLand, userData });
-    }
-  };
-  const handleCropPress   = (crop) => navigation.navigate('CropDetail', { crop, userData });
+  const handleAddLand      = () => navigation.navigate('LandRegistration', { userData });
+  const handleViewLands    = () => navigation.navigate('LandList', { userData });
+  const handleStartFarming = () => { if (selectedLand) navigation.navigate('CropRecommendation', { land: selectedLand, userData }); };
+  const handleCropPress    = (crop) => navigation.navigate('CropDetail', { crop, userData });
 
-  const getDaysElapsed  = (plantingDate) => {
-    const diff = Math.floor((new Date() - new Date(plantingDate)) / 86400000);
-    return diff;
-  };
-  const getDaysRemaining = (plantingDate, duration) =>
-    Math.max(0, duration - getDaysElapsed(plantingDate));
-
-  const getStageIcon = (stage) => {
-    switch (stage) {
-      case 'germination': return '🌱';
-      case 'vegetative':  return '🌿';
-      case 'flowering':   return '🌸';
-      case 'fruiting':    return '🍅';
-      case 'harvest':     return '🌾';
-      default:            return '🌱';
-    }
-  };
-
-  const getHealthColor = (score) => {
-    if (score >= 80) return '#4CAF50';
-    if (score >= 60) return '#FF9800';
-    return '#F44336';
-  };
+  const getDaysElapsed   = (d)        => Math.floor((new Date() - new Date(d)) / 86400000);
+  const getDaysRemaining = (d, dur)   => Math.max(0, dur - getDaysElapsed(d));
+  const getStageIcon     = (stage)    => ({ germination: '🌱', vegetative: '🌿', flowering: '🌸', fruiting: '🍅', harvest: '🌾' }[stage] || '🌱');
+  const getHealthColor   = (score)    => score >= 80 ? '#16A34A' : score >= 60 ? '#D97706' : '#DC2626';
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+        <ActivityIndicator size="large" color="#16A34A" />
         <Text style={styles.loadingText}>Loading your farm...</Text>
       </View>
     );
@@ -320,16 +377,11 @@ export default function FarmerDashboard({ navigation, route }) {
 
   if (lands.length === 0) {
     return (
-      <ScrollView
-        style={styles.container}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-      >
+      <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}>
         <View style={styles.emptyContainer}>
           <Ionicons name="leaf-outline" size={100} color="#ccc" />
           <Text style={styles.emptyTitle}>Welcome to Your Farm! 🌾</Text>
-          <Text style={styles.emptySubtitle}>
-            Start your farming journey by registering your first land
-          </Text>
+          <Text style={styles.emptySubtitle}>Start your farming journey by registering your first land</Text>
           <TouchableOpacity style={styles.addButton} onPress={handleAddLand}>
             <Ionicons name="add-circle" size={24} color="#fff" />
             <Text style={styles.addButtonText}>Register First Land</Text>
@@ -339,110 +391,202 @@ export default function FarmerDashboard({ navigation, route }) {
     );
   }
 
+  const wt = getWeatherTheme(weather?.description, weather?.temperature);
+  const pendingCount = incomingOffers.filter(o => o.status === 'pending').length;
+
   return (
     <ScrollView
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+      showsVerticalScrollIndicator={false}
     >
-      {/* ── Stats Cards (unchanged) ─────────────────────────────────────── */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Ionicons name="map" size={32} color="#4CAF50" />
-          <Text style={styles.statValue}>{stats.totalLands}</Text>
-          <Text style={styles.statLabel}>Lands</Text>
+      {/* ── Greeting (no lang switcher) ───────────────────────────────────── */}
+      <View style={styles.greetingRow}>
+        <View style={styles.farmingBadge}>
+          <Ionicons name="leaf" size={11} color="#16A34A" />
+          <Text style={styles.farmingBadgeText}>NORMAL FARMING</Text>
         </View>
-        <View style={styles.statCard}>
-          <Ionicons name="leaf" size={32} color="#2196F3" />
-          <Text style={styles.statValue}>{stats.activeCrops}</Text>
-          <Text style={styles.statLabel}>Active Crops</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Ionicons name="checkmark-circle" size={32} color="#FF9800" />
-          <Text style={styles.statValue}>{stats.harvestedCrops}</Text>
-          <Text style={styles.statLabel}>Harvested</Text>
+        <Text style={styles.greetingText}>{getGreeting()}, Farmer 👋</Text>
+      </View>
+
+      {/* ── Dynamic Weather Card ──────────────────────────────────────────── */}
+      <View style={[styles.weatherCard, { backgroundColor: wt.bg }]}>
+        {/* Soft glow blob */}
+        <View style={[styles.weatherGlow, { backgroundColor: wt.glowColor }]} />
+
+        <View style={styles.weatherInner}>
+          {/* Left */}
+          <View style={styles.weatherLeft}>
+            <Text style={[styles.weatherEyebrow, { color: wt.textSecondary }]}>CURRENT WEATHER</Text>
+            <Text style={[styles.weatherTemp, { color: wt.textPrimary }]}>
+              {weather ? `${weather.temperature}°C` : '25°C'}
+            </Text>
+            <View style={styles.weatherLabelRow}>
+              <Ionicons name={wt.icon} size={15} color={wt.iconColor} />
+              <Text style={[styles.weatherLabel, { color: wt.textSecondary }]}>{wt.label}</Text>
+            </View>
+          </View>
+
+          {/* Right */}
+          <View style={styles.weatherRight}>
+            <View style={[styles.weatherIconBubble, { backgroundColor: `${wt.accent}25` }]}>
+              <Ionicons name={wt.icon} size={38} color={wt.iconColor} />
+            </View>
+            <View style={styles.weatherStatCol}>
+              <View style={styles.weatherStatRow}>
+                <Ionicons name="water-outline" size={12} color={wt.textSecondary} />
+                <Text style={[styles.weatherStatVal, { color: wt.textPrimary }]}>
+                  {weather?.humidity ?? 86}%
+                </Text>
+              </View>
+              <View style={styles.weatherStatRow}>
+                <Ionicons name="speedometer-outline" size={12} color={wt.textSecondary} />
+                <Text style={[styles.weatherStatVal, { color: wt.textPrimary }]}>
+                  {weather?.windSpeed ?? '1.5'} m/s
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
       </View>
 
-      {/* ── Market quick-action (unchanged) ─────────────────────────────── */}
-      <TouchableOpacity
-        style={styles.quickActionCard}
-        onPress={() => navigation.navigate('MarketPrices')}
-      >
-        <Ionicons name="trending-up" size={32} color="#FF9800" />
-        <Text style={styles.quickActionText}>Market</Text>
-      </TouchableOpacity>
-
-      {/* ── Weather Card (unchanged) ─────────────────────────────────────── */}
-      {weather && (
-        <View style={styles.weatherCard}>
-          <View style={styles.weatherHeader}>
-            <Ionicons name="partly-sunny" size={24} color="#FF9800" />
-            <Text style={styles.weatherTitle}>Current Weather</Text>
+      {/* ── Quick Row ─────────────────────────────────────────────────────── */}
+      <View style={styles.quickRow}>
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('LandList', { userData })}>
+          <View style={[styles.quickIcon, { backgroundColor: '#DCFCE7' }]}>
+            <Ionicons name="map" size={24} color="#16A34A" />
           </View>
-          <View style={styles.weatherContent}>
-            <Text style={styles.weatherTemp}>{weather.temperature}°C</Text>
-            <View style={styles.weatherDetails}>
-              <View style={styles.weatherDetail}>
-                <Ionicons name="water" size={16} color="#2196F3" />
-                <Text style={styles.weatherDetailText}>{weather.humidity}%</Text>
-              </View>
-              <View style={styles.weatherDetail}>
-                <Ionicons name="speedometer" size={16} color="#666" />
-                <Text style={styles.weatherDetailText}>{weather.windSpeed} m/s</Text>
-              </View>
-            </View>
-          </View>
-          <Text style={styles.weatherDescription}>{weather.description}</Text>
-        </View>
-      )}
+          <Text style={styles.quickLabel}>My Lands</Text>
+        </TouchableOpacity>
 
-      {/* ── Land Selector (unchanged) ────────────────────────────────────── */}
-      <View style={styles.landSelector}>
-        <View style={styles.landSelectorHeader}>
-          <Text style={styles.landSelectorTitle}>Selected Land</Text>
-          <TouchableOpacity onPress={handleViewLands}>
-            <Text style={styles.viewAllButton}>View All →</Text>
+        <TouchableOpacity style={[styles.quickBtn, styles.quickBtnMid]} onPress={handleStartFarming}>
+          <View style={[styles.quickIcon, { backgroundColor: '#1D4ED8' }]}>
+            <Ionicons name="add" size={26} color="#fff" />
+          </View>
+          <Text style={[styles.quickLabel, { color: '#1D4ED8', fontWeight: '700' }]}>Add Crop</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('MarketPrices')}>
+          <View style={[styles.quickIcon, { backgroundColor: '#FEF3C7' }]}>
+            <Ionicons name="trending-up" size={24} color="#D97706" />
+          </View>
+          <Text style={[styles.quickLabel, { color: '#D97706' }]}>Market</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Market Prices ─────────────────────────────────────────────────── */}
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View>
+            <Text style={styles.cardTitle}>Market Prices</Text>
+            <Text style={styles.cardSub}>Live 7-day trend</Text>
+          </View>
+          <TouchableOpacity onPress={() => navigation.navigate('MarketPrices')}>
+            <Text style={styles.linkText}>See all →</Text>
           </TouchableOpacity>
         </View>
-        
+        <View style={styles.marketRow}>
+          {marketPrices.map((mp) => {
+            const isUp = mp.trend === 'up';
+            return (
+              <View key={mp.name} style={styles.marketCard}>
+                <View style={styles.marketTop}>
+                  <Text style={styles.marketEmoji}>{mp.emoji}</Text>
+                  <View>
+                    <Text style={styles.marketName}>{mp.name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                      <Text style={[styles.marketPrice, { color: mp.color }]}>{mp.price}</Text>
+                      <Text style={styles.marketUnit}> ₹/kg</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 2 }}>
+                      <Ionicons name={isUp ? 'arrow-up' : 'arrow-down'} size={11} color={isUp ? '#16A34A' : '#DC2626'} />
+                      <Text style={[styles.marketChange, { color: isUp ? '#16A34A' : '#DC2626' }]}>
+                        {isUp ? '+' : ''}{mp.change}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <MiniChart trend={mp.trend} color={mp.color} />
+                <Text style={styles.chartLabel}>7 day trend</Text>
+              </View>
+            );
+          })}
+        </View>
+        <View style={styles.dayRow}>
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
+            <Text key={d} style={styles.dayLabel}>{d}</Text>
+          ))}
+        </View>
+      </View>
+
+      {/* ── Stats ─────────────────────────────────────────────────────────── */}
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Text style={styles.statNum}>{stats.totalLands}</Text>
+          <Text style={styles.statLbl}>LANDS</Text>
+        </View>
+        <View style={styles.statDiv} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statNum, { color: '#2563EB' }]}>{stats.activeCrops}</Text>
+          <Text style={styles.statLbl}>ACTIVE</Text>
+        </View>
+        <View style={styles.statDiv} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statNum, { color: '#D97706' }]}>{stats.harvestedCrops}</Text>
+          <Text style={styles.statLbl}>HARVESTED</Text>
+        </View>
+      </View>
+
+      {/* ── Selected Land — Professional ─────────────────────────────────── */}
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Selected Land</Text>
+          <TouchableOpacity onPress={handleViewLands}>
+            <Text style={styles.linkText}>View All →</Text>
+          </TouchableOpacity>
+        </View>
+
         {selectedLand && (
-          <View style={styles.selectedLandCard}>
-            <View style={styles.landInfo}>
-              <Ionicons name="location" size={20} color="#4CAF50" />
-              <View style={styles.landDetails}>
+          <TouchableOpacity style={styles.landTile} onPress={handleViewLands} activeOpacity={0.78}>
+            <View style={styles.landAccent} />
+            <View style={styles.landBody}>
+              <View style={styles.landIcon}>
+                <Ionicons name="location" size={20} color="#16A34A" />
+              </View>
+              <View style={styles.landMeta}>
                 <Text style={styles.landName}>{selectedLand.landName}</Text>
-                <Text style={styles.landLocation}>
+                <Text style={styles.landLoc}>
                   {selectedLand.location.city}, {selectedLand.location.district}
                 </Text>
-                <Text style={styles.landSize}>
-                  {selectedLand.size.value} {selectedLand.size.unit}
-                </Text>
+                <View style={styles.landTags}>
+                  <View style={styles.landTag}>
+                    <Ionicons name="resize" size={10} color="#16A34A" />
+                    <Text style={styles.landTagText}>
+                      {selectedLand.size.value} {selectedLand.size.unit}
+                    </Text>
+                  </View>
+                  {selectedLand.soilType ? (
+                    <View style={[styles.landTag, styles.landTagAlt]}>
+                      <Ionicons name="layers-outline" size={10} color="#92400E" />
+                      <Text style={[styles.landTagText, { color: '#92400E' }]}>{selectedLand.soilType}</Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
+              <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
             </View>
-          </View>
+          </TouchableOpacity>
         )}
 
         {lands.length > 1 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.landSwitcher}
-          >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
             {lands.map((land) => (
               <TouchableOpacity
                 key={land._id}
-                style={[
-                  styles.landChip,
-                  selectedLand?._id === land._id && styles.landChipSelected,
-                ]}
+                style={[styles.landChip, selectedLand?._id === land._id && styles.landChipSel]}
                 onPress={() => handleLandChange(land)}
               >
-                <Text
-                  style={[
-                    styles.landChipText,
-                    selectedLand?._id === land._id && styles.landChipTextSelected,
-                  ]}
-                >
+                <Text style={[styles.landChipTxt, selectedLand?._id === land._id && styles.landChipTxtSel]}>
                   {land.landName}
                 </Text>
               </TouchableOpacity>
@@ -451,206 +595,198 @@ export default function FarmerDashboard({ navigation, route }) {
         )}
       </View>
 
-      {/* ── Crops Section ────────────────────────────────────────────────── */}
-      <View style={styles.cropsSection}>
-        <View style={styles.cropsSectionHeader}>
-          <Text style={styles.cropsSectionTitle}>
-            Active Crops ({crops.length})
-          </Text>
-          <TouchableOpacity onPress={handleStartFarming}>
-            <View style={styles.addCropButton}>
-              <Ionicons name="add" size={20} color="#4CAF50" />
-              <Text style={styles.addCropText}>Add Crop</Text>
+      {/* ── Incoming Vendor Offers — Professional ────────────────────────── */}
+      {incomingOffers.length > 0 && (
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={styles.bellWrap}>
+                <Ionicons name="notifications" size={15} color="#EA580C" />
+                {pendingCount > 0 && (
+                  <View style={styles.bellDot}>
+                    <Text style={styles.bellDotTxt}>{pendingCount}</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.cardTitle}>Vendor Offers</Text>
             </View>
+            <View style={styles.offerCountBadge}>
+              <Text style={styles.offerCountTxt}>{incomingOffers.length} total</Text>
+            </View>
+          </View>
+
+          {incomingOffers.map((offer) => {
+            const isPending   = offer.status === 'pending';
+            const isConfirmed = offer.status === 'confirmed';
+
+            return (
+              <View key={offer._id} style={styles.offerCard}>
+                {/* Status row */}
+                <View style={styles.offerHeaderRow}>
+                  <View style={[styles.offerChip, { backgroundColor: isConfirmed ? '#DCFCE7' : '#FFF7ED' }]}>
+                    <View style={[styles.offerDot, { backgroundColor: isConfirmed ? '#16A34A' : '#EA580C' }]} />
+                    <Text style={[styles.offerChipTxt, { color: isConfirmed ? '#15803D' : '#C2410C' }]}>
+                      {isConfirmed ? 'Deal Confirmed' : 'Awaiting Response'}
+                    </Text>
+                  </View>
+                  <Text style={styles.offerDate}>
+                    {new Date(offer.acceptedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </Text>
+                </View>
+
+                {/* Crop + price */}
+                <View style={styles.offerMainRow}>
+                  <View>
+                    <Text style={styles.offerCrop}>🌾 {offer.cropName}</Text>
+                    <Text style={styles.offerMeta}>{offer.quantityKg} kg · ₹{offer.pricePerKg}/kg</Text>
+                  </View>
+                  <View style={styles.offerPriceBox}>
+                    <Text style={styles.offerPriceLbl}>Total</Text>
+                    <Text style={styles.offerTotal}>₹{offer.totalPrice?.toLocaleString()}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.offerDivider} />
+
+                {/* Vendor row */}
+                <View style={styles.vendorRow}>
+                  <View style={styles.vendorAvatar}>
+                    <Text style={styles.vendorAvatarTxt}>
+                      {(offer.vendorName || 'V')[0].toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.vendorName}>{offer.vendorName}</Text>
+                    {offer.vendorCompany && offer.vendorCompany !== offer.vendorName && (
+                      <Text style={styles.vendorCompany}>{offer.vendorCompany}</Text>
+                    )}
+                    {isConfirmed && offer.vendorPhone ? (
+                      <TouchableOpacity
+                        style={styles.callChip}
+                        onPress={() => Linking.openURL(`tel:${offer.vendorPhone}`)}
+                      >
+                        <Ionicons name="call" size={12} color="#2563EB" />
+                        <Text style={styles.callChipTxt}>{offer.vendorPhone}</Text>
+                      </TouchableOpacity>
+                    ) : isPending ? (
+                      <Text style={styles.phoneHint}>📞 Phone visible after confirming</Text>
+                    ) : null}
+                  </View>
+                </View>
+
+                {/* Actions */}
+                {isPending && (
+                  <View style={styles.offerActions}>
+                    <TouchableOpacity style={styles.confirmBtn} onPress={() => handleConfirmOffer(offer)}>
+                      <Ionicons name="checkmark" size={15} color="#fff" />
+                      <Text style={styles.confirmTxt}>Accept</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.declineBtn} onPress={() => handleDeclineOffer(offer)}>
+                      <Ionicons name="close" size={15} color="#DC2626" />
+                      <Text style={styles.declineTxt}>Decline</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {isConfirmed && (
+                  <View style={styles.confirmedBanner}>
+                    <Ionicons name="ribbon-outline" size={13} color="#15803D" />
+                    <Text style={styles.confirmedTxt}>Deal locked in — contact the vendor above</Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* ── Active Crops ──────────────────────────────────────────────────── */}
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Active Crops ({crops.length})</Text>
+          <TouchableOpacity style={styles.addCropBtn} onPress={handleStartFarming}>
+            <Ionicons name="add" size={16} color="#16A34A" />
+            <Text style={styles.addCropTxt}>Add Crop</Text>
           </TouchableOpacity>
         </View>
 
         {crops.length === 0 ? (
-          <View style={styles.noCropsContainer}>
-            <Ionicons name="leaf-outline" size={60} color="#ccc" />
-            <Text style={styles.noCropsText}>No crops planted yet</Text>
-            <TouchableOpacity style={styles.startFarmingButton} onPress={handleStartFarming}>
-              <Ionicons name="sparkles" size={20} color="#fff" />
-              <Text style={styles.startFarmingText}>Get AI Recommendations</Text>
+          <View style={styles.noCropsWrap}>
+            <View style={styles.noCropsCircle}>
+              <Ionicons name="leaf-outline" size={34} color="#16A34A" />
+            </View>
+            <Text style={styles.noCropsTitle}>No crops planted yet</Text>
+            <Text style={styles.noCropsSub}>Let AI suggest the best crops for your land</Text>
+            <TouchableOpacity style={styles.aiBtn} onPress={handleStartFarming}>
+              <Ionicons name="sparkles" size={17} color="#fff" />
+              <Text style={styles.aiBtnTxt}>Get AI Recommendations</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.cropsScroll}
-          >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 4 }}>
             {crops.map((crop) => {
               const daysElapsed   = getDaysElapsed(crop.plantingDate);
               const daysRemaining = getDaysRemaining(crop.plantingDate, crop.duration);
               const progress      = (daysElapsed / crop.duration) * 100;
-
-              // ── NEW: price data for this crop ──────────────────────────
-              const priceData = cropPrices[crop._id];
-              const isUp      = priceData?.trend === 'up';
-              // ──────────────────────────────────────────────────────────
+              const priceData     = cropPrices[crop._id];
+              const isUp          = priceData?.trend === 'up';
 
               return (
-                <TouchableOpacity
-                  key={crop._id}
-                  style={styles.cropCard}
-                  onPress={() => handleCropPress(crop)}
-                  activeOpacity={0.7}
-                >
-                  {/* Stage Badge (unchanged) */}
+                <TouchableOpacity key={crop._id} style={styles.cropCard} onPress={() => handleCropPress(crop)} activeOpacity={0.7}>
                   <View style={styles.stageBadge}>
-                    <Text style={styles.stageText}>
-                      {crop.currentStage.charAt(0).toUpperCase() +
-                        crop.currentStage.slice(1)}
-                    </Text>
+                    <Text style={styles.stageTxt}>{crop.currentStage.charAt(0).toUpperCase() + crop.currentStage.slice(1)}</Text>
                   </View>
-
-                  {/* Crop Header (unchanged) */}
                   <View style={styles.cropCardHeader}>
-                    <Text style={styles.cropStageIcon}>
-                      {getStageIcon(crop.currentStage)}
-                    </Text>
-                    <View
-                      style={[
-                        styles.healthBadge,
-                        { backgroundColor: getHealthColor(crop.healthScore) },
-                      ]}
-                    >
+                    <Text style={styles.cropIcon}>{getStageIcon(crop.currentStage)}</Text>
+                    <View style={[styles.healthBadge, { backgroundColor: getHealthColor(crop.healthScore) }]}>
                       <Ionicons name="fitness" size={14} color="#fff" />
-                      <Text style={styles.healthText}>{crop.healthScore}%</Text>
+                      <Text style={styles.healthTxt}>{crop.healthScore}%</Text>
                     </View>
                   </View>
-
-                  {/* Crop names (unchanged) */}
-                  <Text style={styles.cropCardName}>{crop.name}</Text>
-                  <Text style={styles.cropCardTamilName}>{crop.tamilName}</Text>
-
-                  {/* Progress Bar (unchanged) */}
-                  <View style={styles.progressContainer}>
+                  <Text style={styles.cropName}>{crop.name}</Text>
+                  <Text style={styles.cropTamil}>{crop.tamilName}</Text>
+                  <View style={styles.progressWrap}>
                     <View style={styles.progressBar}>
-                      <View
-                        style={[
-                          styles.progressFill,
-                          { width: `${Math.min(100, progress)}%` },
-                        ]}
-                      />
+                      <View style={[styles.progressFill, { width: `${Math.min(100, progress)}%` }]} />
                     </View>
-                    <Text style={styles.progressText}>
-                      Day {daysElapsed}/{crop.duration}
-                    </Text>
+                    <Text style={styles.progressTxt}>Day {daysElapsed}/{crop.duration}</Text>
                   </View>
-
-                  {/* Days Remaining (unchanged) */}
-                  <View style={styles.cropCardFooter}>
-                    <View style={styles.daysRemaining}>
+                  <View style={styles.cropFooter}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Ionicons name="time" size={16} color="#666" />
-                      <Text style={styles.daysRemainingText}>
-                        {daysRemaining} days left
-                      </Text>
+                      <Text style={styles.daysLeftTxt}>{daysRemaining} days left</Text>
                     </View>
                   </View>
-
-                  {/* ── NEW: Price Strip ───────────────────────────────── */}
                   <View style={styles.priceDivider} />
                   {pricesLoading && !priceData ? (
                     <View style={styles.priceStrip}>
                       <ActivityIndicator size="small" color="#4CAF50" />
-                      <Text style={styles.priceLoadingText}>Fetching price…</Text>
+                      <Text style={styles.priceLoadTxt}>Fetching price…</Text>
                     </View>
                   ) : priceData ? (
                     <View style={styles.priceStrip}>
-                      {/* Left – current price */}
-                      <View style={styles.priceLeft}>
-                        <Text style={styles.priceLabel}>Market Price</Text>
-                        <Text style={styles.priceValue}>
-                          ₹{priceData.price.toLocaleString('en-IN')}
-                        </Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.priceLbl}>Market Price</Text>
+                        <Text style={styles.priceVal}>₹{priceData.price.toLocaleString('en-IN')}</Text>
                         <Text style={styles.priceUnit}>{priceData.unit}</Text>
                       </View>
-
-                      {/* Right – daily change */}
-                      <View
-                        style={[
-                          styles.priceChangeBadge,
-                          isUp
-                            ? styles.priceChangeBadgeUp
-                            : styles.priceChangeBadgeDown,
-                        ]}
-                      >
-                        <Ionicons
-                          name={isUp ? 'trending-up' : 'trending-down'}
-                          size={16}
-                          color={isUp ? '#2E7D32' : '#C62828'}
-                        />
-                        <Text
-                          style={[
-                            styles.priceChangeText,
-                            isUp
-                              ? styles.priceChangeTextUp
-                              : styles.priceChangeTextDown,
-                          ]}
-                        >
-                          {isUp ? '+' : ''}
-                          {priceData.changePercent}%
+                      <View style={[styles.priceBadge, isUp ? styles.priceBadgeUp : styles.priceBadgeDn]}>
+                        <Ionicons name={isUp ? 'trending-up' : 'trending-down'} size={16} color={isUp ? '#2E7D32' : '#C62828'} />
+                        <Text style={[styles.priceChangeTxt, isUp ? styles.priceUp : styles.priceDn]}>
+                          {isUp ? '+' : ''}{priceData.changePercent}%
                         </Text>
-                        <Text
-                          style={[
-                            styles.priceChangeAbs,
-                            isUp
-                              ? styles.priceChangeTextUp
-                              : styles.priceChangeTextDown,
-                          ]}
-                        >
+                        <Text style={[styles.priceChangeAbs, isUp ? styles.priceUp : styles.priceDn]}>
                           {isUp ? '+' : ''}₹{priceData.change}
                         </Text>
-                        <Text style={styles.priceDayLabel}>today</Text>
+                        <Text style={styles.priceDayLbl}>today</Text>
                       </View>
                     </View>
                   ) : null}
-                  {/* ── END Price Strip ────────────────────────────────── */}
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
         )}
-      </View>
-
-      {/* ── Quick Actions (unchanged) ────────────────────────────────────── */}
-      <View style={styles.quickActions}>
-        <Text style={styles.quickActionsTitle}>Quick Actions</Text>
-        <View style={styles.quickActionsGrid}>
-          <TouchableOpacity
-            style={styles.quickActionCard}
-            onPress={() => navigation.navigate('LandList', { userData })}
-          >
-            <Ionicons name="map" size={32} color="#4CAF50" />
-            <Text style={styles.quickActionText}>My Lands</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quickActionCard}
-            onPress={handleStartFarming}
-          >
-            <Ionicons name="add-circle" size={32} color="#2196F3" />
-            <Text style={styles.quickActionText}>Add Crop</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quickActionCard}
-            onPress={() => Alert.alert('Coming Soon', 'Market prices feature coming in Week 5!')}
-          >
-            <Ionicons name="trending-up" size={32} color="#FF9800" />
-            <Text style={styles.quickActionText}>Market</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quickActionCard}
-            onPress={() => Alert.alert('Coming Soon', 'AI Chat feature coming in Week 6!')}
-          >
-            <Ionicons name="chatbubbles" size={32} color="#9C27B0" />
-            <Text style={styles.quickActionText}>AI Chat</Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       <View style={{ height: 40 }} />
@@ -659,166 +795,196 @@ export default function FarmerDashboard({ navigation, route }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STYLES  — all originals preserved; new price-strip styles appended at bottom
+// STYLES
 // ─────────────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  // ── existing styles (unchanged) ──────────────────────────────────────────
-  container:            { flex: 1, backgroundColor: '#f5f5f5' },
-  loadingContainer:     { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText:          { marginTop: 16, fontSize: 16, color: '#666' },
-  emptyContainer:       { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, minHeight: 500 },
-  emptyTitle:           { fontSize: 24, fontWeight: 'bold', color: '#333', marginTop: 20, textAlign: 'center' },
-  emptySubtitle:        { fontSize: 16, color: '#666', textAlign: 'center', marginTop: 8 },
-  addButton:            { flexDirection: 'row', alignItems: 'center', backgroundColor: '#4CAF50', paddingHorizontal: 24, paddingVertical: 16, borderRadius: 12, marginTop: 32 },
-  addButtonText:        { color: '#fff', fontSize: 18, fontWeight: 'bold', marginLeft: 8 },
-  statsContainer:       { flexDirection: 'row', padding: 16, gap: 12 },
-  statCard:             { flex: 1, backgroundColor: '#fff', padding: 16, borderRadius: 12, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-  statValue:            { fontSize: 28, fontWeight: 'bold', color: '#333', marginTop: 8 },
-  statLabel:            { fontSize: 12, color: '#666', marginTop: 4 },
-  weatherCard:          { backgroundColor: '#fff', margin: 16, marginTop: 0, padding: 16, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-  weatherHeader:        { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  weatherTitle:         { fontSize: 16, fontWeight: 'bold', color: '#333', marginLeft: 8 },
-  weatherContent:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  weatherTemp:          { fontSize: 36, fontWeight: 'bold', color: '#FF9800' },
-  weatherDetails:       { gap: 8 },
-  weatherDetail:        { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  weatherDetailText:    { fontSize: 14, color: '#666' },
-  weatherDescription:   { fontSize: 14, color: '#666', marginTop: 8, textTransform: 'capitalize' },
-  landSelector:         { backgroundColor: '#fff', padding: 16, marginHorizontal: 16, marginBottom: 16, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-  landSelectorHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  landSelectorTitle:    { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  viewAllButton:        { fontSize: 14, color: '#4CAF50', fontWeight: '600' },
-  selectedLandCard:     { backgroundColor: '#E8F5E9', padding: 12, borderRadius: 8 },
-  landInfo:             { flexDirection: 'row', alignItems: 'center' },
-  landDetails:          { marginLeft: 12, flex: 1 },
-  landName:             { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  landLocation:         { fontSize: 13, color: '#666', marginTop: 2 },
-  landSize:             { fontSize: 12, color: '#4CAF50', marginTop: 2 },
-  landSwitcher:         { marginTop: 12 },
-  landChip:             { backgroundColor: '#f0f0f0', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
-  landChipSelected:     { backgroundColor: '#4CAF50' },
-  landChipText:         { fontSize: 14, color: '#666' },
-  landChipTextSelected: { color: '#fff', fontWeight: 'bold' },
-  cropsSection:         { marginBottom: 16 },
-  cropsSectionHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 },
-  cropsSectionTitle:    { fontSize: 18, fontWeight: 'bold', color: '#333' },
-  addCropButton:        { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  addCropText:          { fontSize: 14, color: '#4CAF50', fontWeight: '600', marginLeft: 4 },
-  noCropsContainer:     { backgroundColor: '#fff', margin: 16, padding: 40, borderRadius: 12, alignItems: 'center' },
-  noCropsText:          { fontSize: 16, color: '#999', marginTop: 12 },
-  startFarmingButton:   { flexDirection: 'row', alignItems: 'center', backgroundColor: '#4CAF50', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 20, marginTop: 20 },
-  startFarmingText:     { color: '#fff', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
-  cropsScroll:          { paddingHorizontal: 16 },
-  cropCard: {
-    backgroundColor: '#fff',
-    width: CARD_WIDTH * 0.7,
-    padding: 16,
-    borderRadius: 12,
-    marginRight: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cropCardHeader:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  cropStageIcon:       { fontSize: 40 },
-  healthBadge:         { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, gap: 4 },
-  healthText:          { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  cropCardName:        { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 4 },
-  cropCardTamilName:   { fontSize: 14, color: '#666', marginBottom: 16 },
-  progressContainer:   { marginBottom: 12 },
-  progressBar:         { height: 8, backgroundColor: '#e0e0e0', borderRadius: 4, overflow: 'hidden', marginBottom: 6 },
-  progressFill:        { height: '100%', backgroundColor: '#4CAF50' },
-  progressText:        { fontSize: 12, color: '#666' },
-  cropCardFooter:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  daysRemaining:       { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  daysRemainingText:   { fontSize: 13, color: '#666' },
-  stageBadge:          { position: 'absolute', top: 12, right: 12, backgroundColor: '#2196F3', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  stageText:           { color: '#fff', fontSize: 11, fontWeight: 'bold' },
-  quickActions:        { padding: 16 },
-  quickActionsTitle:   { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 12 },
-  quickActionsGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  quickActionCard: {
-    backgroundColor: '#fff',
-    width: (width - 44) / 2,
-    padding: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  quickActionText: { fontSize: 14, color: '#333', marginTop: 8, fontWeight: '600' },
+  container:        { flex: 1, backgroundColor: '#F8FAFC' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText:      { marginTop: 16, fontSize: 16, color: '#666' },
+  emptyContainer:   { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, minHeight: 500 },
+  emptyTitle:       { fontSize: 24, fontWeight: 'bold', color: '#333', marginTop: 20, textAlign: 'center' },
+  emptySubtitle:    { fontSize: 16, color: '#666', textAlign: 'center', marginTop: 8 },
+  addButton:        { flexDirection: 'row', alignItems: 'center', backgroundColor: '#16A34A', paddingHorizontal: 24, paddingVertical: 16, borderRadius: 12, marginTop: 32 },
+  addButtonText:    { color: '#fff', fontSize: 18, fontWeight: 'bold', marginLeft: 8 },
 
-  // ── NEW: price-strip styles ───────────────────────────────────────────────
-  priceDivider: {
-    height: 1,
-    backgroundColor: '#f0f0f0',
-    marginTop: 12,
-    marginBottom: 10,
+  // ── Greeting
+  greetingRow:        { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 10 },
+  farmingBadge:       { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#DCFCE7', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', marginBottom: 8 },
+  farmingBadgeText:   { fontSize: 10, color: '#15803D', fontWeight: '800', letterSpacing: 0.8 },
+  greetingText:       { fontSize: 23, fontWeight: '700', color: '#111827', letterSpacing: -0.3 },
+
+  // ── Dynamic Weather Card
+  weatherCard: {
+    marginHorizontal: 16, marginBottom: 16,
+    borderRadius: 22, overflow: 'hidden', minHeight: 130,
+    elevation: 6, shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10,
   },
-  priceStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  weatherGlow: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    right: -50, top: -60, opacity: 0.45,
   },
-  priceLeft: {
-    flex: 1,
+  weatherInner:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 22 },
+  weatherLeft:    { flex: 1 },
+  weatherEyebrow: { fontSize: 9, letterSpacing: 1.6, fontWeight: '700', marginBottom: 4 },
+  weatherTemp:    { fontSize: 52, fontWeight: '800', lineHeight: 56 },
+  weatherLabelRow:{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+  weatherLabel:   { fontSize: 13, fontWeight: '500' },
+  weatherRight:   { alignItems: 'center', gap: 10 },
+  weatherIconBubble: { width: 66, height: 66, borderRadius: 33, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  weatherStatCol: { gap: 6 },
+  weatherStatRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  weatherStatVal: { fontSize: 13, fontWeight: '500' },
+
+  // ── Quick Row
+  quickRow: {
+    flexDirection: 'row', marginHorizontal: 16, marginBottom: 16,
+    backgroundColor: '#fff', borderRadius: 18, paddingVertical: 18,
+    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 5,
   },
-  priceLabel: {
-    fontSize: 10,
-    color: '#999',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
+  quickBtn:    { flex: 1, alignItems: 'center', gap: 8 },
+  quickBtnMid: { borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#F1F5F9' },
+  quickIcon:   { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
+  quickLabel:  { fontSize: 12, color: '#374151', fontWeight: '600' },
+
+  // ── Shared card
+  card: {
+    backgroundColor: '#fff', marginHorizontal: 16, marginBottom: 16,
+    borderRadius: 18, padding: 16,
+    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 5,
   },
-  priceValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  cardTitle:  { fontSize: 16, fontWeight: '700', color: '#111827' },
+  cardSub:    { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  linkText:   { fontSize: 13, color: '#16A34A', fontWeight: '600' },
+
+  // ── Market Prices
+  marketRow:   { flexDirection: 'row', gap: 10 },
+  marketCard:  { flex: 1, backgroundColor: '#F9FAFB', borderRadius: 12, padding: 12 },
+  marketTop:   { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  marketEmoji: { fontSize: 26 },
+  marketName:  { fontSize: 13, fontWeight: '700', color: '#1F2937', marginBottom: 2 },
+  marketPrice: { fontSize: 20, fontWeight: '800' },
+  marketUnit:  { fontSize: 11, color: '#6B7280' },
+  marketChange:{ fontSize: 12, fontWeight: '700' },
+  chartLabel:  { fontSize: 10, color: '#9CA3AF', marginTop: 4 },
+  dayRow:      { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  dayLabel:    { fontSize: 10, color: '#D1D5DB' },
+
+  // ── Stats
+  statsRow: {
+    flexDirection: 'row', backgroundColor: '#fff', marginHorizontal: 16, marginBottom: 16,
+    borderRadius: 18, paddingVertical: 20,
+    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 5,
   },
-  priceUnit: {
-    fontSize: 10,
-    color: '#aaa',
-    marginTop: 1,
+  statItem: { flex: 1, alignItems: 'center' },
+  statNum:  { fontSize: 30, fontWeight: '800', color: '#111827' },
+  statLbl:  { fontSize: 10, color: '#9CA3AF', fontWeight: '700', marginTop: 4, letterSpacing: 0.8 },
+  statDiv:  { width: 1, backgroundColor: '#F1F5F9' },
+
+  // ── Selected Land — Professional
+  landTile:   { flexDirection: 'row', borderRadius: 14, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', overflow: 'hidden' },
+  landAccent: { width: 0 },
+  landBody:   { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
+  landIcon:   { width: 40, height: 40, borderRadius: 10, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' },
+  landMeta:   { flex: 1 },
+  landName:   { fontSize: 15, fontWeight: '700', color: '#111827' },
+  landLoc:    { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  landTags:   { flexDirection: 'row', gap: 6, marginTop: 6 },
+  landTag:    { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#DCFCE7', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#BBF7D0' },
+  landTagAlt: { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' },
+  landTagText:{ fontSize: 11, color: '#15803D', fontWeight: '600' },
+  landChip:    { backgroundColor: '#F1F5F9', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, marginRight: 8 },
+  landChipSel: { backgroundColor: '#16A34A' },
+  landChipTxt: { fontSize: 13, color: '#6B7280' },
+  landChipTxtSel: { color: '#fff', fontWeight: '700' },
+
+  // ── Vendor Offers — Professional
+  bellWrap: { position: 'relative', width: 32, height: 32, borderRadius: 8, backgroundColor: '#FFF7ED', alignItems: 'center', justifyContent: 'center' },
+  bellDot:  { position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: 8, backgroundColor: '#EA580C', alignItems: 'center', justifyContent: 'center' },
+  bellDotTxt: { fontSize: 9, color: '#fff', fontWeight: '800' },
+  offerCountBadge: { backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  offerCountTxt:   { fontSize: 12, color: '#6B7280', fontWeight: '600' },
+
+  offerCard: {
+    borderRadius: 14, backgroundColor: '#FAFAFA',
+    borderWidth: 1, borderColor: '#E2E8F0',
+    padding: 14, marginBottom: 12, gap: 10,
   },
-  priceChangeBadge: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-    minWidth: 62,
+  offerHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  offerChip:      { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  offerDot:       { width: 6, height: 6, borderRadius: 3 },
+  offerChipTxt:   { fontSize: 12, fontWeight: '700' },
+  offerDate:      { fontSize: 11, color: '#9CA3AF' },
+  offerMainRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  offerCrop:      { fontSize: 16, fontWeight: '700', color: '#111827' },
+  offerMeta:      { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  offerPriceBox:  { alignItems: 'flex-end' },
+  offerPriceLbl:  { fontSize: 10, color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase' },
+  offerTotal:     { fontSize: 18, fontWeight: '800', color: '#15803D' },
+  offerDivider:   { height: 1, backgroundColor: '#F1F5F9' },
+
+  vendorRow:      { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  vendorAvatar:   { width: 38, height: 38, borderRadius: 19, backgroundColor: '#E0E7FF', alignItems: 'center', justifyContent: 'center' },
+  vendorAvatarTxt:{ fontSize: 16, fontWeight: '700', color: '#4F46E5' },
+  vendorName:     { fontSize: 14, fontWeight: '700', color: '#1F2937' },
+  vendorCompany:  { fontSize: 12, color: '#6B7280', marginTop: 1 },
+  phoneHint:      { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
+  callChip:       { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5, alignSelf: 'flex-start', backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: '#BFDBFE' },
+  callChipTxt:    { fontSize: 13, color: '#2563EB', fontWeight: '600' },
+
+  offerActions: { flexDirection: 'row', gap: 10 },
+  confirmBtn:   { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#16A34A', paddingVertical: 12, borderRadius: 12 },
+  confirmTxt:   { color: '#fff', fontWeight: '700', fontSize: 14 },
+  declineBtn:   { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FEF2F2', paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#FECACA' },
+  declineTxt:   { color: '#DC2626', fontWeight: '700', fontSize: 14 },
+  confirmedBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F0FDF4', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#BBF7D0' },
+  confirmedTxt: { color: '#15803D', fontWeight: '600', fontSize: 13 },
+
+  // ── No Crops
+  noCropsWrap:   { alignItems: 'center', paddingVertical: 32 },
+  noCropsCircle: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  noCropsTitle:  { fontSize: 16, fontWeight: '700', color: '#1F2937', marginBottom: 6 },
+  noCropsSub:    { fontSize: 13, color: '#9CA3AF', textAlign: 'center', marginBottom: 20 },
+  aiBtn:         { flexDirection: 'row', alignItems: 'center', backgroundColor: '#15803D', paddingHorizontal: 22, paddingVertical: 13, borderRadius: 25, gap: 8 },
+  aiBtnTxt:      { color: '#fff', fontSize: 15, fontWeight: '700' },
+  addCropBtn:    { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  addCropTxt:    { fontSize: 13, color: '#16A34A', fontWeight: '600' },
+
+  // ── Crop Cards
+  cropCard: {
+    backgroundColor: '#fff', width: CARD_WIDTH * 0.7, padding: 16,
+    borderRadius: 12, marginRight: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 3,
   },
-  priceChangeBadgeUp: {
-    backgroundColor: '#E8F5E9',
-  },
-  priceChangeBadgeDown: {
-    backgroundColor: '#FFEBEE',
-  },
-  priceChangeText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    marginTop: 2,
-  },
-  priceChangeTextUp:   { color: '#2E7D32' },
-  priceChangeTextDown: { color: '#C62828' },
-  priceChangeAbs: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  priceDayLabel: {
-    fontSize: 9,
-    color: '#999',
-    marginTop: 2,
-  },
-  priceLoadingText: {
-    fontSize: 12,
-    color: '#aaa',
-    marginLeft: 6,
-  },
-  // ── END new styles ────────────────────────────────────────────────────────
+  cropCardHeader:{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  cropIcon:      { fontSize: 40 },
+  healthBadge:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, gap: 4 },
+  healthTxt:     { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+  cropName:      { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 4 },
+  cropTamil:     { fontSize: 14, color: '#666', marginBottom: 16 },
+  progressWrap:  { marginBottom: 12 },
+  progressBar:   { height: 8, backgroundColor: '#e0e0e0', borderRadius: 4, overflow: 'hidden', marginBottom: 6 },
+  progressFill:  { height: '100%', backgroundColor: '#4CAF50' },
+  progressTxt:   { fontSize: 12, color: '#666' },
+  cropFooter:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  daysLeftTxt:   { fontSize: 13, color: '#666' },
+  stageBadge:    { position: 'absolute', top: 12, right: 12, backgroundColor: '#2196F3', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  stageTxt:      { color: '#fff', fontSize: 11, fontWeight: 'bold' },
+
+  // ── Price strip
+  priceDivider:  { height: 1, backgroundColor: '#f0f0f0', marginTop: 12, marginBottom: 10 },
+  priceStrip:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  priceLbl:      { fontSize: 10, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  priceVal:      { fontSize: 16, fontWeight: 'bold', color: '#333' },
+  priceUnit:     { fontSize: 10, color: '#aaa', marginTop: 1 },
+  priceBadge:    { flexDirection: 'column', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, minWidth: 62 },
+  priceBadgeUp:  { backgroundColor: '#E8F5E9' },
+  priceBadgeDn:  { backgroundColor: '#FFEBEE' },
+  priceChangeTxt:{ fontSize: 13, fontWeight: 'bold', marginTop: 2 },
+  priceUp:       { color: '#2E7D32' },
+  priceDn:       { color: '#C62828' },
+  priceChangeAbs:{ fontSize: 11, fontWeight: '600' },
+  priceDayLbl:   { fontSize: 9, color: '#999', marginTop: 2 },
+  priceLoadTxt:  { fontSize: 12, color: '#aaa', marginLeft: 6 },
 });
