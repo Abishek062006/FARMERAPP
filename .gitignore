@@ -41,10 +41,20 @@ yarn-error.*
 /android
 
 .env
-tn-farming-backend/.env
+backend/.env
 
 # Python
 venv/
 ai-service/venv/
 __pycache__/
 *.pyc
+
+# AI training dataset — dev-time only, never read by the running app.
+# NOTE: ai-service/models/*.keras is intentionally NOT ignored — the app
+# loads those at runtime for prediction, so they must stay in the repo
+# (or be swapped for Git LFS / a release asset later if they grow).
+ai-service/dataset/
+
+# Uploaded user content
+backend/uploads/diseases/*
+!backend/uploads/diseases/.gitkeep
