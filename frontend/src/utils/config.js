@@ -47,6 +47,11 @@ export const API_ENDPOINTS = {
 
   // ✅ Crop Listings (Farmer → Vendor marketplace)
   LISTINGS: `${API_URL}/api/listings`,
+  MARKET:   `${API_URL}/api/listings/market`,
+  LISTING_PHOTO: (id) => `${API_URL}/api/listings/photo/${id}`,
+
+  // ✅ Orders (purchase + transport booking)
+  ORDERS: `${API_URL}/api/orders`,
 
   // Weather
   WEATHER: `${API_URL}/api/weather`,
@@ -56,6 +61,9 @@ export const API_ENDPOINTS = {
 
   // Mandi / Agmarknet Prices
   MANDI: `${API_URL}/api/mandi`,
+
+  // Government Schemes & Subsidies
+  SCHEMES: `${API_URL}/api/schemes`,
 };
 
 // Export default API URL

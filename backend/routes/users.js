@@ -16,7 +16,6 @@ router.post('/', requireAuth, async (req, res) => {
       email,
       phone,
       role,
-      farmingType,
       location,
     } = req.body;
     const firebaseUid = req.firebaseUid; // from verified token, never trust the client for this
@@ -47,7 +46,6 @@ router.post('/', requireAuth, async (req, res) => {
       email,
       phone,
       role,
-      farmingType: farmingType || null,
       location: location || null,
     });
 
@@ -66,7 +64,6 @@ router.post('/', requireAuth, async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        farmingType: user.farmingType,
         location: user.location,
       },
     });
@@ -111,7 +108,6 @@ router.get('/firebase/:firebaseUid', requireAuth, async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        farmingType: user.farmingType,
         location: user.location,
         profileImage: user.profileImage,
         createdAt: user.createdAt,
@@ -148,7 +144,9 @@ router.put('/:firebaseUid', requireAuth, async (req, res) => {
     }
 
     // Update fields
-    const updateFields = ['name', 'phone', 'location', 'profileImage', 'farmingType'];
+    // NOTE: 'role' is deliberately absent — a user must never be able to
+    // promote themselves into another role via a profile update.
+    const updateFields = ['name', 'phone', 'location', 'profileImage', 'vehicle', 'isOnline'];
     
     updateFields.forEach(field => {
       if (req.body[field] !== undefined) {
@@ -169,7 +167,8 @@ router.put('/:firebaseUid', requireAuth, async (req, res) => {
         phone: user.phone,
         location: user.location,
         profileImage: user.profileImage,
-        farmingType: user.farmingType,
+        vehicle: user.vehicle,
+        isOnline: user.isOnline,
       },
     });
 

@@ -12,8 +12,10 @@ const taskRoutes = require('./routes/tasks');
 const diseaseRoutes = require('./routes/diseases');
 const weatherRoutes = require('./routes/weather');
 const listingRoutes = require('./routes/listings');
+const orderRoutes   = require('./routes/orders');
 const mandiRoutes = require('./routes/mandi');
 const chatbotRoutes = require('./routes/chatbot');
+const schemesRoutes = require('./routes/schemes');
 
 // ✅ Import ALL models for initialization
 require('./models/User');
@@ -23,6 +25,9 @@ require('./models/Crop');
 require('./models/Task');
 require('./models/Disease');
 require('./models/CropListing');
+require('./models/ListingImage');
+require('./models/Order');
+require('./models/SchemeImage');
 
 // Connect to MongoDB
 connectDB();
@@ -51,8 +56,10 @@ app.use('/api/tasks',    taskRoutes);
 app.use('/api/diseases', diseaseRoutes);
 app.use('/api/weather',  weatherRoutes);
 app.use('/api/listings', listingRoutes);
+app.use('/api/orders',   orderRoutes);
 app.use('/api/mandi',    mandiRoutes);
 app.use('/api/chatbot',  chatbotRoutes);
+app.use('/api/schemes',  schemesRoutes);
 // ──────────────────────────────────────────────────────────────────────────
 
 // Health check route
@@ -62,7 +69,7 @@ app.get('/', (req, res) => {
     message: '🌾 TN Farming App Backend API - WEEK 1',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
-    models: ['User', 'Land', 'Plot', 'Crop', 'Task', 'Disease', 'CropListing']
+    models: ['User', 'Land', 'Plot', 'Crop', 'Task', 'Disease', 'CropListing', 'ListingImage', 'Order']
   });
 });
 
@@ -95,7 +102,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🚀 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🚀 API URL: http://localhost:${PORT}`);
-  console.log(`📦 Models loaded: 7`);
+  console.log(`📦 Models loaded: 9`);
   console.log('🚀 ====================================');
   console.log('');
 });

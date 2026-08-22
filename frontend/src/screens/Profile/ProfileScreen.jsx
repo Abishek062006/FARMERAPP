@@ -7,114 +7,116 @@ import {
   TouchableOpacity,
   StatusBar,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { getUserData, removeUserData, saveUserData } from '../../utils/storage';
+import axios from 'axios';
+import { signOut } from 'firebase/auth';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { auth, storage } from '../../utils/firebase';
+import { API_ENDPOINTS } from '../../utils/config';
 import { COLORS } from '../../constants/colors';
 import UserAvatar from '../../components/UserAvatar';
 import ProfileCard from '../../components/ProfileCard';
 
-const ProfileScreen = ({ navigation }) => {
-  const [userData, setUserData] = useState(null);
-  const [profileImage, setProfileImage] = useState(null);
+const ProfileScreen = ({ navigation, route }) => {
+  const [userData, setUserData] = useState(route.params?.userData || null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+  // EditProfileScreen navigates back here with { updated: { field, value } }
+  // so the screen reflects the change immediately without a full app reload.
   useEffect(() => {
-    loadUserData();
-  }, []);
+    const updated = route.params?.updated;
+    if (updated) {
+      setUserData((prev) => ({ ...prev, [updated.field]: updated.value }));
+      navigation.setParams({ updated: undefined });
+    }
+  }, [route.params?.updated]);
 
-  const loadUserData = async () => {
-    const data = await getUserData();
-    setUserData(data);
-    setProfileImage(data?.profileImage || null);
+  const uploadProfilePhoto = async (localUri) => {
+    setUploadingPhoto(true);
+    try {
+      const response = await fetch(localUri);
+      const blob = await response.blob();
+      const photoRef = ref(storage, `profileImages/${auth.currentUser.uid}.jpg`);
+      await uploadBytes(photoRef, blob);
+      const downloadUrl = await getDownloadURL(photoRef);
+
+      await axios.put(`${API_ENDPOINTS.USERS}/${auth.currentUser.uid}`, {
+        profileImage: downloadUrl,
+      });
+
+      setUserData((prev) => ({ ...prev, profileImage: downloadUrl }));
+      Alert.alert('Success', 'Profile photo updated!');
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      Alert.alert('Error', 'Failed to upload photo. Please try again.');
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const handleImagePick = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant photo library access');
-        return;
-      }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant photo library access');
+      return;
+    }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.5,
-      });
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
 
-      if (!result.canceled) {
-        const imageUri = result.assets[0].uri;
-        setProfileImage(imageUri);
-        
-        // Save to user data
-        const updatedData = { ...userData, profileImage: imageUri };
-        await saveUserData(updatedData);
-        Alert.alert('Success', 'Profile photo updated!');
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image');
+    if (!result.canceled) {
+      uploadProfilePhoto(result.assets[0].uri);
     }
   };
 
   const handleTakePhoto = async () => {
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant camera access');
-        return;
-      }
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant camera access');
+      return;
+    }
 
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.5,
-      });
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
 
-      if (!result.canceled) {
-        const imageUri = result.assets[0].uri;
-        setProfileImage(imageUri);
-        
-        const updatedData = { ...userData, profileImage: imageUri };
-        await saveUserData(updatedData);
-        Alert.alert('Success', 'Profile photo updated!');
-      }
-    } catch (error) {
-      console.error('Error taking photo:', error);
-      Alert.alert('Error', 'Failed to take photo');
+    if (!result.canceled) {
+      uploadProfilePhoto(result.assets[0].uri);
     }
   };
 
   const handleImageOptions = () => {
-    Alert.alert(
-      'Profile Photo',
-      'Choose an option',
-      [
-        { text: 'Take Photo', onPress: handleTakePhoto },
-        { text: 'Choose from Gallery', onPress: handleImagePick },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    Alert.alert('Profile Photo', 'Choose an option', [
+      { text: 'Take Photo', onPress: handleTakePhoto },
+      { text: 'Choose from Gallery', onPress: handleImagePick },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await removeUserData();
-          },
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await signOut(auth);
+          } catch (error) {
+            console.error('Logout error:', error);
+            Alert.alert('Error', 'Failed to logout. Please try again.');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const getRoleBadge = () => {
@@ -123,14 +125,6 @@ const ProfileScreen = ({ navigation }) => {
     if (role === 'vendor') return { icon: '🏪', color: '#FF9800' };
     if (role === 'agent') return { icon: '👔', color: '#2196F3' };
     return { icon: '👤', color: COLORS.primary };
-  };
-
-  const getFarmingTypeBadge = () => {
-    const type = userData?.farmingType;
-    if (type === 'terrace') return '🏢 Terrace Farming';
-    if (type === 'normal') return '🚜 Normal Farming';
-    if (type === 'organic') return '🌱 Organic Farming';
-    return null;
   };
 
   if (!userData) {
@@ -148,34 +142,36 @@ const ProfileScreen = ({ navigation }) => {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.secondary} />
       <View style={styles.container}>
         <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>‹ Back</Text>
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Profile</Text>
+          <View style={styles.headerPlaceholder} />
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
           <View style={styles.profileSection}>
-            <UserAvatar
-              uri={profileImage}
-              name={userData.name}
-              size={120}
-              onPress={handleImageOptions}
-              editable={true}
-            />
-            
+            {uploadingPhoto ? (
+              <View style={styles.avatarLoading}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+              </View>
+            ) : (
+              <UserAvatar
+                uri={userData.profileImage}
+                name={userData.name}
+                size={120}
+                onPress={handleImageOptions}
+                editable={true}
+              />
+            )}
+
             <Text style={styles.name}>{userData.name}</Text>
-            
+
             <View style={[styles.roleBadge, { backgroundColor: roleBadge.color }]}>
               <Text style={styles.roleBadgeText}>
-                {roleBadge.icon} {userData.role.toUpperCase()}
+                {roleBadge.icon} {userData.role?.toUpperCase()}
               </Text>
             </View>
-
-            {userData.farmingType && (
-              <View style={styles.farmingBadge}>
-                <Text style={styles.farmingBadgeText}>
-                  {getFarmingTypeBadge()}
-                </Text>
-              </View>
-            )}
           </View>
 
           <View style={styles.infoSection}>
@@ -186,30 +182,41 @@ const ProfileScreen = ({ navigation }) => {
               label="Full Name"
               value={userData.name}
               editable={true}
-              onPress={() => navigation.navigate('EditProfile', { field: 'name' })}
+              onPress={() => navigation.navigate('EditProfile', { field: 'name', currentValue: userData.name })}
             />
 
-            <ProfileCard
-              icon="📧"
-              label="Email"
-              value={userData.email}
-              editable={false}
-            />
+            <ProfileCard icon="📧" label="Email" value={userData.email} editable={false} />
 
             <ProfileCard
               icon="📱"
               label="Phone Number"
               value={userData.phone}
               editable={true}
-              onPress={() => navigation.navigate('EditProfile', { field: 'phone' })}
+              onPress={() => navigation.navigate('EditProfile', { field: 'phone', currentValue: userData.phone })}
             />
 
             <ProfileCard
-              icon="📅"
-              label="Member Since"
-              value={new Date(userData.createdAt).toLocaleDateString()}
-              editable={false}
+              icon="📍"
+              label="District"
+              value={userData.location?.district || 'Not set'}
+              editable={true}
+              onPress={() =>
+                navigation.navigate('EditProfile', {
+                  field: 'district',
+                  currentValue: userData.location?.district,
+                  location: userData.location,
+                })
+              }
             />
+
+            {userData.createdAt && (
+              <ProfileCard
+                icon="📅"
+                label="Member Since"
+                value={new Date(userData.createdAt).toLocaleDateString()}
+                editable={false}
+              />
+            )}
           </View>
 
           <View style={styles.infoSection}>
@@ -224,11 +231,7 @@ const ProfileScreen = ({ navigation }) => {
             />
           </View>
 
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
             <Text style={styles.logoutButtonText}>Logout</Text>
           </TouchableOpacity>
 
@@ -249,18 +252,39 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 20,
     paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
   },
+  backButton: {
+    padding: 8,
+  },
+  backButtonText: {
+    color: COLORS.primary,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  headerPlaceholder: {
+    width: 60,
+  },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: 'bold',
     color: COLORS.primary,
-    textAlign: 'center',
   },
   profileSection: {
     alignItems: 'center',
     paddingVertical: 30,
+  },
+  avatarLoading: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.cardBackground,
   },
   name: {
     fontSize: 24,
@@ -277,18 +301,6 @@ const styles = StyleSheet.create({
   },
   roleBadgeText: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  farmingBadge: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginTop: 8,
-  },
-  farmingBadgeText: {
-    color: COLORS.secondary,
     fontSize: 12,
     fontWeight: 'bold',
   },

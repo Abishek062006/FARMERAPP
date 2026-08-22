@@ -1,5 +1,29 @@
 const agmarknetService = require('../services/agmarknetService');
 
+// ── Short-lived cache for /nearby-prices ─────────────────────────────────────
+// The underlying Agmarknet fan-out (date walk-back + per-commodity price/trend
+// calls) is expensive and occasionally slow enough to approach the frontend's
+// timeout. Prices don't meaningfully change minute to minute, so cache by
+// district+date+limit for a few minutes — this also means "refresh dashboard"
+// stays fast and still gets genuinely fresh data every few minutes rather than
+// re-running the full expensive fetch on every single pull-to-refresh.
+const NEARBY_CACHE_TTL_MS = 5 * 60 * 1000;
+const nearbyPricesCache = new Map();
+
+function getCached(key) {
+  const entry = nearbyPricesCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.time > NEARBY_CACHE_TTL_MS) {
+    nearbyPricesCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCached(key, data) {
+  nearbyPricesCache.set(key, { data, time: Date.now() });
+}
+
 // ── Friendly, farmer-facing messages. Technical detail goes to console.error only. ──
 const FRIENDLY_MESSAGES = {
   TIMEOUT: 'The mandi price service is taking too long to respond. Please try again.',
@@ -241,5 +265,131 @@ exports.getDashboardPrices = async (req, res) => {
     res.json({ success: true, data: results });
   } catch (err) {
     handleAgmarknetError(res, err, 'getDashboardPrices');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/mandi/nearby-prices?district=&date=&limit=
+//
+// For the dashboard's auto-scrolling market ticker — real prices for whatever
+// crops are ACTUALLY being reported near the farmer's district today, not
+// just the crop(s) they personally registered. Reuses the same "what's
+// actually reported here" resolution as the commodity picker on the See All
+// screen, so this list is never hard-coded and never made up.
+// ─────────────────────────────────────────────────────────────────────────────
+exports.getNearbyPrices = async (req, res) => {
+  const { district, date } = req.query;
+  const limit = Math.min(Number(req.query.limit) || 6, 20);
+
+  if (!district) {
+    return res.status(400).json({
+      success: false,
+      message: 'district is required.',
+    });
+  }
+
+  const effectiveDate = isValidDate(date) ? date : new Date().toISOString().slice(0, 10);
+  const cacheKey = `${district.toLowerCase()}|${effectiveDate}|${limit}`;
+
+  const cached = getCached(cacheKey);
+  if (cached) {
+    return res.json({ success: true, data: cached, cached: true });
+  }
+
+  try {
+    const stateId = agmarknetService.TAMIL_NADU_STATE_ID;
+    const districtId = await agmarknetService.resolveDistrictIdByName(stateId, district);
+
+    if (!districtId) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // Some districts (Chennai notably) have zero Agmarknet-registered
+    // markets of their own — there is no such thing as "local" data for
+    // them, structurally. Everywhere else, we hold the ticker to strictly
+    // local (market/district-level) results; only for these do we allow the
+    // state-wide "nearest real market" fallback through, and the frontend
+    // labels it clearly when that happens.
+    const districtMarkets = await agmarknetService.getMarkets(districtId);
+    const hasNoLocalMarkets = districtMarkets.length === 0;
+
+    // Today may genuinely have zero reports yet — mandis submit through the
+    // day, so early morning (or right after midnight) "today" can be empty
+    // even though yesterday's real, still-useful prices exist. Walk back a
+    // few days to the most recent one that actually has scoped local data,
+    // rather than showing an empty ticker when perfectly good recent prices
+    // are sitting right there. Districts with no market of their own can
+    // never scope by date, so there's nothing to walk back for.
+    let resolvedDate = effectiveDate;
+    let commodities;
+    if (hasNoLocalMarkets) {
+      ({ commodities } = await agmarknetService.getAvailableCommodities({ stateId, districtId, date: resolvedDate }));
+    } else {
+      for (let daysBack = 0; daysBack < 5; daysBack++) {
+        const candidateDate = new Date(effectiveDate);
+        candidateDate.setDate(candidateDate.getDate() - daysBack);
+        const candidateISO = candidateDate.toISOString().slice(0, 10);
+
+        const result = await agmarknetService.getAvailableCommodities({ stateId, districtId, date: candidateISO });
+        if (result.scoped && result.commodities.length > 0) {
+          resolvedDate = candidateISO;
+          commodities = result.commodities;
+          break;
+        }
+        if (daysBack === 0) commodities = result.commodities; // keep today's (likely unscoped) as the last resort
+      }
+    }
+
+    // Scan a larger candidate pool than `limit` — after dropping anything
+    // that only resolved via the state-wide fallback (see below), we still
+    // want a full-looking ticker rather than whatever's left over. Kept at
+    // 2x rather than 3x — each candidate fans out into ~8 concurrent
+    // Agmarknet calls (price + trend, each with 4 sub-requests), so this
+    // multiplier has an outsized effect on total request latency.
+    const selected = commodities.slice(0, limit * 2);
+
+    // allSettled, not all — Agmarknet occasionally times out or errors on
+    // one commodity out of a batch. A single straggler shouldn't take the
+    // whole ticker down; we just drop that one and show the rest.
+    const settled = await Promise.allSettled(
+      selected.map(async (commodity) => {
+        const [price, trend] = await Promise.all([
+          agmarknetService.getPriceForSelection({
+            stateId,
+            districtId,
+            marketId: null,
+            commodityId: commodity.id,
+            date: resolvedDate,
+          }),
+          agmarknetService.getTrendForSelection({
+            stateId,
+            districtId,
+            marketId: null,
+            commodityId: commodity.id,
+            date: resolvedDate,
+          }),
+        ]);
+
+        return { cropName: commodity.name, price, trend };
+      })
+    );
+
+    // "Nearby" means genuinely reported in or near this district (matchLevel
+    // 'market' or 'district') — never the state-wide "nearest reporting
+    // market anywhere in Tamil Nadu" fallback, which could be hundreds of
+    // km away and isn't what "near you" means on the dashboard. The one
+    // exception: districts with no market of their own have no other real
+    // data to show, so the fallback is allowed through there (still labeled
+    // by the frontend via matchLevel === 'state').
+    const results = settled
+      .filter((r) => r.status === 'fulfilled' && r.value.price)
+      .map((r) => r.value)
+      .filter((r) => hasNoLocalMarkets || r.price.matchLevel !== 'state')
+      .slice(0, limit);
+
+    setCached(cacheKey, results);
+    res.json({ success: true, data: results });
+  } catch (err) {
+    handleAgmarknetError(res, err, 'getNearbyPrices');
   }
 };

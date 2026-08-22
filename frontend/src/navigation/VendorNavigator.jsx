@@ -1,9 +1,14 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import { TouchableOpacity, Text, Alert } from 'react-native';
+import { TouchableOpacity, Text, View, Alert } from 'react-native';
 import { signOut } from 'firebase/auth';
 import { auth } from '../utils/firebase';
 import VendorDashboard from '../screens/Vendor/VendorDashboard';
+import ListingDetailScreen from '../screens/Vendor/ListingDetailScreen';
+import BookTransportScreen from '../screens/Vendor/BookTransportScreen';
+import OrderPlacedScreen from '../screens/Vendor/OrderPlacedScreen';
+import VendorOrdersScreen from '../screens/Vendor/VendorOrdersScreen';
+import TrackOrderScreen from '../screens/Vendor/TrackOrderScreen';
 import { COLORS } from '../constants/colors';
 
 const Stack = createStackNavigator();
@@ -50,23 +55,53 @@ const VendorNavigator = ({ userData }) => {
         name="VendorDashboard" 
         component={VendorDashboard}
         initialParams={{ userData }}
-        options={{
-          title: 'Vendor Dashboard',
+        options={({ navigation }) => ({
+          title: 'FARM Market',
           headerRight: () => (
-            <TouchableOpacity
-              style={{ marginRight: 16 }}
-              onPress={handleLogout}
-            >
-              <Text style={{ 
-                color: COLORS.primary, 
-                fontSize: 16, 
-                fontWeight: 'bold' 
-              }}>
-                Logout
-              </Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18, marginRight: 16 }}>
+              <TouchableOpacity onPress={() => navigation.navigate('VendorOrders', { userData })}>
+                <Text style={{ color: COLORS.primary, fontSize: 16, fontWeight: 'bold' }}>
+                  Orders
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleLogout}>
+                <Text style={{ color: COLORS.primary, fontSize: 16, fontWeight: 'bold' }}>
+                  Logout
+                </Text>
+              </TouchableOpacity>
+            </View>
           ),
-        }}
+        })}
+      />
+
+      <Stack.Screen
+        name="ListingDetail"
+        component={ListingDetailScreen}
+        options={({ route }) => ({ title: route.params?.listing?.cropName || 'Listing' })}
+      />
+
+      <Stack.Screen
+        name="BookTransport"
+        component={BookTransportScreen}
+        options={{ title: 'Book Transport' }}
+      />
+
+      <Stack.Screen
+        name="OrderPlaced"
+        component={OrderPlacedScreen}
+        options={{ title: 'Order Placed', headerLeft: () => null, gestureEnabled: false }}
+      />
+
+      <Stack.Screen
+        name="VendorOrders"
+        component={VendorOrdersScreen}
+        options={{ title: 'My Orders' }}
+      />
+
+      <Stack.Screen
+        name="TrackOrder"
+        component={TrackOrderScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

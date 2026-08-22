@@ -28,7 +28,9 @@
     },
     "plugins": [
       "@react-native-community/datetimepicker",
-      "expo-audio"
+      "expo-audio",
+      "expo-font",
+      "expo-asset"
     ],
     "extra": {
       "eas": {

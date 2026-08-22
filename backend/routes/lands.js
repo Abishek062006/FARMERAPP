@@ -17,7 +17,6 @@ router.post('/', requireAuth, async (req, res) => {
       size,
       waterSource,
       soilType,
-      farmingType,
       photos,
       notes
     } = req.body;
@@ -26,18 +25,10 @@ router.post('/', requireAuth, async (req, res) => {
     console.log('🌾 Creating new land for user:', firebaseUid);
 
     // Validate required fields
-    if (!firebaseUid || !landName || !location || !size || !waterSource || !soilType || !farmingType) {
+    if (!firebaseUid || !landName || !location || !size || !waterSource || !soilType) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields'
-      });
-    }
-
-    // Validate farming type
-    if (!['normal', 'organic', 'terrace'].includes(farmingType)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid farming type. Must be: normal, organic, or terrace'
       });
     }
 
@@ -49,7 +40,6 @@ router.post('/', requireAuth, async (req, res) => {
       size,
       waterSource,
       soilType,
-      farmingType,
       photos: photos || [],
       notes: notes || '',
       totalPlots: 0,

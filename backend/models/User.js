@@ -29,11 +29,6 @@ const UserSchema = new mongoose.Schema({
     enum: ['farmer', 'vendor', 'agent'],
     required: true,
   },
-  farmingType: {
-    type: String,
-    enum: ['terrace', 'normal', 'organic', null],
-    default: null,
-  },
   location: {
     coordinates: {
       lat: { type: Number },
@@ -46,6 +41,21 @@ const UserSchema = new mongoose.Schema({
   profileImage: {
     type: String,
     default: null,
+  },
+  // ── Transport agents only ──
+  // Registration never asks for these (and shouldn't — it works and is shared
+  // by all three roles), so agents set them from an onboarding sheet the first
+  // time they open their dashboard.
+  vehicle: {
+    type:   { type: String, enum: ['auto', 'tempo', 'truck'] },
+    number: { type: String, trim: true },
+  },
+  // Duty toggle. An agent who is offline is never offered a job, and their app
+  // stops polling — which matters, because Expo Go can only poll while the
+  // app is in the foreground anyway.
+  isOnline: {
+    type: Boolean,
+    default: false,
   },
   isActive: {
     type: Boolean,
@@ -66,9 +76,15 @@ UserSchema.pre('save', function() {
   this.updatedAt = Date.now();
 });
 
-// Create indexes
-UserSchema.index({ firebaseUid: 1 });
-UserSchema.index({ email: 1 });
+// Indexes.
+// firebaseUid and email already declare `unique: true` on the field, which
+// creates their index — repeating them here produced duplicate-index warnings
+// on every boot. Worse, a schema.index() that collides by name with a
+// field-level one can silently REPLACE it (that is how the agent
+// one-active-job guard went missing during phase 3), so a key is declared in
+// exactly one place.
 UserSchema.index({ role: 1 });
+// Agent dispatch: find online agents of a given vehicle type.
+UserSchema.index({ role: 1, isOnline: 1, 'vehicle.type': 1 });
 
 module.exports = mongoose.model('User', UserSchema);

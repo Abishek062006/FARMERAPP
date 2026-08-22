@@ -58,22 +58,7 @@ export default function LandListScreen({ navigation, route }) {
     navigation.navigate('LandDetails', { land, userData });
   };
 
-  const getFarmingTypeInfo = (type) => {
-    switch (type) {
-      case 'normal':
-        return { icon: '🌾', color: '#FF9800', label: 'Normal' };
-      case 'organic':
-        return { icon: '🌱', color: '#4CAF50', label: 'Organic' };
-      case 'terrace':
-        return { icon: '🪴', color: '#2196F3', label: 'Terrace' };
-      default:
-        return { icon: '🌿', color: '#666', label: 'Unknown' };
-    }
-  };
-
   const renderLandCard = ({ item }) => {
-    const farmingInfo = getFarmingTypeInfo(item.farmingType);
-
     return (
       <TouchableOpacity
         style={styles.landCard}
@@ -85,11 +70,6 @@ export default function LandListScreen({ navigation, route }) {
           <View style={styles.landNameContainer}>
             <Ionicons name="location" size={24} color="#4CAF50" />
             <Text style={styles.landName}>{item.landName}</Text>
-          </View>
-          <View style={[styles.typeBadge, { backgroundColor: farmingInfo.color }]}>
-            <Text style={styles.typeBadgeText}>
-              {farmingInfo.icon} {farmingInfo.label}
-            </Text>
           </View>
         </View>
 
@@ -302,16 +282,6 @@ const styles = StyleSheet.create({
     color: '#333',
     marginLeft: 8,
     flex: 1,
-  },
-  typeBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  typeBadgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
   },
   infoRow: {
     flexDirection: 'row',

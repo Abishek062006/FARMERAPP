@@ -1,6 +1,6 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import { TouchableOpacity, Text, Alert } from 'react-native';
+import { TouchableOpacity, Text, View, Image, Alert } from 'react-native';
 import { signOut } from 'firebase/auth';
 import { auth } from '../utils/firebase';
 
@@ -15,6 +15,9 @@ import PlotDivisionScreen from '../screens/Farmer/PlotDivisionScreen';
 import CropDetailScreen from '../screens/Farmer/CropDetailScreen';
 import TaskManagementScreen from '../screens/Farmer/TaskManagementScreen';
 import MarketPricesScreen from '../screens/Farmer/MarketPricesScreen';
+import FarmerSalesScreen from '../screens/Farmer/FarmerSalesScreen';
+import ProfileScreen from '../screens/Profile/ProfileScreen';
+import EditProfileScreen from '../screens/Profile/EditProfileScreen';
 
 
 // ❌ Comment out until we create the file
@@ -26,12 +29,6 @@ const Stack = createStackNavigator();
 
 const FarmerNavigator = ({ userData }) => {
   const DashboardComponent = FarmerDashboard;
-  
-  const dashboardTitle = 
-    userData?.farmingType === 'terrace' ? 'Terrace Farming' :
-    userData?.farmingType === 'normal' ? 'Normal Farming' :
-    userData?.farmingType === 'organic' ? 'Organic Farming' :
-    'Farming Dashboard';
 
   const handleLogout = async () => {
     Alert.alert(
@@ -70,22 +67,76 @@ const FarmerNavigator = ({ userData }) => {
         name="Dashboard" 
         component={DashboardComponent}
         initialParams={{ userData }}
-        options={{
-          title: dashboardTitle,
-          headerRight: () => (
+        options={({ navigation: nav }) => ({
+          title: 'NELIR',
+          headerLeft: () => (
             <TouchableOpacity
-              style={{ marginRight: 16 }}
+              style={{ marginLeft: 16 }}
               onPress={handleLogout}
             >
-              <Text style={{ 
-                color: COLORS.primary, 
-                fontSize: 16, 
-                fontWeight: 'bold' 
+              <Text style={{
+                color: COLORS.primary,
+                fontSize: 16,
+                fontWeight: 'bold'
               }}>
                 Logout
               </Text>
             </TouchableOpacity>
           ),
+          headerRight: () => (
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16 }}
+              onPress={() => nav.navigate('Profile', { userData })}
+            >
+              {userData?.profileImage ? (
+                <Image
+                  source={{ uri: userData.profileImage }}
+                  style={{ width: 28, height: 28, borderRadius: 14, marginRight: 8 }}
+                />
+              ) : (
+                <View style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  backgroundColor: COLORS.primary,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 8,
+                }}>
+                  <Text style={{ fontSize: 14 }}>👤</Text>
+                </View>
+              )}
+              <Text
+                style={{ color: COLORS.primary, fontSize: 14, fontWeight: 'bold', maxWidth: 90 }}
+                numberOfLines={1}
+              >
+                {userData?.name || 'Unknown User'}
+              </Text>
+            </TouchableOpacity>
+          ),
+        })}
+      />
+
+      <Stack.Screen
+        name="FarmerSales"
+        component={FarmerSalesScreen}
+        options={{ title: 'My Sales' }}
+      />
+
+      {/* Profile */}
+      <Stack.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{
+          headerShown: false,
         }}
       />
 

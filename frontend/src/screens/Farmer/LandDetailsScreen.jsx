@@ -77,19 +77,6 @@ export default function LandDetailsScreen({ navigation, route }) {
     );
   };
 
-  const getFarmingTypeInfo = (type) => {
-    switch (type) {
-      case 'normal':
-        return { icon: '🌾', color: '#FF9800', label: 'Normal Farming' };
-      case 'organic':
-        return { icon: '🌱', color: '#4CAF50', label: 'Organic Farming' };
-      case 'terrace':
-        return { icon: '🪴', color: '#2196F3', label: 'Terrace Farming' };
-      default:
-        return { icon: '🌿', color: '#666', label: 'Unknown' };
-    }
-  };
-
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -98,19 +85,14 @@ export default function LandDetailsScreen({ navigation, route }) {
     );
   }
 
-  const farmingInfo = getFarmingTypeInfo(landDetails?.farmingType);
-
   return (
     <ScrollView style={styles.container}>
       {/* Header Card */}
       <View style={styles.headerCard}>
         <View style={styles.iconContainer}>
-          <Text style={styles.icon}>{farmingInfo.icon}</Text>
+          <Text style={styles.icon}>🌾</Text>
         </View>
         <Text style={styles.landName}>{landDetails?.landName}</Text>
-        <View style={[styles.typeBadge, { backgroundColor: farmingInfo.color }]}>
-          <Text style={styles.typeBadgeText}>{farmingInfo.label}</Text>
-        </View>
       </View>
 
       {/* Location Section */}
@@ -262,16 +244,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 12,
-  },
-  typeBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  typeBadgeText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
   section: {
     backgroundColor: '#fff',

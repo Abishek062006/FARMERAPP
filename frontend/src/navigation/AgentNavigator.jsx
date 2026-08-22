@@ -4,6 +4,7 @@ import { TouchableOpacity, Text, Alert } from 'react-native';
 import { signOut } from 'firebase/auth';
 import { auth } from '../utils/firebase';
 import AgentDashboard from '../screens/Agent/AgentDashboard';
+import AgentTripScreen from '../screens/Agent/AgentTripScreen';
 import { COLORS } from '../constants/colors';
 
 const Stack = createStackNavigator();
@@ -49,8 +50,9 @@ const AgentNavigator = ({ userData }) => {
       <Stack.Screen 
         name="AgentDashboard" 
         component={AgentDashboard}
+        initialParams={{ userData }}
         options={{
-          title: 'Agent Dashboard',
+          title: 'Trips',
           headerRight: () => (
             <TouchableOpacity
               style={{ marginRight: 16 }}
@@ -66,6 +68,12 @@ const AgentNavigator = ({ userData }) => {
             </TouchableOpacity>
           ),
         }}
+      />
+
+      <Stack.Screen
+        name="AgentTrip"
+        component={AgentTripScreen}
+        options={{ title: 'Your Trip' }}
       />
     </Stack.Navigator>
   );

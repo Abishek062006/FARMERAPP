@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,66 +10,100 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { getUserData, saveUserData } from '../../utils/storage';
+import axios from 'axios';
+import {
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
+} from 'firebase/auth';
+import { auth } from '../../utils/firebase';
+import { API_ENDPOINTS } from '../../utils/config';
 import { COLORS } from '../../constants/colors';
 
+const FIELD_INFO = {
+  name: { title: 'Edit Name', placeholder: 'Full Name', icon: '👤', autoCapitalize: 'words' },
+  phone: { title: 'Edit Phone', placeholder: 'Phone Number', icon: '📱', keyboardType: 'phone-pad' },
+  district: { title: 'Edit District', placeholder: 'District', icon: '📍', autoCapitalize: 'words' },
+  password: { title: 'Change Password', placeholder: 'New Password', icon: '🔒' },
+};
+
 const EditProfileScreen = ({ navigation, route }) => {
-  const { field } = route.params;
-  const [value, setValue] = useState('');
+  const { field, currentValue, location } = route.params;
+  const fieldInfo = FIELD_INFO[field];
+
+  const [value, setValue] = useState(field === 'password' ? '' : (currentValue || ''));
+  const [currentPassword, setCurrentPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    loadCurrentValue();
-  }, []);
-
-  const loadCurrentValue = async () => {
-    const userData = await getUserData();
-    if (field === 'name') setValue(userData.name);
-    if (field === 'phone') setValue(userData.phone);
-  };
-
-  const getFieldInfo = () => {
-    switch (field) {
-      case 'name':
-        return { title: 'Edit Name', placeholder: 'Full Name', icon: '👤' };
-      case 'phone':
-        return { title: 'Edit Phone', placeholder: 'Phone Number', icon: '📱' };
-      case 'password':
-        return { title: 'Change Password', placeholder: 'New Password', icon: '🔒' };
-      default:
-        return { title: 'Edit Profile', placeholder: 'Value', icon: '✏️' };
-    }
-  };
-
-  const handleSave = async () => {
-    if (!value.trim()) {
-      Alert.alert('Error', 'Please enter a value');
+  const savePassword = async () => {
+    if (!currentPassword || !value) {
+      Alert.alert('Error', 'Please fill in all password fields');
       return;
     }
-
-    if (field === 'password' && value.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+    if (value.length < 6) {
+      Alert.alert('Error', 'New password must be at least 6 characters');
       return;
     }
-
-    if (field === 'password' && value !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+    if (value !== confirmPassword) {
+      Alert.alert('Error', 'New passwords do not match');
       return;
     }
 
     setLoading(true);
-    const userData = await getUserData();
-    const updatedData = { ...userData, [field]: value };
-    await saveUserData(updatedData);
-    setLoading(false);
-
-    Alert.alert('Success', `${getFieldInfo().title} updated successfully!`, [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+    try {
+      const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await updatePassword(auth.currentUser, value);
+      Alert.alert('Success', 'Password changed successfully!', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (error) {
+      const message =
+        error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential'
+          ? 'Current password is incorrect'
+          : error.message || 'Failed to change password';
+      Alert.alert('Error', message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const fieldInfo = getFieldInfo();
+  const saveProfileField = async () => {
+    if (!value.trim()) {
+      Alert.alert('Error', 'Please enter a value');
+      return;
+    }
+    if (field === 'phone' && value.replace(/\D/g, '').length < 10) {
+      Alert.alert('Error', 'Please enter a valid 10-digit phone number');
+      return;
+    }
+
+    const payload =
+      field === 'district'
+        ? { location: { ...location, district: value.trim() } }
+        : { [field]: value.trim() };
+
+    setLoading(true);
+    try {
+      await axios.put(`${API_ENDPOINTS.USERS}/${auth.currentUser.uid}`, payload);
+      Alert.alert('Success', `${fieldInfo.title} updated successfully!`, [
+        {
+          text: 'OK',
+          onPress: () =>
+            navigation.navigate('Profile', {
+              updated: field === 'district' ? { field: 'location', value: payload.location } : { field, value: value.trim() },
+            }),
+        },
+      ]);
+    } catch (error) {
+      Alert.alert('Error', error.response?.data?.error || 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = () => (field === 'password' ? savePassword() : saveProfileField());
 
   return (
     <>
@@ -79,10 +113,7 @@ const EditProfileScreen = ({ navigation, route }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Text style={styles.backButtonText}>‹ Back</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{fieldInfo.title}</Text>
@@ -94,14 +125,25 @@ const EditProfileScreen = ({ navigation, route }) => {
             <Text style={styles.icon}>{fieldInfo.icon}</Text>
           </View>
 
+          {field === 'password' && (
+            <TextInput
+              style={styles.input}
+              placeholder="Current Password"
+              placeholderTextColor={COLORS.textLight}
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              secureTextEntry
+            />
+          )}
+
           <TextInput
             style={styles.input}
             placeholder={fieldInfo.placeholder}
             placeholderTextColor={COLORS.textLight}
             value={value}
             onChangeText={setValue}
-            autoCapitalize={field === 'name' ? 'words' : 'none'}
-            keyboardType={field === 'phone' ? 'phone-pad' : 'default'}
+            autoCapitalize={fieldInfo.autoCapitalize || 'none'}
+            keyboardType={fieldInfo.keyboardType || 'default'}
             secureTextEntry={field === 'password'}
           />
 
@@ -122,9 +164,7 @@ const EditProfileScreen = ({ navigation, route }) => {
             disabled={loading}
             activeOpacity={0.8}
           >
-            <Text style={styles.saveButtonText}>
-              {loading ? 'Saving...' : 'Save Changes'}
-            </Text>
+            <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Changes'}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

@@ -38,23 +38,22 @@ const RootNavigator = () => {
         if (result.success && result.user) {
           console.log('✅ User data loaded from MongoDB');
           console.log('📋 Role:', result.user.role);
-          console.log('🌾 Farming Type:', result.user.farmingType);
-          
+
           setUserData({
             uid: currentUser.uid,
             email: currentUser.email,
             name: result.user.name,
             phone: result.user.phone,
             role: result.user.role,
-            farmingType: result.user.farmingType,
             location: result.user.location,
             profileImage: result.user.profileImage,
+            createdAt: result.user.createdAt,
           });
-          
+
           setLoading(false);
           return;
         }
-        
+
         // First attempt failed - try retry for new users
         console.log('⚠️ First fetch failed, retrying...');
         setLoadingMessage('Setting up your account...');
@@ -71,9 +70,9 @@ const RootNavigator = () => {
             name: retryResult.user.name,
             phone: retryResult.user.phone,
             role: retryResult.user.role,
-            farmingType: retryResult.user.farmingType,
             location: retryResult.user.location,
             profileImage: retryResult.user.profileImage,
+            createdAt: retryResult.user.createdAt,
           });
           
           setLoading(false);
@@ -93,7 +92,6 @@ const RootNavigator = () => {
           email: currentUser.email,
           name: userName,
           role: 'farmer', // Default
-          farmingType: 'terrace', // Default
           location: {
             city: 'Chennai',
             district: 'Chennai',

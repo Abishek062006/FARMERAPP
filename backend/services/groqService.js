@@ -30,7 +30,7 @@ const askGroq = async (prompt) => {
           content: prompt
         }
       ],
-      model: 'llama-3.3-70b-versatile',
+      model: 'openai/gpt-oss-120b',
       temperature: 0.7,
       max_tokens: 2000,
     });
@@ -46,137 +46,56 @@ const askGroq = async (prompt) => {
 };
 
 /**
- * Get crop recommendations based on location
+ * Write the farmer-facing "reason" text for crops that
+ * cropRecommendationEngine.js has already selected and ranked using real
+ * agronomic rules + live market/platform data. The LLM does not choose the
+ * crops or the demand level here — it only phrases why, referencing the
+ * real signals it's given. If it fails to return usable JSON, we fall back
+ * to a plain templated sentence built from those same real signals, not a
+ * hardcoded crop list.
  */
-const getCropRecommendations = async (location, soilType, season) => {
-  const prompt = `You are an expert agricultural advisor for Tamil Nadu, India.
+const explainCropRecommendations = async (rankedCrops, location, season) => {
+  if (!rankedCrops || rankedCrops.length === 0) return {};
 
-Location: ${location.city}, ${location.district}, ${location.state}
-Soil Type: ${soilType || 'Not specified'}
-Current Season: ${season}
+  const cropSummaries = rankedCrops
+    .map((c) => {
+      const priceNote = c.signals.priceTrend
+        ? `local price trending ${c.signals.priceTrend}`
+        : 'no recent local price data';
+      return `- ${c.name}: ${c.duration}-day crop, ${c.demand} demand, ${c.signals.growersNearby} other farmers nearby already growing it, ${priceNote}`;
+    })
+    .join('\n');
 
-Recommend 10 suitable crops for this location and season.
-For each crop, provide:
-1. Crop name (in English)
-2. Tamil name (in Tamil script)
-3. Growing duration (days)
-4. Why it's suitable for this location
-5. Expected yield per acre
-6. Market demand (High/Medium/Low)
+  const prompt = `You are an agricultural advisor for Tamil Nadu, India. A farmer in ${location.city}, ${location.district} is deciding what to grow this ${season}.
 
-Format as JSON array:
-[
-  {
-    "name": "Rice",
-    "tamilName": "அரிசி",
-    "duration": 120,
-    "reason": "Suitable for...",
-    "yield": "25-30 quintals/acre",
-    "demand": "High"
-  }
-]
+These crops were already selected using real soil, water, season, live market price, and regional supply data — do not second-guess or replace them, and do not invent facts beyond what's listed:
+${cropSummaries}
 
-IMPORTANT: Return ONLY the JSON array, no other text.`;
+For EACH crop listed above, write one short, farmer-friendly reason (1-2 sentences) explaining why it's a good choice right now, referencing the real signals given (nearby grower count, price trend, demand level) where relevant.
+
+Return ONLY a JSON object mapping crop name to reason string, exactly like:
+{"Rice (Paddy)": "reason here", "Tomato": "reason here"}`;
 
   try {
     const response = await askGroq(prompt);
-    
-    // Extract JSON from response
-    const jsonMatch = response.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
-    throw new Error('No JSON found in response');
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(response);
+    return parsed;
   } catch (error) {
-    console.error('❌ Failed to parse Groq response:', error.message);
-    
-    // Return fallback recommendations
-    return [
-      {
-        name: 'Rice (Paddy)',
-        tamilName: 'நெல்',
-        duration: 120,
-        reason: 'Most suitable crop for Tamil Nadu with abundant water availability',
-        yield: '25-30 quintals/acre',
-        demand: 'High'
-      },
-      {
-        name: 'Sugarcane',
-        tamilName: 'கரும்பு',
-        duration: 365,
-        reason: 'Long-duration cash crop ideal for Tamil Nadu climate',
-        yield: '35-40 tons/acre',
-        demand: 'High'
-      },
-      {
-        name: 'Cotton',
-        tamilName: 'பருத்தி',
-        duration: 180,
-        reason: 'Drought-resistant fiber crop suitable for red and black soils',
-        yield: '15-20 quintals/acre',
-        demand: 'High'
-      },
-      {
-        name: 'Groundnut',
-        tamilName: 'நிலக்கடலை',
-        duration: 110,
-        reason: 'Oilseed crop ideal for sandy loam soil',
-        yield: '15-20 quintals/acre',
-        demand: 'High'
-      },
-      {
-        name: 'Tomato',
-        tamilName: 'தக்காளி',
-        duration: 90,
-        reason: 'High-demand vegetable crop',
-        yield: '20-25 tons/acre',
-        demand: 'High'
-      },
-      {
-        name: 'Banana',
-        tamilName: 'வாழை',
-        duration: 365,
-        reason: 'Year-round fruiting crop',
-        yield: '30-40 tons/acre',
-        demand: 'High'
-      },
-      {
-        name: 'Turmeric',
-        tamilName: 'மஞ்சள்',
-        duration: 240,
-        reason: 'High-value spice crop',
-        yield: '20-25 quintals/acre',
-        demand: 'High'
-      },
-      {
-        name: 'Coconut',
-        tamilName: 'தேங்காய்',
-        duration: 2555,
-        reason: 'Perennial crop providing continuous income',
-        yield: '60-80 nuts/tree/year',
-        demand: 'High'
-      },
-      {
-        name: 'Black Gram',
-        tamilName: 'உளுந்து',
-        duration: 75,
-        reason: 'Pulse crop enriching soil',
-        yield: '5-7 quintals/acre',
-        demand: 'High'
-      },
-      {
-        name: 'Chili',
-        tamilName: 'மிளகாய்',
-        duration: 150,
-        reason: 'Drought resistant with high profit margins',
-        yield: '3-4 tons/acre',
-        demand: 'High'
-      }
-    ];
+    console.error('❌ Failed to parse reason explanations:', error.message);
+
+    const fallback = {};
+    rankedCrops.forEach((c) => {
+      const bits = [`${c.demand.toLowerCase()} demand`];
+      if (c.signals.priceTrend) bits.push(`local price trending ${c.signals.priceTrend}`);
+      if (c.signals.growersNearby <= 2) bits.push('few other growers nearby yet');
+      fallback[c.name] = `Suited to your land's soil and water conditions for the ${season.toLowerCase()} season — ${bits.join(', ')}.`;
+    });
+    return fallback;
   }
 };
 
 module.exports = {
   askGroq,
-  getCropRecommendations,
+  explainCropRecommendations,
 };

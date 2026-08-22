@@ -17,4 +17,7 @@ router.get('/trend', mandiController.getTrend);
 // GET /api/mandi/dashboard-prices?state=&district=&crops=&date=
 router.get('/dashboard-prices', mandiController.getDashboardPrices);
 
+// GET /api/mandi/nearby-prices?district=&date=&limit=
+router.get('/nearby-prices', mandiController.getNearbyPrices);
+
 module.exports = router;

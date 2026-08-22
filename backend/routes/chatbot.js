@@ -1,13 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
 const multer = require('multer');
-const FormData = require('form-data');
+const { Groq, toFile } = require('groq-sdk');
 const { requireAuth } = require('../middleware/auth');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+let groq = null;
+function getGroqClient() {
+  if (!groq) {
+    const GROQ_API_KEY = process.env.GROQ_API_KEY;
+    if (!GROQ_API_KEY) throw new Error('GROQ_API_KEY not found in environment variables');
+    groq = new Groq({ apiKey: GROQ_API_KEY });
+  }
+  return groq;
+}
 
 router.use(requireAuth);
 
@@ -19,6 +26,10 @@ You are knowledgeable about:
 - Irrigation methods, soil health, weather-based farming decisions
 - Market prices, crop selling advice and storage tips
 
+You ONLY answer questions related to farming and agriculture. If the farmer asks about
+anything else, politely reply (in the same language they used) that you can only help
+with farming-related questions.
+
 STRICT LANGUAGE RULE:
 - If the farmer writes or speaks in Tamil script reply ONLY in Tamil
 - If the farmer writes or speaks in English reply ONLY in English
@@ -26,7 +37,7 @@ STRICT LANGUAGE RULE:
 - Keep answers simple, practical, and easy for farmers to understand
 - Use numbered steps for procedures and treatments`;
 
-// POST /api/chatbot/chat — proxies chat completion to OpenRouter, key stays server-side
+// POST /api/chatbot/chat — proxies chat completion to Groq (free tier), key stays server-side
 router.post('/chat', async (req, res) => {
   try {
     const { messages } = req.body;
@@ -34,56 +45,39 @@ router.post('/chat', async (req, res) => {
       return res.status(400).json({ success: false, error: 'messages array is required' });
     }
 
-    const response = await axios.post(
-      'https://openrouter.ai/api/v1/chat/completions',
-      {
-        model: 'mistralai/mistral-saba',
-        messages: [{ role: 'system', content: UZHAVAN_SYSTEM_PROMPT }, ...messages],
-        temperature: 0.7,
-        max_tokens: 500,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://uzhavan-farmer-app.com',
-          'X-Title': 'UZHAVAN Farmer Assistant',
-        },
-        timeout: 30000,
-      }
-    );
+    const client = getGroqClient();
+    const completion = await client.chat.completions.create({
+      model: 'openai/gpt-oss-120b',
+      messages: [{ role: 'system', content: UZHAVAN_SYSTEM_PROMPT }, ...messages],
+      temperature: 0.7,
+      max_tokens: 500,
+    });
 
-    const reply = response.data.choices?.[0]?.message?.content || null;
+    const reply = completion.choices?.[0]?.message?.content || null;
     res.json({ success: true, reply });
   } catch (err) {
-    console.error('❌ Chatbot chat error:', err.response?.data || err.message);
+    console.error('❌ Chatbot chat error:', err.message);
     res.status(502).json({ success: false, error: 'Chat assistant is unavailable right now' });
   }
 });
 
-// POST /api/chatbot/transcribe — proxies voice-note transcription to OpenRouter Whisper
+// POST /api/chatbot/transcribe — proxies voice-note transcription to Groq's Whisper (free tier)
 router.post('/transcribe', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'Audio file is required' });
     }
 
-    const formData = new FormData();
-    formData.append('file', req.file.buffer, { filename: 'voice_input.m4a', contentType: 'audio/m4a' });
-    formData.append('model', 'openai/whisper-large-v3');
+    const client = getGroqClient();
+    const file = await toFile(req.file.buffer, 'voice_input.m4a');
+    const transcription = await client.audio.transcriptions.create({
+      file,
+      model: 'whisper-large-v3',
+    });
 
-    const response = await axios.post(
-      'https://openrouter.ai/api/v1/audio/transcriptions',
-      formData,
-      {
-        headers: { ...formData.getHeaders(), Authorization: `Bearer ${OPENROUTER_API_KEY}` },
-        timeout: 30000,
-      }
-    );
-
-    res.json({ success: true, text: response.data.text?.trim() || '' });
+    res.json({ success: true, text: transcription.text?.trim() || '' });
   } catch (err) {
-    console.error('❌ Chatbot transcribe error:', err.response?.data || err.message);
+    console.error('❌ Chatbot transcribe error:', err.message);
     res.status(502).json({ success: false, error: 'Voice transcription is unavailable right now' });
   }
 });

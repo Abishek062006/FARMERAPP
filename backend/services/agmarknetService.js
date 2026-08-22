@@ -237,15 +237,332 @@ function normalize(str) {
   return (str || '').toLowerCase().trim();
 }
 
+// Agmarknet's own district names often don't match what a phone's GPS
+// reverse-geocoder returns for the same place (e.g. "Sivaganga" vs the more
+// common "Sivagangai", "Thiruchirappalli" vs "Tiruchirappalli") — a strict
+// exact match silently drops real matches for a large fraction of Tamil
+// Nadu's districts. Fold the common "Thiru-"/"Tiru-" spelling split and a
+// handful of outright renamed districts to the same form before comparing.
+const DISTRICT_ALIASES = {
+  tuticorin: 'thoothukudi',
+  thoothukudi: 'thoothukudi',
+  kancheepuram: 'kanchipuram',
+  kanchipuram: 'kanchipuram',
+  'nagercoil (kannyiakumari)': 'kanyakumari',
+  kanyakumari: 'kanyakumari',
+  nagercoil: 'kanyakumari',
+  thiruvellore: 'tiruvallur',
+  tiruvallur: 'tiruvallur',
+  villupuram: 'viluppuram',
+  viluppuram: 'viluppuram',
+  thiruchirappalli: 'tiruchirappalli',
+  tiruchirappalli: 'tiruchirappalli',
+  trichy: 'tiruchirappalli',
+  kallakuruchi: 'kallakurichi',
+  kallakurichi: 'kallakurichi',
+  thirupathur: 'tirupattur',
+  tirupattur: 'tirupattur',
+  thirupur: 'tiruppur',
+  tiruppur: 'tiruppur',
+  chengalpattu: 'chengalpattu',
+  chengalpet: 'chengalpattu',
+};
+
+function canonicalizeDistrictName(name) {
+  const n = normalize(name);
+  if (DISTRICT_ALIASES[n]) return DISTRICT_ALIASES[n];
+  return n.replace(/^thiru/, 'tiru');
+}
+
+// A phone's GPS reverse-geocoder often returns the nearest well-known TOWN
+// (e.g. "Karaikudi"), not the official revenue district it sits in (e.g.
+// "Sivaganga") — these aren't spelling variants of each other so no amount
+// of normalization catches it. Best-effort, not exhaustive; maps a town to
+// its Agmarknet district name (post-canonicalization spelling).
+const TALUK_TO_DISTRICT = {
+  karaikudi: 'sivaganga',
+  karaikkudi: 'sivaganga',
+  devakottai: 'sivaganga',
+  manamadurai: 'sivaganga',
+  rajapalayam: 'virudhunagar',
+  sivakasi: 'virudhunagar',
+  aruppukkottai: 'virudhunagar',
+  kumbakonam: 'thanjavur',
+  pattukkottai: 'thanjavur',
+  pollachi: 'coimbatore',
+  hosur: 'krishnagiri',
+  vaniyambadi: 'tirupattur',
+  ambur: 'tirupattur',
+  gudiyatham: 'vellore',
+  arakkonam: 'ranipet',
+  tambaram: 'chengalpattu',
+  avadi: 'tiruvallur',
+  poonamallee: 'tiruvallur',
+  ooty: 'nilgiris',
+  udhagamandalam: 'nilgiris',
+  coonoor: 'nilgiris',
+  kodaikanal: 'dindigul',
+  palani: 'dindigul',
+  rameswaram: 'ramanathapuram',
+  paramakudi: 'ramanathapuram',
+  mannargudi: 'tiruvarur',
+  chidambaram: 'cuddalore',
+  neyveli: 'cuddalore',
+  panruti: 'cuddalore',
+  tindivanam: 'viluppuram',
+  tiruchengode: 'namakkal',
+
+  // Tiruvallur
+  ponneri: 'tiruvallur',
+  gummidipoondi: 'tiruvallur',
+  uthukottai: 'tiruvallur',
+  pallipattu: 'tiruvallur',
+  tiruttani: 'tiruvallur',
+  // Kancheepuram
+  uthiramerur: 'kancheepuram',
+  walajabad: 'kancheepuram',
+  // Chengalpattu
+  cheyyur: 'chengalpattu',
+  madurantakam: 'chengalpattu',
+  thirukalukundram: 'chengalpattu',
+  pallavaram: 'chengalpattu',
+  vandalur: 'chengalpattu',
+  // Cuddalore
+  kattumannarkoil: 'cuddalore',
+  virudhachalam: 'cuddalore',
+  vriddhachalam: 'cuddalore',
+  kurinjipadi: 'cuddalore',
+  // Villupuram
+  gingee: 'viluppuram',
+  senji: 'viluppuram',
+  vanur: 'viluppuram',
+  vikravandi: 'viluppuram',
+  marakkanam: 'viluppuram',
+  tirukoilur: 'viluppuram',
+  // Vellore
+  katpadi: 'vellore',
+  anaicut: 'vellore',
+  // Tiruvannamalai
+  arani: 'tiruvannamalai',
+  arni: 'tiruvannamalai',
+  cheyyar: 'tiruvannamalai',
+  polur: 'tiruvannamalai',
+  chengam: 'tiruvannamalai',
+  vandavasi: 'tiruvannamalai',
+  jamunamarathur: 'tiruvannamalai',
+  // Ranipet
+  walajapet: 'ranipet',
+  sholingur: 'ranipet',
+  // Kallakurichi
+  sankarapuram: 'kallakurichi',
+  ulundurpettai: 'kallakurichi',
+  chinnasalem: 'kallakurichi',
+  // Tirupathur
+  natrampalli: 'tirupattur',
+  jolarpettai: 'tirupattur',
+  // Salem
+  attur: 'salem',
+  mettur: 'salem',
+  omalur: 'salem',
+  sankari: 'salem',
+  yercaud: 'salem',
+  // Namakkal
+  rasipuram: 'namakkal',
+  paramathivelur: 'namakkal',
+  // Dharmapuri
+  harur: 'dharmapuri',
+  palacode: 'dharmapuri',
+  pappireddipatti: 'dharmapuri',
+  pennagaram: 'dharmapuri',
+  // Krishnagiri
+  denkanikottai: 'krishnagiri',
+  uthangarai: 'krishnagiri',
+  bargur: 'krishnagiri',
+  pochampalli: 'krishnagiri',
+  // Erode
+  bhavani: 'erode',
+  gobichettipalayam: 'erode',
+  sathyamangalam: 'erode',
+  perundurai: 'erode',
+  anthiyur: 'erode',
+  kodumudi: 'erode',
+  modakurichi: 'erode',
+  // Coimbatore
+  mettupalayam: 'coimbatore',
+  sulur: 'coimbatore',
+  kinathukadavu: 'coimbatore',
+  valparai: 'coimbatore',
+  annur: 'coimbatore',
+  // Tiruppur
+  avinashi: 'tiruppur',
+  palladam: 'tiruppur',
+  udumalaipettai: 'tiruppur',
+  dharapuram: 'tiruppur',
+  kangeyam: 'tiruppur',
+  uthukuli: 'tiruppur',
+  // Karur
+  kulithalai: 'karur',
+  krishnarayapuram: 'karur',
+  aravakurichi: 'karur',
+  // Madurai
+  melur: 'madurai',
+  usilampatti: 'madurai',
+  vadipatti: 'madurai',
+  thirumangalam: 'madurai',
+  peraiyur: 'madurai',
+  sholavandan: 'madurai',
+  // Dindigul
+  nilakottai: 'dindigul',
+  vedasandur: 'dindigul',
+  natham: 'dindigul',
+  oddanchatram: 'dindigul',
+  athoor: 'dindigul',
+  // Theni
+  periyakulam: 'theni',
+  bodinayakanur: 'theni',
+  uthamapalayam: 'theni',
+  andipatti: 'theni',
+  cumbum: 'theni',
+  // Sivaganga
+  ilayangudi: 'sivaganga',
+  singampunari: 'sivaganga',
+  // Ramanathapuram
+  mudukulathur: 'ramanathapuram',
+  kamuthi: 'ramanathapuram',
+  tiruvadanai: 'ramanathapuram',
+  kadaladi: 'ramanathapuram',
+  keelakarai: 'ramanathapuram',
+  // Virudhunagar
+  sattur: 'virudhunagar',
+  srivilliputhur: 'virudhunagar',
+  kariapatti: 'virudhunagar',
+  vembakottai: 'virudhunagar',
+  // Thoothukudi
+  kovilpatti: 'thoothukudi',
+  ottapidaram: 'thoothukudi',
+  sathankulam: 'thoothukudi',
+  srivaikuntam: 'thoothukudi',
+  vilathikulam: 'thoothukudi',
+  tiruchendur: 'thoothukudi',
+  // Tirunelveli
+  ambasamudram: 'tirunelveli',
+  nanguneri: 'tirunelveli',
+  palayamkottai: 'tirunelveli',
+  radhapuram: 'tirunelveli',
+  cheranmahadevi: 'tirunelveli',
+  // Tenkasi
+  shencottai: 'tenkasi',
+  shenkottai: 'tenkasi',
+  sankarankovil: 'tenkasi',
+  kadayanallur: 'tenkasi',
+  alangulam: 'tenkasi',
+  vasudevanallur: 'tenkasi',
+  sivagiri: 'tenkasi',
+  // Kanyakumari
+  nagercoil: 'kanyakumari',
+  colachel: 'kanyakumari',
+  thuckalay: 'kanyakumari',
+  padmanabhapuram: 'kanyakumari',
+  vilavancode: 'kanyakumari',
+  agastheeswaram: 'kanyakumari',
+  kalkulam: 'kanyakumari',
+  // Thanjavur
+  orathanadu: 'thanjavur',
+  papanasam: 'thanjavur',
+  peravurani: 'thanjavur',
+  thiruvaiyaru: 'thanjavur',
+  budalur: 'thanjavur',
+  // Tiruvarur
+  nannilam: 'tiruvarur',
+  needamangalam: 'tiruvarur',
+  kodavasal: 'tiruvarur',
+  thiruthuraipoondi: 'tiruvarur',
+  valangaiman: 'tiruvarur',
+  // Nagapattinam
+  vedaranyam: 'nagapattinam',
+  kilvelur: 'nagapattinam',
+  thirukkuvalai: 'nagapattinam',
+  // Mayiladuthurai
+  sirkazhi: 'mayiladuthurai',
+  tharangambadi: 'mayiladuthurai',
+  tranquebar: 'mayiladuthurai',
+  kuthalam: 'mayiladuthurai',
+  // Pudukkottai
+  aranthangi: 'pudukkottai',
+  illupur: 'pudukkottai',
+  gandarvakottai: 'pudukkottai',
+  alangudi: 'pudukkottai',
+  karambakkudi: 'pudukkottai',
+  manamelkudi: 'pudukkottai',
+  avudaiyarkoil: 'pudukkottai',
+  // Tiruchirappalli
+  srirangam: 'tiruchirappalli',
+  lalgudi: 'tiruchirappalli',
+  musiri: 'tiruchirappalli',
+  manapparai: 'tiruchirappalli',
+  thottiyam: 'tiruchirappalli',
+  manachanallur: 'tiruchirappalli',
+  thuraiyur: 'tiruchirappalli',
+  // Ariyalur
+  udayarpalayam: 'ariyalur',
+  sendurai: 'ariyalur',
+  andimadam: 'ariyalur',
+  // Perambalur
+  kunnam: 'perambalur',
+  veppanthattai: 'perambalur',
+  // Nilgiris
+  kotagiri: 'nilgiris',
+  gudalur: 'nilgiris',
+  pandalur: 'nilgiris',
+};
+
 async function resolveDistrictIdByName(stateId, districtName) {
   const filters = await getFilters();
-  const match = filters.district_data.find(
-    (d) =>
-      d.id !== ALL_DISTRICT_ID &&
-      String(d.state_id) === String(stateId) &&
-      normalize(d.district_name) === normalize(districtName)
+  const candidates = filters.district_data.filter(
+    (d) => d.id !== ALL_DISTRICT_ID && String(d.state_id) === String(stateId)
   );
-  return match?.id ?? null;
+
+  const exact = candidates.find((d) => normalize(d.district_name) === normalize(districtName));
+  if (exact) return exact.id;
+
+  const target = canonicalizeDistrictName(districtName);
+  const canonical = candidates.find((d) => canonicalizeDistrictName(d.district_name) === target);
+  if (canonical) return canonical.id;
+
+  const talukTarget = resolveTalukDistrict(districtName);
+  if (talukTarget) {
+    const taluk = candidates.find((d) => canonicalizeDistrictName(d.district_name) === talukTarget);
+    if (taluk) return taluk.id;
+  }
+
+  const loose = candidates.find((d) => {
+    const dn = normalize(d.district_name);
+    const tn = normalize(districtName);
+    return dn.includes(tn) || tn.includes(dn);
+  });
+  return loose?.id ?? null;
+}
+
+// Single vs. doubled consonants ("Karaikudi" vs "Karaikkudi") are the most
+// common way an Indian place name's transliteration varies — collapsing
+// repeated letters before comparing absorbs that whole class of mismatch
+// instead of needing every variant hardcoded into TALUK_TO_DISTRICT.
+function collapseRepeats(s) {
+  return s.replace(/(.)\1+/g, '$1');
+}
+
+function resolveTalukDistrict(districtName) {
+  const target = normalize(districtName);
+  if (TALUK_TO_DISTRICT[target]) return TALUK_TO_DISTRICT[target];
+
+  const collapsedTarget = collapseRepeats(target);
+  for (const [taluk, district] of Object.entries(TALUK_TO_DISTRICT)) {
+    const collapsedTaluk = collapseRepeats(taluk);
+    if (collapsedTaluk === collapsedTarget || target.includes(taluk) || taluk.includes(target)) {
+      return district;
+    }
+  }
+  return null;
 }
 
 // Crop names in our app (e.g. "Brinjal", "Ladies Finger") don't always match
@@ -339,7 +656,44 @@ function totalArrivals(market) {
  * so a "found" market that happens to lack today's data doesn't dead-end
  * the search when a real alternative exists.
  */
-function rankCandidateMarkets(markets, marketName, districtMarketNames) {
+// Real Tamil Nadu district adjacency (not distance data — Agmarknet doesn't
+// give market coordinates) for the small set of districts that need it: the
+// ones with zero Agmarknet-registered markets of their own (currently
+// Chennai and Mayiladuthurai — see getNearbyPrices). Without this, their
+// state-wide fallback silently picks Tamil Nadu's single busiest market
+// regardless of where it is (e.g. Hosur, ~350km from Chennai) instead of an
+// actually-adjacent one. Keyed/valued by Agmarknet's own district_name
+// spelling, lowercased.
+const ADJACENT_DISTRICTS = {
+  chennai: ['tiruvellore', 'chengalpattu', 'kancheepuram'],
+  mayiladuthurai: ['nagapattinam', 'thanjavur', 'ariyalur', 'cuddalore'],
+};
+
+// marketName -> lowercased home-district name, built once from the already
+// -cached filters payload so ranking candidate markets doesn't need a
+// network round trip per market.
+async function getMarketDistrictMap() {
+  const filters = await getFilters();
+  const districtById = new Map(filters.district_data.map((d) => [d.id, normalize(d.district_name)]));
+  return new Map(filters.market_data.map((m) => [m.mkt_name, districtById.get(m.district_id) || null]));
+}
+
+async function getAdjacentDistrictMarketNames(districtId) {
+  const filters = await getFilters();
+  const district = filters.district_data.find((d) => d.id === districtId);
+  const neighbors = district ? ADJACENT_DISTRICTS[normalize(district.district_name)] : null;
+  if (!neighbors?.length) return new Set();
+
+  const neighborSet = new Set(neighbors);
+  const marketDistrict = await getMarketDistrictMap();
+  const names = new Set();
+  for (const [marketName, districtName] of marketDistrict) {
+    if (districtName && neighborSet.has(districtName)) names.add(marketName);
+  }
+  return names;
+}
+
+function rankCandidateMarkets(markets, marketName, districtMarketNames, adjacentMarketNames) {
   const candidates = [];
   const seen = new Set();
 
@@ -357,6 +711,17 @@ function rankCandidateMarkets(markets, marketName, districtMarketNames) {
       .filter((m) => districtMarketNames.includes(m.marketName))
       .sort((a, b) => totalArrivals(b) - totalArrivals(a))
       .forEach((m) => add(m, 'district'));
+  }
+
+  // Adjacent-district markets, ranked before the rest of the state — still
+  // labeled 'state' to the frontend (it's not the farmer's own district),
+  // but genuinely nearby rather than just whichever market trades the most
+  // statewide.
+  if (adjacentMarketNames?.size) {
+    markets
+      .filter((m) => adjacentMarketNames.has(m.marketName))
+      .sort((a, b) => totalArrivals(b) - totalArrivals(a))
+      .forEach((m) => add(m, 'state'));
   }
 
   [...markets]
@@ -383,16 +748,18 @@ async function findMarketDistrictName(marketName) {
 async function getPriceForSelection({ stateId, districtId, marketId, commodityId, date }) {
   const [year, month] = date.split('-').map(Number);
 
-  const [monthly, names, districtMarkets] = await Promise.all([
+  const [monthly, names, districtMarkets, adjacentMarketNames] = await Promise.all([
     getMonthlyCommodityPrices({ stateId, commodityId, year, month }),
     resolveNames({ stateId, districtId, marketId, commodityId }),
     getMarkets(districtId),
+    getAdjacentDistrictMarketNames(districtId),
   ]);
 
   const candidates = rankCandidateMarkets(
     monthly,
     names.marketName,
-    districtMarkets.map((m) => m.name)
+    districtMarkets.map((m) => m.name),
+    adjacentMarketNames
   );
 
   const agDate = toAgmarknetDate(date);
@@ -434,16 +801,18 @@ async function getPriceForSelection({ stateId, districtId, marketId, commodityId
 async function getTrendForSelection({ stateId, districtId, marketId, commodityId, date }) {
   const [year, month] = date.split('-').map(Number);
 
-  const [monthly, names, districtMarkets] = await Promise.all([
+  const [monthly, names, districtMarkets, adjacentMarketNames] = await Promise.all([
     getMonthlyCommodityPrices({ stateId, commodityId, year, month }),
     resolveNames({ stateId, districtId, marketId, commodityId }),
     getMarkets(districtId),
+    getAdjacentDistrictMarketNames(districtId),
   ]);
 
   const candidates = rankCandidateMarkets(
     monthly,
     names.marketName,
-    districtMarkets.map((m) => m.name)
+    districtMarkets.map((m) => m.name),
+    adjacentMarketNames
   );
 
   const agDate = toAgmarknetDate(date);
@@ -490,4 +859,5 @@ module.exports = {
   getTrendForSelection,
   resolveDistrictIdByName,
   resolveCommodityIdByName,
+  resolveTalukDistrict,
 };

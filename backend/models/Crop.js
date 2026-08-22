@@ -53,29 +53,6 @@ const cropSchema = new mongoose.Schema({
     required: true,
     enum: ['plants', 'seeds', 'kg', 'grams', 'saplings']
   },
-  farmingType: {
-    type: String,
-    required: true,
-    enum: ['normal', 'organic', 'terrace']
-  },
-  
-  // For terrace farming only
-  containerType: {
-    type: String,
-    enum: ['pot', 'grow-bag', 'tray', 'raised-bed', 'ground', null],
-    default: null
-  },
-  containerSize: {
-    type: String,
-    enum: ['5L', '10L', '15L', '20L', '25L', '30L', '50L', null],
-    default: null
-  },
-  location: {
-    type: String,
-    enum: ['balcony', 'terrace', 'rooftop', 'window', 'indoor', 'outdoor', null],
-    default: null
-  },
-  
   // Growth tracking
   currentStage: {
     type: String,

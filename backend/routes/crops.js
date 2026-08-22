@@ -3,7 +3,22 @@ const router = express.Router();
 const Crop = require('../models/Crop');
 const Land = require('../models/Land');
 const Plot = require('../models/Plot');
+const CropListing = require('../models/CropListing');
+const ListingImage = require('../models/ListingImage');
+const mongoose = require('mongoose');
+const multer = require('multer');
 const { requireAuth } = require('../middleware/auth');
+const { requireRole } = require('../middleware/requireRole');
+const { resolveDistrict } = require('../services/geoService');
+
+// memoryStorage, not diskStorage: the proof photo goes straight into Mongo
+// (see models/ListingImage.js), so it never needs to touch the filesystem.
+const uploadProof = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 6 * 1024 * 1024 },
+  fileFilter: (req, file, cb) =>
+    file.mimetype.startsWith('image/') ? cb(null, true) : cb(new Error('Only image files are allowed')),
+});
 
 /**
  * POST /api/crops
@@ -21,10 +36,6 @@ router.post('/', requireAuth, async (req, res) => {
       duration,
       quantity,
       unit,
-      farmingType,
-      containerType,
-      containerSize,
-      location,
       notes
     } = req.body;
     const firebaseUid = req.firebaseUid;
@@ -32,7 +43,7 @@ router.post('/', requireAuth, async (req, res) => {
     console.log('🌱 Registering new crop:', name);
 
     // Validate required fields
-    if (!firebaseUid || !landId || !name || !tamilName || !plantingDate || !duration || !quantity || !farmingType) {
+    if (!firebaseUid || !landId || !name || !tamilName || !plantingDate || !duration || !quantity) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields'
@@ -91,10 +102,6 @@ router.post('/', requireAuth, async (req, res) => {
       duration,
       quantity,
       unit: unit || 'plants',
-      farmingType,
-      containerType: containerType || null,
-      containerSize: containerSize || null,
-      location: location || null,
       currentStage: 'germination',
       daysElapsed: 0,
       healthScore: 100,
@@ -367,8 +374,13 @@ router.put('/:cropId/harvest', requireAuth, async (req, res) => {
     crop.isActive = false;
     crop.harvestDate = new Date();
     crop.currentStage = 'completed';
-    if (actualYield) {
-      crop.actualYield = actualYield;
+    // Two bugs lived here:
+    //   1. `if (actualYield)` — the app sends {actualYield: 0}, which is
+    //      falsy, so a real yield was never persisted for anyone.
+    //   2. the schema declares actualYield as {value, unit}, but this
+    //      assigned the raw Number, so even a truthy value stored wrong.
+    if (actualYield !== undefined && actualYield !== null && actualYield !== '') {
+      crop.actualYield = { value: Number(actualYield), unit: 'kg' };
     }
 
     await crop.save();
@@ -398,6 +410,134 @@ router.put('/:cropId/harvest', requireAuth, async (req, res) => {
       message: 'Failed to harvest crop',
       error: error.message
     });
+  }
+});
+
+
+/**
+ * POST /api/crops/:cropId/harvest-and-list
+ * Harvest a crop AND put it on the Farm Market in one step.
+ *
+ * multipart/form-data:
+ *   proof           (file, required)  harvest proof photo
+ *   actualYieldKg   what actually came off the field
+ *   quantityKg      how much of it to sell        (<= actualYieldKg)
+ *   minOrderKg      smallest order a vendor may place (<= quantityKg)
+ *   pricePerKg
+ *   gradeNote, notes (optional)
+ *
+ * This replaces the old "Mark as Harvested" button. Harvesting could not
+ * simply be dropped: without it crop.isActive stays true and the plot keeps
+ * {status:'active', cropId}, which trips the reuse guard in POST /api/crops
+ * and makes the plot permanently unusable.
+ *
+ * Wrapped in a transaction because it spans four collections (Crop, Plot,
+ * CropListing, ListingImage) and a partial failure is exactly what strands a
+ * plot. Atlas is a replica set, so withTransaction is available.
+ */
+router.post('/:cropId/harvest-and-list', requireAuth, requireRole('farmer'), uploadProof.single('proof'), async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    const { cropId } = req.params;
+    const { gradeNote = '', notes = '' } = req.body;
+
+    // multer gives every text field as a string.
+    const yieldKg  = Number(req.body.actualYieldKg);
+    const qty      = Number(req.body.quantityKg);
+    const price    = Number(req.body.pricePerKg);
+    const minOrder = Number(req.body.minOrderKg || 1);
+
+    const crop = await Crop.findById(cropId);
+    if (!crop) return res.status(404).json({ success: false, message: 'Crop not found' });
+    if (crop.firebaseUid !== req.firebaseUid)
+      return res.status(403).json({ success: false, message: 'Not authorized to harvest this crop' });
+    if (crop.isHarvested)
+      return res.status(400).json({ success: false, message: 'This crop has already been harvested' });
+
+    const land = await Land.findById(crop.landId).lean();
+    if (!land || !land.location || !land.location.coordinates)
+      return res.status(400).json({ success: false, message: 'This crop has no land record, so vendors would have no pickup point' });
+
+    // Every rule is enforced here, never on the client.
+    if (!(yieldKg > 0))
+      return res.status(400).json({ success: false, message: 'Enter how many kg you harvested' });
+    if (!(qty > 0) || qty > yieldKg)
+      return res.status(400).json({ success: false, message: 'You cannot list more than you harvested' });
+    if (!(price > 0))
+      return res.status(400).json({ success: false, message: 'Enter a price per kg' });
+    if (!(minOrder > 0) || minOrder > qty)
+      return res.status(400).json({ success: false, message: 'Minimum order must be between 1 kg and the quantity you are listing' });
+    if (!req.file)
+      return res.status(400).json({ success: false, message: 'A harvest proof photo is required' });
+
+    const { lat, lng } = land.location.coordinates;
+    // The stored district is a neighbourhood name on most records, so fall
+    // back to deriving it from the (reliable) land coordinates.
+    const district = resolveDistrict(land.location.district, { lat, lng });
+
+    let listing;
+    await session.withTransaction(async () => {
+      crop.isHarvested  = true;
+      crop.isActive     = false;
+      crop.harvestDate  = new Date();
+      crop.currentStage = 'completed';
+      crop.actualYield  = { value: yieldKg, unit: 'kg' };
+      await crop.save({ session });
+
+      if (crop.plotId) {
+        await Plot.findByIdAndUpdate(crop.plotId,
+          { $set: { status: 'harvested', cropId: null } }, { session });
+      }
+
+      const created = await CropListing.create([{
+        cropId: crop._id,
+        landId: land._id,
+        farmerUid: req.firebaseUid,
+        // From the verified profile, not the request body.
+        farmerName: req.profile.name,
+        farmerPhone: req.profile.phone,
+        cropName: crop.name,
+        cropTamilName: crop.tamilName,
+        variety: crop.variety,
+        harvestedAt: crop.harvestDate,
+        actualYieldKg: yieldKg,
+        quantityKg: qty,
+        quantityAvailableKg: qty,
+        minOrderKg: minOrder,
+        pricePerKg: price,
+        totalPrice: qty * price,
+        gradeNote: String(gradeNote).slice(0, 120),
+        notes: String(notes).slice(0, 500),
+        location: {
+          city: land.location.city,
+          district,
+          state: land.location.state || 'Tamil Nadu',
+          address: land.location.address || '',
+          lat,
+          lng,
+        },
+      }], { session });
+      listing = created[0];
+
+      const img = await ListingImage.create([{
+        listingId: listing._id,
+        ownerUid: req.firebaseUid,
+        contentType: req.file.mimetype,
+        data: req.file.buffer,
+      }], { session });
+
+      listing.proofImageId = img[0]._id;
+      await listing.save({ session });
+    });
+
+    console.log('🌾 Harvested + listed:', crop.name, `${qty}kg @ ₹${price}/kg in ${district}`);
+    res.status(201).json({ success: true, message: 'Harvest posted to the Farm Market', listing });
+
+  } catch (error) {
+    console.error('❌ harvest-and-list failed:', error);
+    res.status(500).json({ success: false, message: 'Could not post your harvest', error: error.message });
+  } finally {
+    await session.endSession();
   }
 });
 

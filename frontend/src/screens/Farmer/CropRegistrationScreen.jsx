@@ -27,12 +27,7 @@
     const [quantity, setQuantity] = useState('');
     const [unit, setUnit] = useState('plants');
     const [variety, setVariety] = useState('');
-    
-    // Terrace farming specific
-    const [containerType, setContainerType] = useState('pot');
-    const [containerSize, setContainerSize] = useState('10L');
-    const [location, setLocation] = useState('terrace');
-    
+
     const [notes, setNotes] = useState('');
 
     const currentCrop = selectedCrops ? selectedCrops[currentCropIndex] : null;
@@ -54,24 +49,6 @@
     }, []);
 
     const units = ['plants', 'seeds', 'kg', 'grams', 'saplings'];
-
-    const containerTypes = [
-      { value: 'pot', label: 'Pot (தொட்டி)' },
-      { value: 'grow-bag', label: 'Grow Bag (வளர்ப்பு பை)' },
-      { value: 'tray', label: 'Tray (தட்டு)' },
-      { value: 'raised-bed', label: 'Raised Bed (உயர்த்தப்பட்ட படுக்கை)' },
-    ];
-
-    const containerSizes = ['5L', '10L', '15L', '20L', '25L', '30L', '50L'];
-
-    const locations = [
-      { value: 'balcony', label: 'Balcony (பால்கனி)' },
-      { value: 'terrace', label: 'Terrace (மொட்டை மாடி)' },
-      { value: 'rooftop', label: 'Rooftop (கூரை மேல்)' },
-      { value: 'window', label: 'Window (ஜன்னல்)' },
-      { value: 'indoor', label: 'Indoor (உள்ளே)' },
-      { value: 'outdoor', label: 'Outdoor (வெளியே)' },
-    ];
 
     const handleDateChange = (event, selectedDate) => {
       setShowDatePicker(false);
@@ -108,15 +85,7 @@
           duration: currentCrop.duration,
           quantity: parseInt(quantity),
           unit,
-          farmingType: land.farmingType,
         };
-
-        // Add terrace-specific fields
-        if (land.farmingType === 'terrace') {
-          cropData.containerType = containerType;
-          cropData.containerSize = containerSize;
-          cropData.location = location;
-        }
 
         if (notes.trim()) {
           cropData.notes = notes.trim();
@@ -318,66 +287,6 @@
             />
           </View>
 
-          {/* Terrace Farming Specific Fields */}
-          {land.farmingType === 'terrace' && (
-            <>
-              {/* Container Type */}
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Container Type</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={containerType}
-                    onValueChange={setContainerType}
-                    style={styles.picker}
-                  >
-                    {containerTypes.map((type) => (
-                      <Picker.Item
-                        key={type.value}
-                        label={type.label}
-                        value={type.value}
-                      />
-                    ))}
-                  </Picker>
-                </View>
-              </View>
-
-              {/* Container Size */}
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Container Size</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={containerSize}
-                    onValueChange={setContainerSize}
-                    style={styles.picker}
-                  >
-                    {containerSizes.map((size) => (
-                      <Picker.Item key={size} label={size} value={size} />
-                    ))}
-                  </Picker>
-                </View>
-              </View>
-
-              {/* Location */}
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Location</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={location}
-                    onValueChange={setLocation}
-                    style={styles.picker}
-                  >
-                    {locations.map((loc) => (
-                      <Picker.Item
-                        key={loc.value}
-                        label={loc.label}
-                        value={loc.value}
-                      />
-                    ))}
-                  </Picker>
-                </View>
-              </View>
-            </>
-          )}
 
           {/* Notes */}
           <View style={styles.formGroup}>

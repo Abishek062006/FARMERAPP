@@ -10,10 +10,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
 import * as Location from 'expo-location';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/config';
+import LocationMapPicker from '../../components/LocationMapPicker';
+import ChipSelect from '../../components/ChipSelect';
+import SearchSelectSheet from '../../components/SearchSelectSheet';
+import { TN_DISTRICTS, matchTnDistrict } from '../../utils/tnDistricts';
 
 export default function LandRegistrationScreen({ navigation, route }) {
   const { userData } = route.params || {};
@@ -21,6 +24,7 @@ export default function LandRegistrationScreen({ navigation, route }) {
   // Form state
   const [loading, setLoading] = useState(false);
   const [fetchingLocation, setFetchingLocation] = useState(false);
+  const [mapPickerVisible, setMapPickerVisible] = useState(false);
 
   // Land details
   const [landName, setLandName] = useState('');
@@ -36,11 +40,15 @@ export default function LandRegistrationScreen({ navigation, route }) {
   const [size, setSize] = useState({ value: '', unit: 'acres' });
   const [waterSource, setWaterSource] = useState('borewell');
   const [soilType, setSoilType] = useState('red');
-  const [farmingType, setFarmingType] = useState('normal');
   const [notes, setNotes] = useState('');
 
   // Options
-  const sizeUnits = ['acres', 'hectares', 'sqft', 'sqm'];
+  const sizeUnits = [
+    { label: 'Acres', value: 'acres' },
+    { label: 'Hectares', value: 'hectares' },
+    { label: 'Sq. Ft.', value: 'sqft' },
+    { label: 'Sq. M.', value: 'sqm' },
+  ];
   
   const waterSources = [
     { label: 'Borewell (போர்வெல்)', value: 'borewell' },
@@ -63,27 +71,6 @@ export default function LandRegistrationScreen({ navigation, route }) {
     { label: 'Loamy Soil (வண்டல் களிமண்)', value: 'loamy' },
     { label: 'Sandy Soil (மணல் மண்)', value: 'sandy' },
     { label: 'Laterite Soil (லேட்டரைட் மண்)', value: 'laterite' },
-  ];
-
-  const farmingTypes = [
-    {
-      value: 'normal',
-      label: 'Normal Farming (பாரம்பரிய விவசாயம்)',
-      description: 'Traditional field farming - Max 2 crops',
-      icon: '🌾',
-    },
-    {
-      value: 'organic',
-      label: 'Organic Farming (இயற்கை விவசாயம்)',
-      description: 'Chemical-free farming - Max 2 crops',
-      icon: '🌱',
-    },
-    {
-      value: 'terrace',
-      label: 'Terrace Farming (மொட்டை மாடி விவசாயம்)',
-      description: 'Container/terrace gardening - Max 10 crops',
-      icon: '🪴',
-    },
   ];
 
   // Fetch GPS location
@@ -114,17 +101,33 @@ export default function LandRegistrationScreen({ navigation, route }) {
 
       if (reverseGeocode.length > 0) {
         const place = reverseGeocode[0];
-        
+
+        // The device's native geocoder isn't guaranteed to return
+        // administrative-level granularity for `district` — it can come
+        // back as a neighborhood/residential-layout name instead. Try each
+        // candidate field against the real TN district list and only keep
+        // one that actually matches; never save an unvalidated guess.
+        const districtMatch =
+          matchTnDistrict(place.district) ||
+          matchTnDistrict(place.subregion) ||
+          matchTnDistrict(place.city) ||
+          '';
+
         setLocation({
           coordinates: { lat: latitude, lng: longitude },
           city: place.city || place.subregion || '',
-          district: place.district || place.subregion || '',
+          district: districtMatch,
           state: place.region || 'Tamil Nadu',
           pincode: place.postalCode || '',
           address: `${place.street || ''} ${place.name || ''}`.trim(),
         });
 
-        Alert.alert('Success', 'Location detected successfully!');
+        Alert.alert(
+          'Success',
+          districtMatch
+            ? 'Location detected successfully!'
+            : "Location detected, but we couldn't confirm your district automatically — please select it below."
+        );
       }
 
       setFetchingLocation(false);
@@ -166,7 +169,6 @@ export default function LandRegistrationScreen({ navigation, route }) {
         },
         waterSource,
         soilType,
-        farmingType,
         notes: notes.trim(),
       };
 
@@ -237,20 +239,36 @@ export default function LandRegistrationScreen({ navigation, route }) {
             <Text style={styles.sectionTitle}>Location</Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.gpsButton}
-            onPress={fetchCurrentLocation}
-            disabled={fetchingLocation}
-          >
-            {fetchingLocation ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="navigate" size={20} color="#fff" />
-                <Text style={styles.gpsButtonText}>Detect GPS Location</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <View style={styles.locationButtonRow}>
+            <TouchableOpacity
+              style={[styles.gpsButton, styles.locationButtonHalf]}
+              onPress={fetchCurrentLocation}
+              disabled={fetchingLocation}
+            >
+              {fetchingLocation ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="navigate" size={20} color="#fff" />
+                  <Text style={styles.gpsButtonText}>Detect GPS Location</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.mapButton, styles.locationButtonHalf]}
+              onPress={() => setMapPickerVisible(true)}
+            >
+              <Ionicons name="map" size={20} color="#fff" />
+              <Text style={styles.gpsButtonText}>Pick on Map</Text>
+            </TouchableOpacity>
+          </View>
+
+          {location.coordinates.lat !== 0 && (
+            <Text style={styles.coordinatesHint}>
+              📍 {location.coordinates.lat.toFixed(5)}, {location.coordinates.lng.toFixed(5)}
+            </Text>
+          )}
 
           <View style={styles.formGroup}>
             <Text style={styles.label}>City <Text style={styles.required}>*</Text></Text>
@@ -262,15 +280,15 @@ export default function LandRegistrationScreen({ navigation, route }) {
             />
           </View>
 
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>District <Text style={styles.required}>*</Text></Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., Kanchipuram"
-              value={location.district}
-              onChangeText={(text) => setLocation({ ...location, district: text })}
-            />
-          </View>
+          <SearchSelectSheet
+            label="District"
+            required
+            title="Select District"
+            options={TN_DISTRICTS.map((d) => ({ label: d, value: d }))}
+            value={location.district}
+            onChange={(value) => setLocation({ ...location, district: value })}
+            placeholder="Select your district"
+          />
 
           <View style={styles.formGroup}>
             <Text style={styles.label}>Pincode</Text>
@@ -305,90 +323,32 @@ export default function LandRegistrationScreen({ navigation, route }) {
 
             <View style={[styles.formGroup, { flex: 1, marginLeft: 12 }]}>
               <Text style={styles.label}>Unit</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={size.unit}
-                  onValueChange={(value) => setSize({ ...size, unit: value })}
-                  style={styles.picker}
-                >
-                  {sizeUnits.map((unit) => (
-                    <Picker.Item key={unit} label={unit} value={unit} />
-                  ))}
-                </Picker>
-              </View>
+              <ChipSelect
+                options={sizeUnits}
+                value={size.unit}
+                onChange={(value) => setSize({ ...size, unit: value })}
+              />
             </View>
           </View>
         </View>
 
         {/* Water Source */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Water Source <Text style={styles.required}>*</Text></Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={waterSource}
-              onValueChange={setWaterSource}
-              style={styles.picker}
-            >
-              {waterSources.map((source) => (
-                <Picker.Item
-                  key={source.value}
-                  label={source.label}
-                  value={source.value}
-                />
-              ))}
-            </Picker>
-          </View>
-        </View>
+        <ChipSelect
+          label="Water Source"
+          required
+          options={waterSources}
+          value={waterSource}
+          onChange={setWaterSource}
+        />
 
         {/* Soil Type */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Soil Type <Text style={styles.required}>*</Text></Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={soilType}
-              onValueChange={setSoilType}
-              style={styles.picker}
-            >
-              {soilTypes.map((soil) => (
-                <Picker.Item
-                  key={soil.value}
-                  label={soil.label}
-                  value={soil.value}
-                />
-              ))}
-            </Picker>
-          </View>
-        </View>
-
-        {/* Farming Type */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="flower" size={24} color="#4CAF50" />
-            <Text style={styles.sectionTitle}>Farming Type</Text>
-          </View>
-
-          {farmingTypes.map((type) => (
-            <TouchableOpacity
-              key={type.value}
-              style={[
-                styles.farmingTypeCard,
-                farmingType === type.value && styles.farmingTypeCardSelected,
-              ]}
-              onPress={() => setFarmingType(type.value)}
-            >
-              <View style={styles.farmingTypeContent}>
-                <Text style={styles.farmingTypeIcon}>{type.icon}</Text>
-                <View style={styles.farmingTypeText}>
-                  <Text style={styles.farmingTypeLabel}>{type.label}</Text>
-                  <Text style={styles.farmingTypeDescription}>{type.description}</Text>
-                </View>
-                {farmingType === type.value && (
-                  <Ionicons name="checkmark-circle" size={28} color="#4CAF50" />
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <ChipSelect
+          label="Soil Type"
+          required
+          options={soilTypes}
+          value={soilType}
+          onChange={setSoilType}
+        />
 
         {/* Notes */}
         <View style={styles.formGroup}>
@@ -421,6 +381,15 @@ export default function LandRegistrationScreen({ navigation, route }) {
 
         <View style={{ height: 40 }} />
       </View>
+
+      <LocationMapPicker
+        visible={mapPickerVisible}
+        onClose={() => setMapPickerVisible(false)}
+        onConfirm={(picked) => {
+          setLocation(picked);
+          setMapPickerVisible(false);
+        }}
+      />
     </ScrollView>
   );
 }
@@ -496,15 +465,12 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
   },
-  pickerContainer: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    overflow: 'hidden',
+  locationButtonRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
   },
-  picker: {
-    height: 50,
+  locationButtonHalf: {
+    flex: 1,
   },
   gpsButton: {
     flexDirection: 'row',
@@ -513,7 +479,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#2196F3',
     padding: 14,
     borderRadius: 8,
-    marginBottom: 16,
+    marginRight: 6,
+  },
+  mapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4CAF50',
+    padding: 14,
+    borderRadius: 8,
+    marginLeft: 6,
   },
   gpsButtonText: {
     color: '#fff',
@@ -521,37 +496,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
   },
-  farmingTypeCard: {
-    borderWidth: 2,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  farmingTypeCardSelected: {
-    borderColor: '#4CAF50',
-    backgroundColor: '#E8F5E9',
-  },
-  farmingTypeContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  farmingTypeIcon: {
-    fontSize: 40,
-    marginRight: 16,
-  },
-  farmingTypeText: {
-    flex: 1,
-  },
-  farmingTypeLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  farmingTypeDescription: {
+  coordinatesHint: {
     fontSize: 13,
     color: '#666',
+    marginBottom: 16,
   },
   submitButton: {
     flexDirection: 'row',

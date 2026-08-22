@@ -2,7 +2,14 @@ const express = require('express');
 const router = express.Router();
 const Task = require('../models/Task');
 const Crop = require('../models/Crop');
+const Land = require('../models/Land');
+const Plot = require('../models/Plot');
 const { requireAuth } = require('../middleware/auth');
+const { buildDailyTasks, resolveCropDefinition, computeDayNumber } = require('../services/dailyTaskEngine');
+const { translateDailyTasks } = require('../services/growthCopyService');
+const { getEstablishmentPhaseDays, computeStageRanges, isLongDurationCrop } = require('../data/growthStageRules');
+
+const VALID_STAGES = ['germination', 'vegetative', 'flowering', 'fruiting', 'harvest', 'completed'];
 
 /**
  * POST /api/tasks
@@ -88,6 +95,152 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
+
+/**
+ * GET /api/tasks/crop/:cropId/today
+ * Compute (and persist) today's day-by-day guidance for a crop — watering,
+ * fertilizing, pest-watch — grounded in the crop's own category/duration,
+ * its land's water source, today's real weather, and any active disease
+ * record. Never overwrites an existing task for the day (upsert via
+ * $setOnInsert), so a farmer's own edits or completions are never clobbered
+ * by re-opening the screen.
+ */
+router.get('/crop/:cropId/today', requireAuth, async (req, res) => {
+  try {
+    const { cropId } = req.params;
+
+    const crop = await Crop.findById(cropId);
+    if (!crop) {
+      return res.status(404).json({ success: false, message: 'Crop not found' });
+    }
+    if (crop.firebaseUid !== req.firebaseUid) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view tasks for this crop' });
+    }
+    if (crop.isHarvested) {
+      return res.status(400).json({ success: false, message: 'Crop cycle has ended' });
+    }
+
+    const land = crop.landId ? await Land.findById(crop.landId).lean() : null;
+    const plot = crop.plotId ? await Plot.findById(crop.plotId).lean() : null;
+
+    const { dayNumber, stage, phase, weatherUsed, tasks: taskSpecs } = await buildDailyTasks({ crop, land, plot });
+
+    if (stage === 'completed') {
+      return res.json({
+        success: true,
+        day: dayNumber,
+        stage,
+        phase,
+        weatherUsed,
+        tasks: [],
+        message: 'This crop has passed its tracked cycle — mark it harvested when ready.',
+      });
+    }
+
+    const translatedSpecs = await translateDailyTasks(taskSpecs);
+
+    const persistedTasks = await Promise.all(
+      translatedSpecs.map((spec) =>
+        Task.findOneAndUpdate(
+          { cropId: crop._id, day: dayNumber, taskType: spec.taskType },
+          {
+            $setOnInsert: {
+              cropId: crop._id,
+              firebaseUid: crop.firebaseUid,
+              day: dayNumber,
+              date: new Date(),
+              taskType: spec.taskType,
+              title: spec.title,
+              titleTamil: spec.titleTamil || '',
+              description: spec.description,
+              descriptionTamil: spec.descriptionTamil || '',
+              priority: spec.priority || 'medium',
+              estimatedTime: 30,
+              weatherConsiderations: spec.weatherConsiderations || '',
+              isAIGenerated: true,
+              isCompleted: false,
+            },
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        )
+      )
+    );
+
+    // Lazily advance currentStage as a side effect — it's write-only via the
+    // manual PUT /crops/:cropId/stage route today and never auto-advances.
+    const stageIndex = VALID_STAGES.indexOf(stage);
+    const storedStageIndex = VALID_STAGES.indexOf(crop.currentStage);
+    if (stageIndex > storedStageIndex) {
+      await Crop.findByIdAndUpdate(crop._id, { $set: { currentStage: stage } });
+    }
+
+    res.json({
+      success: true,
+      day: dayNumber,
+      stage,
+      phase,
+      weatherUsed,
+      tasks: persistedTasks,
+    });
+  } catch (error) {
+    console.error('❌ Error computing today\'s tasks:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to compute today\'s tasks',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/tasks/crop/:cropId/calendar
+ * Pure computation, no writes — the crop's stage-boundary breakdown for the
+ * whole tracked duration, for rendering a timeline strip. Never generates
+ * per-day guidance for future days (weather-dependent watering advice for a
+ * day that hasn't happened yet can't be known).
+ */
+router.get('/crop/:cropId/calendar', requireAuth, async (req, res) => {
+  try {
+    const { cropId } = req.params;
+
+    const crop = await Crop.findById(cropId);
+    if (!crop) {
+      return res.status(404).json({ success: false, message: 'Crop not found' });
+    }
+    if (crop.firebaseUid !== req.firebaseUid) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this crop\'s calendar' });
+    }
+
+    const cropDef = resolveCropDefinition(crop.name);
+    const duration = crop.duration || cropDef.duration;
+    const category = cropDef.category;
+    const currentDay = computeDayNumber(crop.plantingDate);
+    const longDuration = isLongDurationCrop(duration);
+
+    const establishmentPhaseDays = longDuration ? getEstablishmentPhaseDays(category) : null;
+    const stages = longDuration
+      ? computeStageRanges(category, establishmentPhaseDays)
+      : computeStageRanges(category, duration);
+    const phase = longDuration && currentDay > establishmentPhaseDays ? 'maintenance' : 'daily';
+
+    res.json({
+      success: true,
+      duration,
+      category,
+      currentDay,
+      phase,
+      establishmentPhaseDays,
+      stages,
+    });
+  } catch (error) {
+    console.error('❌ Error computing crop calendar:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to compute crop calendar',
+      error: error.message,
+    });
+  }
+});
 
 /**
  * GET /api/tasks/crop/:cropId

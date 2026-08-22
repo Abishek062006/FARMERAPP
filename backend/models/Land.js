@@ -51,11 +51,6 @@ const landSchema = new mongoose.Schema({
     required: true,
     enum: ['red', 'black', 'alluvial', 'clay', 'loamy', 'sandy', 'laterite']
   },
-  farmingType: {
-    type: String,
-    required: true,
-    enum: ['normal', 'organic', 'terrace']
-  },
   photos: [{
     type: String  // URLs to uploaded images
   }],

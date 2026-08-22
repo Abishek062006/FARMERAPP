@@ -18,7 +18,11 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/config';
-import { getCurrentLocation } from '../../services/locationService';
+import GrowthIllustration from '../../components/growth-illustration/GrowthIllustration';
+import { getCropEmoji } from '../../components/growth-illustration/cropVisuals';
+import DailyTaskCard from '../../components/DailyTaskCard';
+import GrowthCalendarStrip from '../../components/GrowthCalendarStrip';
+import HarvestPostModal from './HarvestPostModal';
 
 export default function CropDetailScreen({ navigation, route }) {
   const { crop, userData } = route.params || {};
@@ -29,6 +33,8 @@ export default function CropDetailScreen({ navigation, route }) {
   const [tasks, setTasks] = useState([]);
   const [diseases, setDiseases] = useState([]);
   const [weather, setWeather] = useState(null);
+  const [dailyTracker, setDailyTracker] = useState(null); // /today response
+  const [growthCalendar, setGrowthCalendar] = useState(null); // /calendar response
   const [scanningDisease, setScanningDisease] = useState(false);
   const [showDiseaseModal, setShowDiseaseModal] = useState(false);
   const [diseaseResult, setDiseaseResult] = useState(null);
@@ -39,12 +45,9 @@ export default function CropDetailScreen({ navigation, route }) {
   const [savedDiseaseName, setSavedDiseaseName] = useState(null);
   const [pesticideExpanded, setPesticideExpanded] = useState(true);
 
-  // ✅ Sell Harvest States
-  const [showSellModal, setShowSellModal] = useState(false);
-  const [sellQty, setSellQty] = useState('');
-  const [sellPrice, setSellPrice] = useState('');
-  const [sellLoading, setSellLoading] = useState(false);
-  const [userLocation, setUserLocation] = useState(null);
+  // ✅ Farm Market: harvesting and listing are now one action
+  const [showHarvestModal, setShowHarvestModal] = useState(false);
+  const [land, setLand] = useState(null);
 
   // Animations
   const pesticideAnim = useRef(new Animated.Value(0)).current;
@@ -94,6 +97,16 @@ export default function CropDetailScreen({ navigation, route }) {
           setDiseases(diseasesResponse.data.diseases.filter(d => d.status !== 'resolved'));
         }
       } catch { console.log('No diseases found'); }
+
+      try {
+        const todayResponse = await axios.get(`${API_ENDPOINTS.TASKS}/crop/${crop._id}/today`);
+        if (todayResponse.data.success) setDailyTracker(todayResponse.data);
+      } catch { console.log('Daily tracker unavailable'); }
+
+      try {
+        const calendarResponse = await axios.get(`${API_ENDPOINTS.TASKS}/crop/${crop._id}/calendar`);
+        if (calendarResponse.data.success) setGrowthCalendar(calendarResponse.data);
+      } catch { console.log('Growth calendar unavailable'); }
 
       if (cropData?.landId?.location?.coordinates) {
         try {
@@ -262,92 +275,60 @@ export default function CropDetailScreen({ navigation, route }) {
     }
   };
 
-  // ✅ SELL HARVEST HANDLERS
-  const openSellModal = async () => {
-    try {
-      const loc = await getCurrentLocation();
-      setUserLocation(loc);
-    } catch {
-      setUserLocation({ city: 'Chennai', district: 'Chennai', state: 'Tamil Nadu' });
+  // ── FARM MARKET ────────────────────────────────────────────────────────
+  // The pickup point comes from the crop's LAND record, not from a live GPS
+  // read: Land.location.coordinates is required and map-picked, whereas the
+  // farmer may well be posting this from home rather than the field.
+  const openHarvestModal = async () => {
+    if (!land && cropData?.landId) {
+      try {
+        const landId = typeof cropData.landId === 'object' ? cropData.landId._id : cropData.landId;
+        const r = await axios.get(`${API_ENDPOINTS.LANDS}/${landId}`);
+        setLand(r.data.land || r.data.data || null);
+      } catch {
+        // Non-fatal: the modal shows a generic pickup label and the server
+        // still resolves the real land itself.
+      }
     }
-    setSellQty('');
-    setSellPrice('');
-    setShowSellModal(true);
+    setShowHarvestModal(true);
   };
 
-  // ✅ UPDATED CODE
-const handleMarkHarvested = () => {
-  if (cropData.isHarvested) return;
-  Alert.alert(
-    '🌾 Harvest Crop',
-    'Mark this crop as harvested?',
-    [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Yes, Harvest',
-        onPress: async () => {
-          try {
-            const r = await axios.put(`${API_ENDPOINTS.CROPS}/${cropData._id}/harvest`, { actualYield: 0 });
-            if (r.data.success) {
-              setCropData(prev => ({ ...prev, isHarvested: true })); // ← ADD THIS LINE
-              Alert.alert(
-                '✅ Harvested!',
-                'Do you want to sell this harvest to vendors?',
-                [
-                  { text: 'Not Now', style: 'cancel', onPress: () => navigation.goBack() },
-                  { text: '🛒 Sell Now', onPress: () => openSellModal() },
-                ]
-              );
+  const handlePosted = (listing) => {
+    setShowHarvestModal(false);
+    setCropData((prev) => ({ ...prev, isHarvested: true, isActive: false, currentStage: 'completed' }));
+    Alert.alert(
+      '🎉 Listed on Farm Market',
+      `${listing.quantityKg} kg of ${listing.cropName} is now visible to vendors.\n\nThis crop is marked harvested and its plot is free for your next crop.`,
+      [{ text: 'Done', onPress: () => navigation.goBack() }]
+    );
+  };
+
+  // Escape hatch: a crop lost to disease still has to free its plot, and the
+  // farmer has nothing to sell. Without this the plot-reuse guard in
+  // POST /api/crops would block that plot forever.
+  const handleHarvestOnly = () => {
+    Alert.alert(
+      'Harvest without selling?',
+      'Use this if the crop failed or you are not selling through the app. The plot will be freed for your next crop.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Harvest only',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const r = await axios.put(`${API_ENDPOINTS.CROPS}/${cropData._id}/harvest`, { actualYield: 0 });
+              if (r.data.success) {
+                setCropData((prev) => ({ ...prev, isHarvested: true, isActive: false }));
+                Alert.alert('Harvested', 'The plot is now free.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+              }
+            } catch {
+              Alert.alert('Error', 'Could not mark this crop harvested.');
             }
-          } catch {
-            Alert.alert('Error', 'Failed to mark as harvested');
-          }
+          },
         },
-      },
-    ]
-  );
-};
-
-
-  const handlePostListing = async () => {
-    if (!sellQty || !sellPrice) {
-      Alert.alert('Missing Info', 'Please enter both quantity and price per kg.');
-      return;
-    }
-    const qty = parseFloat(sellQty);
-    const price = parseFloat(sellPrice);
-    if (isNaN(qty) || qty <= 0 || isNaN(price) || price <= 0) {
-      Alert.alert('Invalid Input', 'Please enter valid numbers for quantity and price.');
-      return;
-    }
-    setSellLoading(true);
-    try {
-      const r = await axios.post(API_ENDPOINTS.LISTINGS, {
-        cropId:      cropData._id,
-        farmerUid:   firebaseUid,
-        farmerName:  userData?.name || 'Farmer',
-        farmerPhone: userData?.phone || '',
-        cropName:    cropData.name,
-        quantityKg:  qty,
-        pricePerKg:  price,
-        location:    userLocation,
-      });
-      if (r.data.success) {
-        setShowSellModal(false);
-        Alert.alert(
-          '🎉 Listed Successfully!',
-          `Your ${cropData.name} is now visible to vendors in ${userLocation?.city}.`,
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
-        );
-      } else {
-        Alert.alert('Error', r.data.error || 'Failed to post listing');
-      }
-    } catch (err) {
-      console.error('❌ Post listing error:', err);
-      Alert.alert('Error', 'Failed to post listing. Check your connection.');
-    } finally {
-      setSellLoading(false);
-    }
+      ]
+    );
   };
 
   const handleDeleteCrop = () => {
@@ -368,7 +349,33 @@ const handleMarkHarvested = () => {
   const getDaysElapsed = () => Math.floor((new Date() - new Date(cropData.plantingDate)) / (1000 * 60 * 60 * 24));
   const getDaysRemaining = () => Math.max(0, cropData.duration - getDaysElapsed());
   const getProgress = () => ((getDaysElapsed() / cropData.duration) * 100).toFixed(1);
-  const getStageIcon = (s) => ({ germination: '🌱', vegetative: '🌿', flowering: '🌸', fruiting: '🍅', harvest: '🌾', completed: '✅' }[s] || '🌱');
+  // The header icon identifies the CROP, not its stage — a stage-based icon
+  // meant every crop showed 🍅 at fruiting and 🌸 at flowering regardless of
+  // what was actually planted. The stage is already stated in words below.
+
+  // How far through the current stage today sits — derived from the
+  // /calendar stage day-ranges + /today's stage, rather than requiring the
+  // backend to add a dedicated field. Falls back to 0.5 (a stable "ongoing"
+  // look) when the stage isn't in /calendar's range list, which happens
+  // during a long-duration crop's post-establishment maintenance phase.
+  const getProgressWithinStage = () => {
+    if (!dailyTracker || !growthCalendar?.stages) return 0.5;
+    const range = growthCalendar.stages.find((s) => s.stage === dailyTracker.stage);
+    if (!range) return 0.5;
+    const span = Math.max(1, range.endDay - range.startDay);
+    return Math.max(0, Math.min(1, (growthCalendar.currentDay - range.startDay) / span));
+  };
+
+  const handleDailyTaskCompleted = (taskId) => {
+    setDailyTracker((prev) =>
+      prev
+        ? {
+            ...prev,
+            tasks: prev.tasks.map((t) => (t._id === taskId ? { ...t, isCompleted: true } : t)),
+          }
+        : prev
+    );
+  };
   const getHealthColor = (s) => s >= 80 ? '#4CAF50' : s >= 60 ? '#FF9800' : '#F44336';
   const getSeverityColor = (s) => s === 'severe' ? '#F44336' : s === 'mild' ? '#4CAF50' : '#FF9800';
 
@@ -513,7 +520,7 @@ const handleMarkHarvested = () => {
       <View style={styles.headerCard}>
         <View style={styles.headerContent}>
           <View style={styles.cropIconContainer}>
-            <Text style={styles.cropStageIcon}>{getStageIcon(cropData.currentStage)}</Text>
+            <Text style={styles.cropStageIcon}>{getCropEmoji(cropData.name, growthCalendar?.category)}</Text>
           </View>
           <View style={styles.cropInfo}>
             <Text style={styles.cropName}>{cropData.name}</Text>
@@ -569,6 +576,38 @@ const handleMarkHarvested = () => {
             Stage: {cropData.currentStage.charAt(0).toUpperCase() + cropData.currentStage.slice(1)}
           </Text>
         </View>
+      </View>
+
+      {/* Day-by-Day Growth Tracker */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Daily Growth Tracker</Text>
+        <GrowthIllustration
+          cropName={cropData.name}
+          category={growthCalendar?.category}
+          stage={dailyTracker?.stage || cropData.currentStage}
+          progressWithinStage={getProgressWithinStage()}
+          needsWaterToday={
+            !!dailyTracker?.tasks?.some((t) => t.taskType === 'watering' && !t.isCompleted)
+          }
+        />
+        {growthCalendar && (
+          <GrowthCalendarStrip
+            duration={growthCalendar.duration}
+            currentDay={growthCalendar.currentDay}
+            phase={growthCalendar.phase}
+            stages={growthCalendar.stages}
+          />
+        )}
+        {dailyTracker && (
+          <DailyTaskCard
+            day={dailyTracker.day}
+            stage={dailyTracker.stage}
+            phase={dailyTracker.phase}
+            tasks={dailyTracker.tasks}
+            message={dailyTracker.message}
+            onTaskCompleted={handleDailyTaskCompleted}
+          />
+        )}
       </View>
 
       {/* ✅ PESTICIDE RECOMMENDATION CARD */}
@@ -641,7 +680,6 @@ const handleMarkHarvested = () => {
             ['Quantity', `${cropData.quantity} ${cropData.unit}`],
             ['Planting Date', new Date(cropData.plantingDate).toLocaleDateString('en-IN')],
             ['Expected Harvest', new Date(cropData.expectedHarvestDate).toLocaleDateString('en-IN')],
-            ['Farming Type', cropData.farmingType.charAt(0).toUpperCase() + cropData.farmingType.slice(1)],
           ].map(([label, value]) => (
             <View key={label} style={styles.detailRow}>
               <Text style={styles.detailLabel}>{label}:</Text>
@@ -659,23 +697,23 @@ const handleMarkHarvested = () => {
 
       {/* Action Buttons */}
       <View style={styles.actionsSection}>
-        <TouchableOpacity
-          style={[styles.harvestButton, cropData.isHarvested && { backgroundColor: '#aaa' }]}
-          onPress={handleMarkHarvested}
-          disabled={cropData.isHarvested}
-        >
-          <Ionicons name="checkmark-circle" size={24} color="#fff" />
-          <Text style={styles.harvestButtonText}>
-            {cropData.isHarvested ? 'Already Harvested' : 'Mark as Harvested'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* ✅ Show Sell button separately if already harvested */}
-        {cropData.isHarvested && (
-          <TouchableOpacity style={styles.sellButton} onPress={openSellModal}>
-            <Ionicons name="storefront" size={22} color="#fff" />
-            <Text style={styles.sellButtonText}>🛒 Sell to Vendors</Text>
-          </TouchableOpacity>
+        {!cropData.isHarvested ? (
+          <>
+            <TouchableOpacity style={styles.harvestButton} onPress={openHarvestModal}>
+              <Ionicons name="storefront" size={22} color="#fff" />
+              <Text style={styles.harvestButtonText}>Post Harvest to Farm Market</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.harvestOnlyLink} onPress={handleHarvestOnly}>
+              <Text style={styles.harvestOnlyText}>Crop failed? Harvest without selling</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <View style={styles.harvestedBanner}>
+            <Ionicons name="checkmark-circle" size={18} color="#15803D" />
+            <Text style={styles.harvestedBannerText}>
+              Harvested{cropData.harvestDate ? ` on ${new Date(cropData.harvestDate).toLocaleDateString('en-IN')}` : ''}
+            </Text>
+          </View>
         )}
 
         <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteCrop}>
@@ -790,103 +828,27 @@ const handleMarkHarvested = () => {
         </View>
       </Modal>
 
-      {/* ===== SELL HARVEST MODAL ===== */}
-      <Modal
-        visible={showSellModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowSellModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>🛒 Sell Your Harvest</Text>
-              <TouchableOpacity onPress={() => setShowSellModal(false)}>
-                <Ionicons name="close" size={28} color="#333" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody}>
-              {/* Location chip */}
-              <View style={styles.locationChip}>
-                <Ionicons name="location" size={16} color="#2E7D32" />
-                <Text style={styles.locationChipText}>
-                  {userLocation
-                    ? `${userLocation.city}, ${userLocation.district}`
-                    : 'Detecting location...'}
-                </Text>
-              </View>
-
-              <Text style={styles.sellLabel}>Crop Name</Text>
-              <View style={styles.sellReadOnly}>
-                <Text style={styles.sellReadOnlyText}>{cropData.name}</Text>
-              </View>
-
-              <Text style={styles.sellLabel}>Quantity to Sell (kg)</Text>
-              <TextInput
-                style={styles.sellInput}
-                placeholder="e.g. 100"
-                keyboardType="numeric"
-                value={sellQty}
-                onChangeText={setSellQty}
-                placeholderTextColor="#aaa"
-              />
-
-              <Text style={styles.sellLabel}>Price per kg (₹)</Text>
-              <TextInput
-                style={styles.sellInput}
-                placeholder="e.g. 25"
-                keyboardType="numeric"
-                value={sellPrice}
-                onChangeText={setSellPrice}
-                placeholderTextColor="#aaa"
-              />
-
-              {sellQty && sellPrice && !isNaN(parseFloat(sellQty)) && !isNaN(parseFloat(sellPrice)) ? (
-                <View style={styles.totalBox}>
-                  <Text style={styles.totalLabel}>Total Value</Text>
-                  <Text style={styles.totalValue}>
-                    ₹{(parseFloat(sellQty) * parseFloat(sellPrice)).toFixed(0)}
-                  </Text>
-                  <Text style={styles.totalSub}>
-                    {sellQty} kg × ₹{sellPrice}/kg
-                  </Text>
-                </View>
-              ) : null}
-
-              <View style={styles.sellInfoBox}>
-                <Ionicons name="information-circle-outline" size={18} color="#1565C0" />
-                <Text style={styles.sellInfoText}>
-                  This listing will be visible to all vendors in {userLocation?.city || 'your city'}. Once a vendor accepts, it will be removed from the market.
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={[styles.postButton, sellLoading && { opacity: 0.6 }]}
-                onPress={handlePostListing}
-                disabled={sellLoading}
-              >
-                {sellLoading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="megaphone" size={20} color="#fff" />
-                    <Text style={styles.postButtonText}>Post to Vendors</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <View style={{ height: 20 }} />
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <HarvestPostModal
+        visible={showHarvestModal}
+        onClose={() => setShowHarvestModal(false)}
+        crop={cropData}
+        land={land}
+        onPosted={handlePosted}
+      />
 
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  harvestOnlyLink: { alignSelf: 'center', paddingVertical: 10, paddingHorizontal: 12 },
+  harvestOnlyText: { fontSize: 13, color: '#6B7280', fontWeight: '600', textDecorationLine: 'underline' },
+  harvestedBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0',
+    borderRadius: 12, paddingVertical: 14,
+  },
+  harvestedBannerText: { color: '#15803D', fontWeight: '700', fontSize: 14 },
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   loadingText: { marginTop: 16, fontSize: 16, color: '#666' },
@@ -1028,15 +990,6 @@ const styles = StyleSheet.create({
   taskTitleCompleted: { textDecorationLine: 'line-through', color: '#999' },
   taskDate: { fontSize: 12, color: '#666', marginTop: 2 },
 
-  diseasesCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, elevation: 3 },
-  diseaseItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', gap: 12 },
-  diseaseIconBg: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  diseaseContent: { flex: 1 },
-  diseaseName: { fontSize: 15, fontWeight: '600', color: '#F44336' },
-  diseaseStatus: { fontSize: 12, color: '#666', marginTop: 2, textTransform: 'capitalize' },
-  severityBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, marginTop: 4 },
-  severityBadgeText: { fontSize: 11, fontWeight: 'bold' },
-
   detailsCard: { backgroundColor: '#fff', padding: 16, borderRadius: 12, elevation: 3 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   detailLabel: { fontSize: 14, color: '#666' },
@@ -1049,9 +1002,6 @@ const styles = StyleSheet.create({
   harvestButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 
   // ✅ NEW — Sell Button
-  sellButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF6F00', padding: 16, borderRadius: 12, gap: 8 },
-  sellButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-
   deleteButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F44336', padding: 14, borderRadius: 12, gap: 8 },
   deleteButtonText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
 
@@ -1081,41 +1031,4 @@ const styles = StyleSheet.create({
   saveButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 
   // ✅ NEW — Sell Modal Styles
-  locationChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#E8F5E9', padding: 10, borderRadius: 10, marginBottom: 20,
-  },
-  locationChipText: { fontSize: 14, color: '#2E7D32', fontWeight: '600' },
-
-  sellLabel: { fontSize: 14, fontWeight: '600', color: '#555', marginBottom: 6, marginTop: 14 },
-  sellInput: {
-    borderWidth: 1, borderColor: '#ddd', borderRadius: 10,
-    padding: 14, fontSize: 16, backgroundColor: '#fff', color: '#333',
-  },
-  sellReadOnly: {
-    borderWidth: 1, borderColor: '#eee', borderRadius: 10,
-    padding: 14, backgroundColor: '#f9f9f9',
-  },
-  sellReadOnlyText: { fontSize: 16, color: '#666' },
-
-  totalBox: {
-    backgroundColor: '#E8F5E9', borderRadius: 14, padding: 18,
-    alignItems: 'center', marginTop: 18,
-  },
-  totalLabel: { fontSize: 13, color: '#555', marginBottom: 4 },
-  totalValue: { fontSize: 28, fontWeight: 'bold', color: '#2E7D32' },
-  totalSub: { fontSize: 13, color: '#888', marginTop: 4 },
-
-  sellInfoBox: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: '#E3F2FD', padding: 14, borderRadius: 12,
-    marginTop: 20,
-  },
-  sellInfoText: { fontSize: 13, color: '#1565C0', lineHeight: 19, flex: 1 },
-
-  postButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#FF6F00', padding: 16, borderRadius: 12, gap: 10, marginTop: 20,
-  },
-  postButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });

@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/config';
+import SearchSelectSheet from '../../components/SearchSelectSheet';
 
 export default function CropRecommendationScreen({ navigation, route }) {
   // ✅ Updated to receive land object from route params
@@ -19,28 +20,54 @@ export default function CropRecommendationScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [recommendations, setRecommendations] = useState([]);
   const [selectedCrops, setSelectedCrops] = useState([]);
+  const [cropCatalog, setCropCatalog] = useState([]);
 
-  // ✅ Get max crops based on farming type
-  const getMaxCrops = () => {
-    switch (land?.farmingType) {
-      case 'normal':
-        return 2;
-      case 'organic':
-        return 2;
-      case 'terrace':
-        return 10;
-      default:
-        return 2;
-    }
-  };
-
-  const maxCrops = getMaxCrops();
+  const maxCrops = 2;
 
   useEffect(() => {
     if (land) {
       fetchRecommendations();
     }
+    fetchCropCatalog();
   }, [land]);
+
+  const fetchCropCatalog = async () => {
+    try {
+      const response = await axios.get(`${API_ENDPOINTS.AI}/crop-catalog`);
+      if (response.data.success) {
+        setCropCatalog(response.data.crops);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching crop catalog:', error);
+      // Non-fatal — the search sheet still works via "use what I typed".
+    }
+  };
+
+  // A crop picked from search (in the catalog or typed freely) isn't
+  // AI-ranked for this land, so it has no duration/yield/demand — it's
+  // added as-is and flagged so the card renders a neutral "Added by you"
+  // badge instead of fabricating those numbers.
+  const addCropFromSearch = (cropValue, option) => {
+    const name = option?.label || cropValue;
+    const existing = recommendations.find(
+      (c) => c.name.toLowerCase() === name.toLowerCase()
+    );
+
+    const cropEntry = existing || {
+      name,
+      tamilName: option?.isCustom ? '' : option?.subtitle || '',
+      duration: null,
+      yield: null,
+      demand: null,
+      reason: 'Added by you — not part of the AI-ranked list for this land.',
+      isCustom: true,
+    };
+
+    if (!existing) {
+      setRecommendations((prev) => [cropEntry, ...prev]);
+    }
+    toggleCropSelection(cropEntry);
+  };
 
   const fetchRecommendations = async () => {
     try {
@@ -49,8 +76,8 @@ export default function CropRecommendationScreen({ navigation, route }) {
       console.log('🔄 Fetching AI recommendations...');
       console.log('Land:', land.landName);
       console.log('Location:', land.location);
-      console.log('Farming Type:', land.farmingType);
       console.log('Soil Type:', land.soilType);
+      console.log('Water Source:', land.waterSource);
       
       // ✅ Auto-detect season based on current date
       const currentMonth = new Date().getMonth() + 1;
@@ -71,6 +98,7 @@ export default function CropRecommendationScreen({ navigation, route }) {
           state: land.location.state,
         },
         soilType: land.soilType,
+        waterSource: land.waterSource,
         season: season,
       };
 
@@ -95,27 +123,11 @@ export default function CropRecommendationScreen({ navigation, route }) {
         let crops = response.data.recommendations;
         
         console.log(`✅ Got ${crops.length} AI recommendations`);
-        
-        // ✅ Filter recommendations based on farming type
-        if (land.farmingType === 'terrace') {
-          const terraceFriendly = [
-            'Tomato', 'Chili', 'Brinjal', 'Beans', 'Spinach',
-            'Coriander', 'Mint', 'Curry Leaves', 'Lettuce', 'Radish',
-            'Fenugreek', 'Spring Onion', 'Capsicum', 'Basil'
-          ];
-          const originalCount = crops.length;
-          crops = crops.filter(crop =>
-            terraceFriendly.some(friendly =>
-              crop.name.toLowerCase().includes(friendly.toLowerCase())
-            )
-          );
-          console.log(`🪴 Filtered ${originalCount} → ${crops.length} terrace-friendly crops`);
-        }
 
         if (crops.length === 0) {
           Alert.alert(
             'No Suitable Crops',
-            'Could not find suitable crops for your farming type and location. Please try again.',
+            'Could not find suitable crops for your location. Please try again.',
             [{ text: 'OK' }]
           );
         } else {
@@ -167,10 +179,7 @@ export default function CropRecommendationScreen({ navigation, route }) {
       if (selectedCrops.length < maxCrops) {
         setSelectedCrops([...selectedCrops, crop]);
       } else {
-        Alert.alert(
-          'Limit Reached',
-          `${land.farmingType === 'terrace' ? 'Terrace' : land.farmingType.charAt(0).toUpperCase() + land.farmingType.slice(1)} farming allows maximum ${maxCrops} crops`
-        );
+        Alert.alert('Limit Reached', `You can select a maximum of ${maxCrops} crops`);
       }
     }
   };
@@ -189,29 +198,13 @@ export default function CropRecommendationScreen({ navigation, route }) {
     });
   };
 
-  // ✅ Get farming type badge info
-  const getFarmingTypeBadge = () => {
-    switch (land?.farmingType) {
-      case 'normal':
-        return { icon: '🌾', color: '#FF9800', label: 'Normal Farming' };
-      case 'organic':
-        return { icon: '🌱', color: '#4CAF50', label: 'Organic Farming' };
-      case 'terrace':
-        return { icon: '🪴', color: '#2196F3', label: 'Terrace Farming' };
-      default:
-        return { icon: '🌿', color: '#666', label: 'Farming' };
-    }
-  };
-
-  const farmingBadge = getFarmingTypeBadge();
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4CAF50" />
         <Text style={styles.loadingText}>Getting AI recommendations...</Text>
         <Text style={styles.loadingSubtext}>
-          Analyzing {land?.location.city} for {farmingBadge.label}
+          Analyzing {land?.location.city}
         </Text>
         <Text style={styles.loadingNote}>This may take 10-15 seconds...</Text>
       </View>
@@ -229,13 +222,8 @@ export default function CropRecommendationScreen({ navigation, route }) {
               {land?.location.city}, {land?.location.district}
             </Text>
           </View>
-          <View style={[styles.farmingTypeBadge, { backgroundColor: farmingBadge.color }]}>
-            <Text style={styles.farmingTypeText}>
-              {farmingBadge.icon} {farmingBadge.label}
-            </Text>
-          </View>
         </View>
-        
+
         {/* Selection Counter */}
         <View style={styles.selectionRow}>
           <View style={styles.selectionCounter}>
@@ -248,6 +236,28 @@ export default function CropRecommendationScreen({ navigation, route }) {
             Max {maxCrops} crop{maxCrops > 1 ? 's' : ''} allowed
           </Text>
         </View>
+
+        {/* Search for a crop not in the AI-ranked list below */}
+        <SearchSelectSheet
+          title="Search Crops"
+          options={cropCatalog.map((c) => ({
+            label: c.name,
+            value: c.name,
+            subtitle: c.tamilName,
+          }))}
+          onChange={addCropFromSearch}
+          placeholder="Search crop name..."
+          allowCustom
+          customHint="Grow this even though it's not commonly recommended"
+          renderTrigger={({ onPress }) => (
+            <TouchableOpacity style={styles.searchTrigger} onPress={onPress} activeOpacity={0.7}>
+              <Ionicons name="search" size={18} color="#4CAF50" />
+              <Text style={styles.searchTriggerText}>
+                Don't see your crop? Search all Tamil Nadu crops
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
       </View>
 
       {/* Crop List */}
@@ -258,13 +268,12 @@ export default function CropRecommendationScreen({ navigation, route }) {
         {recommendations.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="leaf-outline" size={80} color="#ccc" />
-            <Text style={styles.emptyText}>No recommendations available</Text>
+            <Text style={styles.emptyText}>No matching crops found</Text>
             <Text style={styles.emptySubtext}>
-              AI couldn't generate recommendations. Please check:
+              We couldn't find a crop in our reference data suited to this land's
+              exact soil type, water source, and current season. Try updating the
+              land's details or check back next season.
             </Text>
-            <Text style={styles.checkItem}>• Backend is running</Text>
-            <Text style={styles.checkItem}>• GROQ_API_KEY is set in .env</Text>
-            <Text style={styles.checkItem}>• Internet connection is active</Text>
             <TouchableOpacity
               style={styles.retryButton}
               onPress={fetchRecommendations}
@@ -309,10 +318,12 @@ export default function CropRecommendationScreen({ navigation, route }) {
                   
                   {/* Stats */}
                   <View style={styles.statsRow}>
-                    <View style={styles.statItem}>
-                      <Ionicons name="time-outline" size={16} color="#666" />
-                      <Text style={styles.statText}>{crop.duration} days</Text>
-                    </View>
+                    {crop.duration && (
+                      <View style={styles.statItem}>
+                        <Ionicons name="time-outline" size={16} color="#666" />
+                        <Text style={styles.statText}>{crop.duration} days</Text>
+                      </View>
+                    )}
                     {crop.yield && (
                       <View style={styles.statItem}>
                         <Ionicons name="water-outline" size={16} color="#666" />
@@ -321,15 +332,21 @@ export default function CropRecommendationScreen({ navigation, route }) {
                     )}
                   </View>
 
-                  {/* Demand Badge */}
-                  {crop.demand && (
-                    <View style={[
-                      styles.demandBadge,
-                      crop.demand === 'High' && styles.demandHigh,
-                      crop.demand === 'Medium' && styles.demandMedium,
-                    ]}>
-                      <Text style={styles.demandText}>{crop.demand} Demand</Text>
+                  {/* Demand Badge (or "Added by you" for a searched/custom crop) */}
+                  {crop.isCustom ? (
+                    <View style={[styles.demandBadge, styles.customBadge]}>
+                      <Text style={styles.demandText}>Added by you</Text>
                     </View>
+                  ) : (
+                    crop.demand && (
+                      <View style={[
+                        styles.demandBadge,
+                        crop.demand === 'High' && styles.demandHigh,
+                        crop.demand === 'Medium' && styles.demandMedium,
+                      ]}>
+                        <Text style={styles.demandText}>{crop.demand} Demand</Text>
+                      </View>
+                    )
                   )}
 
                   {/* Reason */}
@@ -369,6 +386,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  searchTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 12,
+  },
+  searchTriggerText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2E7D32',
+  },
+  customBadge: {
+    backgroundColor: '#2196F3',
   },
   loadingContainer: {
     flex: 1,
@@ -416,16 +451,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
   },
-  farmingTypeBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  farmingTypeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
   selectionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -471,11 +496,6 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     marginBottom: 12,
-  },
-  checkItem: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 4,
   },
   retryButton: {
     flexDirection: 'row',

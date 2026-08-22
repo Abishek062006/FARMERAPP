@@ -116,7 +116,6 @@ const RegisterScreen = ({ navigation }) => {
         email: values.email,
         phone: values.phone,
         role: values.role,
-        farmingType: values.farmingType || null,
         location: locationData,
       };
 
@@ -198,7 +197,6 @@ const RegisterScreen = ({ navigation }) => {
               email: '',
               password: '',
               role: '',
-              farmingType: '',
             }}
             validationSchema={RegisterSchema}
             onSubmit={handleRegister}
@@ -307,37 +305,6 @@ const RegisterScreen = ({ navigation }) => {
                     <Text style={styles.errorText}>{errors.role}</Text>
                   )}
                 </View>
-
-                {/* Farming Type (Only for Farmer) */}
-                {values.role === 'farmer' && (
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Farming Type *</Text>
-                    <View style={styles.roleContainer}>
-                      {['terrace', 'normal', 'organic'].map((type) => (
-                        <TouchableOpacity
-                          key={type}
-                          style={[
-                            styles.farmingTypeButton,
-                            values.farmingType === type && styles.roleButtonSelected,
-                          ]}
-                          onPress={() => setFieldValue('farmingType', type)}
-                        >
-                          <Text style={styles.roleEmoji}>
-                            {type === 'terrace' ? '🏢' : type === 'normal' ? '🚜' : '🌱'}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.roleText,
-                              values.farmingType === type && styles.roleTextSelected,
-                            ]}
-                          >
-                            {type.charAt(0).toUpperCase() + type.slice(1)}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                )}
 
                 {/* Permissions Status */}
                 <View style={styles.permissionsBox}>
@@ -464,15 +431,6 @@ const styles = StyleSheet.create({
   roleButtonSelected: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
-  },
-  farmingTypeButton: {
-    flex: 1,
-    backgroundColor: COLORS.cardBackground,
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.border,
   },
   roleEmoji: {
     fontSize: 28,
