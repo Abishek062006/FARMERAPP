@@ -78,44 +78,73 @@ module.exports = { haversineKm, toLatLng, isValidCoord, escapeRegex, roundKm };
 // ─────────────────────────────────────────────────────────────────────────
 // District resolution
 // ─────────────────────────────────────────────────────────────────────────
-const { TN_DISTRICT_POINTS, TN_DISTRICTS } = require('../data/tnDistrictCentroids');
+const { MH_DISTRICT_POINTS, MH_DISTRICTS } = require('../data/districtCentroids');
 
 const normalizeName = (s) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
 
-// Spelling variants an older record or a device geocoder might carry.
+// Spelling variants an older record, a device geocoder or Agmarknet might
+// carry. The first three are RENAMES, not misspellings — the old names are
+// still what most datasets use, and Agmarknet itself still lists Osmanabad
+// alongside Dharashiv. The rest are Agmarknet's own spellings, taken verbatim
+// from a live /daily-price-arrival/filters call: it writes "Amarawati",
+// "Chattrapati Sambhajinagar" (one h) and "Gondiya".
 const DISTRICT_ALIASES = {
-  trichy: 'Tiruchirappalli', tiruchi: 'Tiruchirappalli', tiruchirapalli: 'Tiruchirappalli',
-  thiruvallur: 'Tiruvallur', thiruvarur: 'Tiruvarur', thiruvannamalai: 'Tiruvannamalai',
-  thirunelveli: 'Tirunelveli', nellai: 'Tirunelveli',
-  thoothukkudi: 'Thoothukudi', tuticorin: 'Thoothukudi',
-  kanniyakumari: 'Kanyakumari', nagercoil: 'Kanyakumari',
-  thenilgiris: 'Nilgiris', ooty: 'Nilgiris', udhagamandalam: 'Nilgiris',
-  virudunagar: 'Virudhunagar', sivagangai: 'Sivaganga',
-  thirupathur: 'Tirupathur', tirupattur: 'Tirupathur',
-  thiruppur: 'Tiruppur', tirupur: 'Tiruppur',
-  kancheepuram: 'Kanchipuram', villuppuram: 'Villupuram',
-  cuddalur: 'Cuddalore', dindugal: 'Dindigul',
+  // renamed districts
+  aurangabad: 'Chhatrapati Sambhajinagar',
+  sambhajinagar: 'Chhatrapati Sambhajinagar',
+  chatrapatisambhajinagar: 'Chhatrapati Sambhajinagar',
+  chattrapatisambhajinagar: 'Chhatrapati Sambhajinagar',
+  osmanabad: 'Dharashiv',
+  usmanabad: 'Dharashiv',
+  ahmednagar: 'Ahilyanagar',
+  ahmadnagar: 'Ahilyanagar',
+  ahemadnagar: 'Ahilyanagar',
+  // spelling variants
+  amarawati: 'Amravati',
+  amaravati: 'Amravati',
+  gondiya: 'Gondia',
+  nasik: 'Nashik',
+  bombay: 'Mumbai City',
+  mumbai: 'Mumbai City',
+  greatermumbai: 'Mumbai City',
+  mumbaisuburb: 'Mumbai Suburban',
+  bandrae: 'Mumbai Suburban',
+  buldana: 'Buldhana',
+  bulddhana: 'Buldhana',
+  raigarh: 'Raigad',
+  colaba: 'Raigad',
+  sholapur: 'Solapur',
+  jalgoan: 'Jalgaon',
+  yeotmal: 'Yavatmal',
+  yavatmaal: 'Yavatmal',
+  chanda: 'Chandrapur',
+  westkhandesh: 'Dhule',
+  eastkhandesh: 'Jalgaon',
+  poona: 'Pune',
+  murum: 'Dharashiv',        // Agmarknet lists this town as if it were a district
+  navimumbai: 'Thane',
+  pimprichinchwad: 'Pune',
 };
 
-const BY_NAME = new Map(TN_DISTRICTS.map((d) => [normalizeName(d), d]));
+const BY_NAME = new Map(MH_DISTRICTS.map((d) => [normalizeName(d), d]));
 
-/** Exact/alias match of a stored string to a real TN district, or null. */
-function matchTnDistrict(raw) {
+/** Exact/alias match of a stored string to a real Maharashtra district, or null. */
+function matchDistrict(raw) {
   const n = normalizeName(raw);
   if (!n) return null;
   return BY_NAME.get(n) || DISTRICT_ALIASES[n] || null;
 }
 
-/** Nearest district centroid to a {lat, lng}. See tnDistrictCentroids.js. */
+/** Nearest district centroid to a {lat, lng}. See districtCentroids.js. */
 function districtFromCoords(point) {
   const p = toLatLng(point);
   if (!p) return null;
   let best = null, bestKm = Infinity;
-  for (const c of TN_DISTRICT_POINTS) {
+  for (const c of MH_DISTRICT_POINTS) {
     const km = haversineKm(p, c);
     if (km < bestKm) { bestKm = km; best = c.district; }
   }
-  // Guard against a point far outside Tamil Nadu snapping to a border district.
+  // Guard against a point far outside Maharashtra snapping to a border district.
   return bestKm <= 200 ? best : null;
 }
 
@@ -124,10 +153,10 @@ function districtFromCoords(point) {
  * real district, otherwise derive it from the (reliable) coordinates.
  */
 function resolveDistrict(storedName, point) {
-  return matchTnDistrict(storedName) || districtFromCoords(point);
+  return matchDistrict(storedName) || districtFromCoords(point);
 }
 
-module.exports.matchTnDistrict = matchTnDistrict;
+module.exports.matchDistrict = matchDistrict;
 module.exports.districtFromCoords = districtFromCoords;
 module.exports.resolveDistrict = resolveDistrict;
-module.exports.TN_DISTRICTS = TN_DISTRICTS;
+module.exports.MH_DISTRICTS = MH_DISTRICTS;

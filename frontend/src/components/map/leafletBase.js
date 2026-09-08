@@ -54,9 +54,13 @@ export function baseMapJs(center, zoom = 16) {
     // {z}/{x}/{y} that OSM-style tile URLs use.
     //
     // maxNativeZoom is 18, not 19: verified against real tiles over both
-    // Thanjavur town and rural Cauvery delta farmland — z18 returns genuine
-    // imagery (field boundaries visible), while z19 returns Esri's grey
-    // "Map data not yet available" placeholder for this region.
+    // Thanjavur town and rural Cauvery delta farmland — z18 returned genuine
+    // imagery (field boundaries visible), while z19 returned Esri's grey
+    // "Map data not yet available" placeholder there.
+    // NOTE that measurement was taken over Tamil Nadu and has NOT been
+    // re-verified over Maharashtra. 18 is the safe floor either way (it just
+    // caps zoom); if Nashik/Vidarbha farmland turns out to serve z19 imagery,
+    // raising this would give farmers a sharper plot view.
     var satellite = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       { attribution: 'Imagery &copy; Esri', maxZoom: 20, maxNativeZoom: 18 }

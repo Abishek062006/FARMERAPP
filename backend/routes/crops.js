@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 const multer = require('multer');
 const { requireAuth } = require('../middleware/auth');
 const { requireRole } = require('../middleware/requireRole');
+const { specForCrop, isValidGrade, SPEC_VERSION } = require('../data/gradeSpecs');
 const { resolveDistrict } = require('../services/geoService');
 
 // memoryStorage, not diskStorage: the proof photo goes straight into Mongo
@@ -30,7 +31,7 @@ router.post('/', requireAuth, async (req, res) => {
       landId,
       plotId,
       name,
-      tamilName,
+      localName,
       variety,
       plantingDate,
       duration,
@@ -43,7 +44,7 @@ router.post('/', requireAuth, async (req, res) => {
     console.log('🌱 Registering new crop:', name);
 
     // Validate required fields
-    if (!firebaseUid || !landId || !name || !tamilName || !plantingDate || !duration || !quantity) {
+    if (!firebaseUid || !landId || !name || !localName || !plantingDate || !duration || !quantity) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields'
@@ -95,7 +96,7 @@ router.post('/', requireAuth, async (req, res) => {
       landId,
       plotId: plotId || null,
       name,
-      tamilName,
+      localName,
       variety: variety || 'Standard',
       plantingDate: planting,
       expectedHarvestDate: expectedHarvest,
@@ -424,7 +425,7 @@ router.put('/:cropId/harvest', requireAuth, async (req, res) => {
  *   quantityKg      how much of it to sell        (<= actualYieldKg)
  *   minOrderKg      smallest order a vendor may place (<= quantityKg)
  *   pricePerKg
- *   gradeNote, notes (optional)
+ *   gradeCode ('A'|'B'|'C'), gradeNote, notes (optional)
  *
  * This replaces the old "Mark as Harvested" button. Harvesting could not
  * simply be dropped: without it crop.isActive stays true and the plot keeps
@@ -439,7 +440,7 @@ router.post('/:cropId/harvest-and-list', requireAuth, requireRole('farmer'), upl
   const session = await mongoose.startSession();
   try {
     const { cropId } = req.params;
-    const { gradeNote = '', notes = '' } = req.body;
+    const { gradeNote = '', notes = '', gradeCode = '' } = req.body;
 
     // multer gives every text field as a string.
     const yieldKg  = Number(req.body.actualYieldKg);
@@ -451,6 +452,16 @@ router.post('/:cropId/harvest-and-list', requireAuth, requireRole('farmer'), upl
     if (!crop) return res.status(404).json({ success: false, message: 'Crop not found' });
     if (crop.firebaseUid !== req.firebaseUid)
       return res.status(403).json({ success: false, message: 'Not authorized to harvest this crop' });
+
+    // Grade is optional, but if given it must be one this crop's spec defines —
+    // otherwise a client could post "Grade S" and a buyer would read a claim
+    // no published criteria back.
+    const gradeSpec = specForCrop(crop.name);
+    if (gradeCode && !isValidGrade(crop.name, gradeCode))
+      return res.status(400).json({
+        success: false, code: 'BAD_GRADE',
+        message: `Grade must be one of ${Object.keys(gradeSpec.grades).join(', ')} for ${crop.name}`,
+      });
     if (crop.isHarvested)
       return res.status(400).json({ success: false, message: 'This crop has already been harvested' });
 
@@ -497,7 +508,7 @@ router.post('/:cropId/harvest-and-list', requireAuth, requireRole('farmer'), upl
         farmerName: req.profile.name,
         farmerPhone: req.profile.phone,
         cropName: crop.name,
-        cropTamilName: crop.tamilName,
+        cropLocalName: crop.localName,
         variety: crop.variety,
         harvestedAt: crop.harvestDate,
         actualYieldKg: yieldKg,
@@ -507,15 +518,35 @@ router.post('/:cropId/harvest-and-list', requireAuth, requireRole('farmer'), upl
         pricePerKg: price,
         totalPrice: qty * price,
         gradeNote: String(gradeNote).slice(0, 120),
+        // C3: the grade is validated against THIS crop's spec, so a client
+        // cannot post a grade the spec does not define.
+        grade: {
+          code: gradeCode ? String(gradeCode).toUpperCase() : null,
+          specKey: gradeSpec.key,
+          specVersion: SPEC_VERSION,
+          selfDeclared: true,
+          note: String(gradeNote).slice(0, 120),
+        },
         notes: String(notes).slice(0, 500),
         location: {
           city: land.location.city,
           district,
-          state: land.location.state || 'Tamil Nadu',
+          state: land.location.state || 'Maharashtra',
           address: land.location.address || '',
           lat,
           lng,
         },
+        // ⚠️ THE INDEXED COPY, AND IT MUST BE WRITTEN HERE OR A NEW HARVEST IS
+        // INVISIBLE TO THE MARKET FEED. `CropListing.geo` carries a 2dsphere
+        // index and `scripts/backfillGeo.js` populated the rows that predate
+        // it — but nothing on the WRITE path ever set it, so every harvest
+        // posted from the app would have had `location.lat/lng` and no `geo`,
+        // and `GET /market` ranks by `$near`. The farmer would have posted a
+        // lot that no buyer's feed could reach, with no error anywhere. This is
+        // the same defect `User.geo` had (see CLAUDE.md).
+        //
+        // `[lng, lat]` — GeoJSON order, the reverse of everywhere else here.
+        geo: { type: 'Point', coordinates: [lng, lat] },
       }], { session });
       listing = created[0];
 

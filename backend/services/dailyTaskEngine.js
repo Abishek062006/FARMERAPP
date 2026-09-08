@@ -25,6 +25,8 @@ const {
 const {
   PRODUCT_NUTRIENT_CONTENT,
   TOUCHPOINT_NUTRIENT_SPLIT,
+  sourceFigureLabel,
+  MH_SOURCES,
   getFertilizerRequirement,
   acresFromAreaField,
 } = require('../data/fertilizerRules');
@@ -121,7 +123,7 @@ function isRainy(weather) {
 // completely different watering behavior than every other cereal in the
 // `cereal` category (maize/millets are never flood-irrigated) — special-
 // cased rather than folded into the category table, since it's the single
-// most water-behaviorally distinct staple crop TN farmers grow.
+// most water-behaviorally distinct staple crop Maharashtra farmers grow.
 const STANDING_WATER_SOURCES = ['canal', 'river', 'tank', 'pond', 'borewell'];
 
 function isPaddy(cropDef) {
@@ -140,10 +142,10 @@ function buildWateringTask({ cropDef, stage, dayNumber, land, weather }) {
       return {
         taskType: 'watering',
         title: 'Check standing water level',
-        titleTamil: '',
+        titleLocal: '',
         description:
           'Rain is expected/occurring today — check the field still has 2-3cm of standing water but avoid adding more; excess can be drained if needed.',
-        descriptionTamil: '',
+        descriptionLocal: '',
         priority: 'medium',
         weatherConsiderations: 'Rain detected today — watering reduced, standing water level only checked.',
       };
@@ -151,9 +153,9 @@ function buildWateringTask({ cropDef, stage, dayNumber, land, weather }) {
     return {
       taskType: 'watering',
       title: 'Maintain standing water',
-      titleTamil: '',
+      titleLocal: '',
       description: 'Keep 2-3cm of standing water in the field — paddy needs continuous shallow flooding at this stage.',
-      descriptionTamil: '',
+      descriptionLocal: '',
       priority: 'high',
       weatherConsiderations: weather ? '' : 'Weather data unavailable — using standard schedule for this stage.',
     };
@@ -167,9 +169,9 @@ function buildWateringTask({ cropDef, stage, dayNumber, land, weather }) {
     return {
       taskType: 'watering',
       title: 'Skip watering — rain expected',
-      titleTamil: '',
+      titleLocal: '',
       description: `Rain is expected/occurring today, so today's scheduled watering can be skipped. Resume the regular ${intervalDays}-day schedule afterward.`,
-      descriptionTamil: '',
+      descriptionLocal: '',
       priority: 'low',
       weatherConsiderations: `Rain detected today — watering skipped, next check in ${intervalDays} days.`,
     };
@@ -191,9 +193,9 @@ function buildWateringTask({ cropDef, stage, dayNumber, land, weather }) {
   return {
     taskType: 'watering',
     title,
-    titleTamil: '',
+    titleLocal: '',
     description,
-    descriptionTamil: '',
+    descriptionLocal: '',
     priority: stage === 'flowering' || stage === 'fruiting' ? 'high' : 'medium',
     weatherConsiderations: weather ? '' : 'Weather data unavailable — using standard schedule for this stage.',
   };
@@ -245,13 +247,72 @@ function buildFertilizerTask({ cropDef, dayNumber, duration, land, plot, cropQua
   const kKg = requirement.k * split.k * multiplier;
 
   const productLines = [];
-  if (pKg > 0) productLines.push(`${round(pKg / PRODUCT_NUTRIENT_CONTENT.dap.percent)}kg DAP`);
-  if (nKg > 0) productLines.push(`${round(nKg / PRODUCT_NUTRIENT_CONTENT.urea.percent)}kg Urea`);
+  const dapKg = pKg > 0 ? pKg / PRODUCT_NUTRIENT_CONTENT.dap.percent : 0;
+
+  // DAP is 18-46-0, not 0-46-0. Its nitrogen is real, and it must be credited
+  // against the SEASON's nitrogen requirement — not just this touchpoint's.
+  // All the phosphorus goes on as basal, so all the DAP nitrogen arrives on
+  // day one; crediting it only against the basal N leaves the later
+  // top-dressings still sized for a crop that has already been fed. On a
+  // legume like soybean — low N need, high P need — the DAP alone covers the
+  // whole season, and every gram of urea after it is money burnt and nitrogen
+  // leached. Credit the total, then split what is genuinely still owed.
+  const seasonP = requirement.p * multiplier;
+  const seasonDapN = (seasonP / PRODUCT_NUTRIENT_CONTENT.dap.percent)
+    * PRODUCT_NUTRIENT_CONTENT.dap.nitrogenPercent;
+  const seasonUreaN = Math.max(0, requirement.n * multiplier - seasonDapN);
+  const ureaN = seasonUreaN * split.n;
+
+  if (dapKg > 0) productLines.push(`${round(dapKg)}kg DAP`);
+  if (ureaN > 0) productLines.push(`${round(ureaN / PRODUCT_NUTRIENT_CONTENT.urea.percent)}kg Urea`);
   if (kKg > 0) productLines.push(`${round(kKg / PRODUCT_NUTRIENT_CONTENT.mop.percent)}kg MOP`);
 
-  const specificityNote = requirement.isSpecific
-    ? ''
-    : ` (general estimate for ${cropDef.category.replace(/_/g, ' ')} crops — check TNAU's crop-specific package of practices or your Soil Health Card if available)`;
+  // A caveat ALWAYS appears — it just gets weaker as the figure gets better.
+  // The old version stayed silent whenever a crop had a specific entry, which
+  // meant the most confident-looking numbers carried no warning at all, even
+  // though none of them have been checked against a Maharashtra source. See
+  // the provenance note at the top of data/fertilizerRules.js.
+  const ADVICE = 'check your Soil Health Card, or the package of practices from MPKV Rahuri, Dr. PDKV Akola or VNMKV Parbhani';
+  const DOC_NAME = {
+    'MH-POP': 'the Maharashtra State approved package of practices',
+    'PDKV-2021': 'Dr. PDKV Akola',
+    'MPKV-2023': 'MPKV Rahuri',
+    'VNMKV-2020': 'VNMKV Parbhani',
+    DAPOLI: 'Dr. BSKKV Dapoli',
+  };
+  // A figure confirmed by two universities is cited as both — that is the
+  // strongest provenance in the file and the farmer should get to see it.
+  // Splitting on '+' rather than keying the combinations means a new pairing
+  // never falls through to a raw internal key like "MPKV-2023 + DAPOLI".
+  const docLabel = (doc) => doc.split('+')
+    .map((d) => DOC_NAME[d.trim()] || d.trim())
+    .join(' and ');
+  // A verified figure earns a WEAKER caveat, never a silent one. Soil test,
+  // variety and season still move the real dose, and the source it came from
+  // was calibrated for one zone — so naming the document is the honest form:
+  // it tells the farmer whose recommendation this is and lets them find the
+  // figure for their own zone if it differs.
+  const mh = requirement.source === 'mh-verified' ? MH_SOURCES[cropDef.name] : null;
+  const specificityNote = !requirement.isSpecific
+    ? ` (general estimate for ${cropDef.category.replace(/_/g, ' ')} crops — ${ADVICE})`
+    : mh
+      // `sourceFigureLabel()` and NOT `mh.kgHa` — the figure's unit is decided
+      // beside the data in data/fertilizerRules.js, because MH_SOURCES has two
+      // shapes (`kgHa` and `kgAcreAsPrinted`) and reading only the first printed
+      // "(undefined kg/ha from Krishi Darshani ...)" to farmers for every crop
+      // sourced from that handbook. A source that already states per ACRE is
+      // also not "converted to your area" from a hectare figure, so that clause
+      // moves with the unit.
+      ? (() => {
+        const fig = sourceFigureLabel(mh);
+        if (!fig) return ` (from ${docLabel(mh.doc)} — still a starting figure: ${ADVICE})`;
+        const converted = mh.kgHa ? ', converted to your area' : '';
+        return ` (${fig} from ${docLabel(mh.doc)}${converted} — still a starting figure: check your`
+          + ` Soil Health Card, and your own zone's recommendation if it differs)`;
+      })()
+      : requirement.source === 'icar-general'
+        ? ` (general all-India figure for this crop — ${ADVICE})`
+        : ` (starting figure only — ${ADVICE})`;
 
   const description = productLines.length
     ? `Approximately ${productLines.join(' + ')} ${scaleNote}${specificityNote}. If you use a blended NPK fertilizer instead, match the total nutrient content on the bag label.`
@@ -260,9 +321,9 @@ function buildFertilizerTask({ cropDef, dayNumber, duration, land, plot, cropQua
   return {
     taskType: 'fertilizing',
     title: TOUCHPOINT_LABELS[touchpointIndex],
-    titleTamil: '',
+    titleLocal: '',
     description,
-    descriptionTamil: '',
+    descriptionLocal: '',
     priority: 'medium',
     weatherConsiderations: '',
   };
@@ -281,11 +342,11 @@ async function buildPestTask({ cropId, dayNumber, stage }) {
     return {
       taskType: 'pestControl',
       title: `Continue treatment: ${activeDisease.diseaseName}`,
-      titleTamil: '',
+      titleLocal: '',
       description: activeDisease.treatment
         ? activeDisease.treatment
         : `An active case of ${activeDisease.diseaseName} was detected on this crop — follow the recommended treatment until resolved.`,
-      descriptionTamil: '',
+      descriptionLocal: '',
       priority: 'high',
       weatherConsiderations: '',
     };
@@ -297,9 +358,9 @@ async function buildPestTask({ cropId, dayNumber, stage }) {
   return {
     taskType: 'observation',
     title: 'Check for pests or disease',
-    titleTamil: '',
+    titleLocal: '',
     description: 'Walk the field and check leaves/stems for early signs of pests or disease. If anything looks off, use Scan Plant Health to check.',
-    descriptionTamil: '',
+    descriptionLocal: '',
     priority: 'low',
     weatherConsiderations: '',
   };

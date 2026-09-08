@@ -1,11 +1,18 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import { TouchableOpacity, Text, Alert } from 'react-native';
+import { TouchableOpacity, Text, View, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { signOut } from 'firebase/auth';
 import { auth } from '../utils/firebase';
 import AgentDashboard from '../screens/Agent/AgentDashboard';
 import AgentTripScreen from '../screens/Agent/AgentTripScreen';
 import { COLORS } from '../constants/colors';
+import ConsignmentTripScreen from '../screens/Agent/ConsignmentTripScreen';
+// A captain could not see a finished trip, a kilometre driven or a rupee
+// earned — and had no profile screen at all. Both are registered below.
+import AgentTripsScreen from '../screens/Agent/AgentTripsScreen';
+import ProfileScreen from '../screens/Profile/ProfileScreen';
+import EditProfileScreen from '../screens/Profile/EditProfileScreen';
 
 const Stack = createStackNavigator();
 
@@ -51,23 +58,44 @@ const AgentNavigator = ({ userData }) => {
         name="AgentDashboard" 
         component={AgentDashboard}
         initialParams={{ userData }}
-        options={{
+        options={({ navigation }) => ({
           title: 'Trips',
           headerRight: () => (
-            <TouchableOpacity
-              style={{ marginRight: 16 }}
-              onPress={handleLogout}
-            >
-              <Text style={{ 
-                color: COLORS.primary, 
-                fontSize: 16, 
-                fontWeight: 'bold' 
-              }}>
-                Logout
-              </Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginRight: 14 }}>
+              <TouchableOpacity
+                accessibilityLabel="My trips and earnings"
+                onPress={() => navigation.navigate('AgentTrips')}
+              >
+                <Ionicons name="time-outline" size={22} color={COLORS.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityLabel="My profile"
+                onPress={() => navigation.navigate('Profile', { userData })}
+              >
+                <Ionicons name="person-circle-outline" size={22} color={COLORS.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity accessibilityLabel="Log out" onPress={handleLogout}>
+                <Ionicons name="log-out-outline" size={22} color={COLORS.primary} />
+              </TouchableOpacity>
+            </View>
           ),
-        }}
+        })}
+      />
+
+      <Stack.Screen
+        name="AgentTrips"
+        component={AgentTripsScreen}
+        initialParams={{ userData }}
+        options={{ title: 'My trips & earnings' }}
+      />
+
+      <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
+
+      <Stack.Screen
+        name="ConsignmentTrip"
+        component={ConsignmentTripScreen}
+        options={{ title: 'Multi-farm run' }}
       />
 
       <Stack.Screen

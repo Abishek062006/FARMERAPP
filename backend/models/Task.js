@@ -41,14 +41,14 @@ const taskSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  titleTamil: {
+  titleLocal: {
     type: String
   },
   description: {
     type: String,
     required: true
   },
-  descriptionTamil: {
+  descriptionLocal: {
     type: String
   },
   priority: {

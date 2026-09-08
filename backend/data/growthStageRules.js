@@ -11,7 +11,7 @@
 // Whether a crop is tracked in full daily-fraction mode or capped into an
 // establishment+maintenance mode is decided by DURATION ALONE, not category
 // — e.g. Banana (duration exactly 365, category `fruit_tree`) must stay in
-// full daily-tracking mode (TN farmers treat its first cycle as annual-crop-
+// full daily-tracking mode (farmers treat its first cycle as annual-crop-
 // like), while Black Pepper (a `spice` botanically, but duration 1095, a
 // perennial vine) must still get capped. `category` only ever selects which
 // STAGE_SPLITS shape to use — it never gates the cap by itself.

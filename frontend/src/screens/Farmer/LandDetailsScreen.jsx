@@ -11,8 +11,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/config';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export default function LandDetailsScreen({ navigation, route }) {
+  const { lang, t } = useLanguage();
   const { land, userData } = route.params || {};
   const [loading, setLoading] = useState(false);
   const [landDetails, setLandDetails] = useState(land);
@@ -37,7 +39,7 @@ export default function LandDetailsScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('❌ Error fetching land details:', error);
-      Alert.alert('Error', 'Failed to load land details');
+      Alert.alert(t('landDetails.errorTitle'), t('landDetails.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -53,23 +55,23 @@ export default function LandDetailsScreen({ navigation, route }) {
 
   const handleDeleteLand = () => {
     Alert.alert(
-      'Delete Land',
-      'Are you sure you want to delete this land? This action cannot be undone.',
+      t('landDetails.deleteTitle'),
+      t('landDetails.deleteMsg'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('landDetails.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('landDetails.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               const response = await axios.delete(`${API_ENDPOINTS.LANDS}/${land._id}`);
-              
+
               if (response.data.success) {
-                Alert.alert('Success', 'Land deleted successfully');
+                Alert.alert(t('landDetails.successTitle'), t('landDetails.deletedMsg'));
                 navigation.goBack();
               }
             } catch (error) {
-              Alert.alert('Error', error.response?.data?.message || 'Failed to delete land');
+              Alert.alert(t('landDetails.errorTitle'), error.response?.data?.message || t('landDetails.deleteFailed'));
             }
           },
         },
@@ -99,23 +101,23 @@ export default function LandDetailsScreen({ navigation, route }) {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Ionicons name="location" size={24} color="#4CAF50" />
-          <Text style={styles.sectionTitle}>Location</Text>
+          <Text style={styles.sectionTitle}>{t('landDetails.location')}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>City:</Text>
+          <Text style={styles.infoLabel}>{t('landDetails.city')}</Text>
           <Text style={styles.infoValue}>{landDetails?.location.city}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>District:</Text>
+          <Text style={styles.infoLabel}>{t('landDetails.district')}</Text>
           <Text style={styles.infoValue}>{landDetails?.location.district}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>State:</Text>
+          <Text style={styles.infoLabel}>{t('landDetails.state')}</Text>
           <Text style={styles.infoValue}>{landDetails?.location.state}</Text>
         </View>
         {landDetails?.location.pincode && (
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Pincode:</Text>
+            <Text style={styles.infoLabel}>{t('landDetails.pincode')}</Text>
             <Text style={styles.infoValue}>{landDetails.location.pincode}</Text>
           </View>
         )}
@@ -125,30 +127,28 @@ export default function LandDetailsScreen({ navigation, route }) {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Ionicons name="information-circle" size={24} color="#4CAF50" />
-          <Text style={styles.sectionTitle}>Land Details</Text>
+          <Text style={styles.sectionTitle}>{t('landDetails.landDetailsTitle')}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Size:</Text>
+          <Text style={styles.infoLabel}>{t('landDetails.size')}</Text>
           <Text style={styles.infoValue}>
             {landDetails?.size.value} {landDetails?.size.unit}
           </Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Water Source:</Text>
+          <Text style={styles.infoLabel}>{t('landDetails.waterSourceLabel')}</Text>
           <Text style={styles.infoValue}>
-            {landDetails?.waterSource.charAt(0).toUpperCase() + 
-             landDetails?.waterSource.slice(1)}
+            {landDetails?.waterSource ? t(`water.${landDetails.waterSource}`) : ''}
           </Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Soil Type:</Text>
+          <Text style={styles.infoLabel}>{t('landDetails.soilTypeLabel')}</Text>
           <Text style={styles.infoValue}>
-            {landDetails?.soilType.charAt(0).toUpperCase() + 
-             landDetails?.soilType.slice(1)}
+            {landDetails?.soilType ? t(`soil.${landDetails.soilType}`) : ''}
           </Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Total Plots:</Text>
+          <Text style={styles.infoLabel}>{t('landDetails.totalPlots')}</Text>
           <Text style={styles.infoValue}>{landDetails?.totalPlots || 0}</Text>
         </View>
       </View>
@@ -157,18 +157,18 @@ export default function LandDetailsScreen({ navigation, route }) {
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Ionicons name="leaf" size={24} color="#4CAF50" />
-          <Text style={styles.sectionTitle}>Active Crops</Text>
+          <Text style={styles.sectionTitle}>{t('landDetails.activeCrops')}</Text>
         </View>
         {crops.length === 0 ? (
-          <Text style={styles.emptyText}>No crops planted yet</Text>
+          <Text style={styles.emptyText}>{t('dash.noCrops')}</Text>
         ) : (
           crops.map((crop, index) => (
             <View key={index} style={styles.cropCard}>
               <Text style={styles.cropName}>
-                {crop.name} ({crop.tamilName})
+                {crop.name} ({crop.localName})
               </Text>
               <Text style={styles.cropDetail}>
-                Planted: {new Date(crop.plantingDate).toLocaleDateString()}
+                {t('landDetails.plantedPrefix')} {new Date(crop.plantingDate).toLocaleDateString()}
               </Text>
             </View>
           ))
@@ -180,7 +180,7 @@ export default function LandDetailsScreen({ navigation, route }) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="document-text" size={24} color="#4CAF50" />
-            <Text style={styles.sectionTitle}>Notes</Text>
+            <Text style={styles.sectionTitle}>{t('landDetails.notes')}</Text>
           </View>
           <Text style={styles.notesText}>{landDetails.notes}</Text>
         </View>
@@ -193,7 +193,7 @@ export default function LandDetailsScreen({ navigation, route }) {
           onPress={handleStartFarming}
         >
           <Ionicons name="leaf" size={24} color="#fff" />
-          <Text style={styles.primaryButtonText}>Start Farming</Text>
+          <Text style={styles.primaryButtonText}>{t('landDetails.startFarming')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -201,7 +201,7 @@ export default function LandDetailsScreen({ navigation, route }) {
           onPress={handleDeleteLand}
         >
           <Ionicons name="trash" size={20} color="#fff" />
-          <Text style={styles.deleteButtonText}>Delete Land</Text>
+          <Text style={styles.deleteButtonText}>{t('landDetails.deleteLandBtn')}</Text>
         </TouchableOpacity>
       </View>
 

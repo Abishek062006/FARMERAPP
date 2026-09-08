@@ -80,6 +80,18 @@ export default function BookTransportScreen({ navigation, route }) {
   const selected = quote?.vehicles.find((v) => v.type === chosen);
   const grandTotal = quote && selected?.ok ? quote.cropTotal + selected.fare.total : null;
 
+  // ── THE ADVANCE THIS BUYER IS WILLING TO COMMIT ────────────────────────
+  //
+  // Default 0, which is byte-for-byte what this screen did before: an order
+  // placed without touching this is unchanged in every field.
+  //
+  // ⚠️ AGREEING IS NOT PAYING. This app has no payment rail and no escrow —
+  // tapping 30% here records a promise, and the FARMER confirms separately when
+  // the money actually reaches them. The copy below says so on the screen,
+  // because a buyer who thinks the app moved their money will not send it.
+  const [advancePct, setAdvancePct] = useState(0);
+  const advanceAmount = quote ? Math.round((quote.cropTotal * advancePct) / 100) : 0;
+
   const confirm = async () => {
     if (!selected?.ok || booking) return;
     setBooking(true);
@@ -91,6 +103,8 @@ export default function BookTransportScreen({ navigation, route }) {
         dropoff,
         idempotencyKey: idemKey,
         vendorCompany: userData?.company || userData?.name,
+        // Omitted entirely at 0 so the request is identical to the old one.
+        ...(advancePct > 0 ? { advancePct } : {}),
       }, { timeout: 25000 });
 
       if (r.data.success) {
@@ -214,7 +228,7 @@ export default function BookTransportScreen({ navigation, route }) {
                   <View style={{ flex: 1 }}>
                     <View style={s.vehicleTitleRow}>
                       <Text style={[s.vehicleName, !v.ok && s.mutedText]}>{v.label}</Text>
-                      <Text style={s.vehicleTamil}>{v.tamil}</Text>
+                      <Text style={s.vehicleLocal}>{v.localName}</Text>
                     </View>
                     {v.ok ? (
                       <Text style={s.vehicleMeta}>~{v.etaMin} min · up to {v.capacityKg} kg</Text>
@@ -241,7 +255,19 @@ export default function BookTransportScreen({ navigation, route }) {
             <Text style={s.sectionTitle}>Payment</Text>
             {[
               [`${listing.cropName} · ${quantityKg} kg`, quote.cropTotal],
-              [`${selected.label} · ${quote.distanceKm} km`, selected.fare.total],
+              // Long trips carry the agent's empty drive home. Shown as its own
+              // line rather than folded into the transport figure — a vendor
+              // seeing a big number for a long haul is entitled to know what it
+              // is paying for, and "the driver has to get back" is an answer
+              // they can accept. Short trips never show this line at all.
+              ...(selected.fare.returnCharge > 0
+                ? [
+                    [`${selected.label} · ${quote.distanceKm} km loaded`,
+                      selected.fare.total - selected.fare.returnCharge],
+                    [`Return leg · ${selected.fare.returnKm} km empty`,
+                      selected.fare.returnCharge],
+                  ]
+                : [[`${selected.label} · ${quote.distanceKm} km`, selected.fare.total]]),
             ].map(([k, v]) => (
               <View key={k} style={s.payRow}>
                 <Text style={s.payKey}>{k}</Text>
@@ -249,8 +275,66 @@ export default function BookTransportScreen({ navigation, route }) {
               </View>
             ))}
             <View style={[s.payRow, s.payTotalRow]}>
-              <Text style={s.payTotalKey}>Total (cash on delivery)</Text>
+              <Text style={s.payTotalKey}>Total</Text>
               <Text style={s.payTotalVal}>₹{grandTotal.toLocaleString('en-IN')}</Text>
+            </View>
+
+            {/* ── ADVANCE ─────────────────────────────────────────────────
+                Until now the farmer handed over their crop against a record of
+                a promise — they were extending credit to a stranger. An advance
+                splits that exposure instead of moving it: paying the whole lot
+                up front would just put the buyer at risk for produce they have
+                not seen, at a grade nobody checked, and making THAT safe needs
+                escrow this app does not have. */}
+            <View style={s.advBlock}>
+              <Text style={s.advTitle}>Advance to the farmer</Text>
+              <Text style={s.advSub}>
+                The farmer hands over their crop before you have seen it. An advance shares that
+                risk instead of leaving all of it with them. The rest is due after delivery.
+              </Text>
+              <View style={s.advRow}>
+                {[0, 10, 25, 50].map((p) => (
+                  <TouchableOpacity
+                    key={p}
+                    style={[s.advChip, advancePct === p && s.advChipOn]}
+                    onPress={() => setAdvancePct(p)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[s.advChipText, advancePct === p && s.advChipTextOn]}>
+                      {p === 0 ? 'None' : `${p}%`}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {advancePct > 0 ? (
+                <>
+                  <View style={s.payRow}>
+                    <Text style={s.payKey}>Advance now</Text>
+                    <Text style={s.payVal}>₹{advanceAmount.toLocaleString('en-IN')}</Text>
+                  </View>
+                  <View style={s.payRow}>
+                    <Text style={s.payKey}>Balance after delivery</Text>
+                    <Text style={s.payVal}>
+                      ₹{(quote.cropTotal - advanceAmount).toLocaleString('en-IN')}
+                    </Text>
+                  </View>
+                  {/* Said on the same screen as the confirm button, never after
+                      it. A buyer must not be able to believe the app sent it. */}
+                  <Text style={s.advWarn}>
+                    This app records payments — it does not move them. Confirming agrees this
+                    advance; you still pay the farmer directly, and they confirm it when it
+                    arrives.
+                  </Text>
+                </>
+              ) : (
+                <Text style={s.advWarn}>
+                  With no advance the farmer carries the full ₹{quote.cropTotal.toLocaleString('en-IN')}
+                  {' '}until you pay them.
+                </Text>
+              )}
+              <Text style={s.advFare}>
+                The transport fare is separate and is cash to the driver on delivery.
+              </Text>
             </View>
           </View>
         )}
@@ -341,7 +425,7 @@ const s = StyleSheet.create({
   vehicleOff: { opacity: 0.55, backgroundColor: '#F8FAFC' },
   vehicleTitleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 7 },
   vehicleName:  { fontSize: 15.5, fontWeight: '700', color: '#111827' },
-  vehicleTamil: { fontSize: 11.5, color: '#9CA3AF' },
+  vehicleLocal: { fontSize: 11.5, color: '#9CA3AF' },
   vehicleMeta:  { fontSize: 12, color: '#6B7280', marginTop: 3 },
   vehicleReason:{ fontSize: 12, color: '#C2410C', marginTop: 3, fontWeight: '600' },
   mutedText:    { color: '#6B7280' },
@@ -355,6 +439,19 @@ const s = StyleSheet.create({
   payTotalRow: { borderTopWidth: 1, borderTopColor: '#F1F5F9', marginTop: 4, paddingTop: 10 },
   payTotalKey: { fontSize: 14, fontWeight: '700', color: '#111827' },
   payTotalVal: { fontSize: 20, fontWeight: '800', color: '#15803D' },
+  advBlock: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  advTitle: { fontSize: 14, fontWeight: '800', color: '#111827' },
+  advSub: { fontSize: 12, color: '#6B7280', lineHeight: 17, marginTop: 4, marginBottom: 10 },
+  advRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  advChip: {
+    flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 999,
+    borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC',
+  },
+  advChipOn: { borderColor: '#16A34A', backgroundColor: '#DCFCE7' },
+  advChipText: { fontSize: 13, fontWeight: '700', color: '#6B7280' },
+  advChipTextOn: { color: '#15803D' },
+  advWarn: { fontSize: 11, color: '#92400E', lineHeight: 16, marginTop: 8 },
+  advFare: { fontSize: 11, color: '#9CA3AF', lineHeight: 16, marginTop: 6 },
 
   footer: { padding: 16, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F1F5F9' },
   cta: {

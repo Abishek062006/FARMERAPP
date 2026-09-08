@@ -16,10 +16,15 @@ import { API_ENDPOINTS } from '../../utils/config';
 import LocationMapPicker from '../../components/LocationMapPicker';
 import ChipSelect from '../../components/ChipSelect';
 import SearchSelectSheet from '../../components/SearchSelectSheet';
-import { TN_DISTRICTS, matchTnDistrict } from '../../utils/tnDistricts';
+import { MH_DISTRICTS, matchDistrict } from '../../utils/districts';
+import { tBoth, DEFAULT_LANGUAGE } from '../../i18n/strings';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export default function LandRegistrationScreen({ navigation, route }) {
   const { userData } = route.params || {};
+  // From the context, not userData: userData is a snapshot taken at login and
+  // never changes when the farmer taps the toggle.
+  const { lang } = useLanguage();
 
   // Form state
   const [loading, setLoading] = useState(false);
@@ -32,7 +37,7 @@ export default function LandRegistrationScreen({ navigation, route }) {
     coordinates: { lat: 0, lng: 0 },
     city: '',
     district: '',
-    state: 'Tamil Nadu',
+    state: 'Maharashtra',
     pincode: '',
     address: '',
   });
@@ -50,27 +55,29 @@ export default function LandRegistrationScreen({ navigation, route }) {
     { label: 'Sq. M.', value: 'sqm' },
   ];
   
+  // Bilingual labels come from i18n/strings.js — tBoth renders
+  // "English (मराठी)" so a farmer reading either language can pick correctly.
   const waterSources = [
-    { label: 'Borewell (போர்வெல்)', value: 'borewell' },
-    { label: 'Canal (கால்வாய்)', value: 'canal' },
-    { label: 'Rainwater (மழைநீர்)', value: 'rainwater' },
-    { label: 'Drip Irrigation (சொட்டுநீர்)', value: 'drip' },
-    { label: 'Sprinkler (தெளிப்பான்)', value: 'sprinkler' },
-    { label: 'River (ஆறு)', value: 'river' },
-    { label: 'Well (கிணறு)', value: 'well' },
-    { label: 'Pond (குளம்)', value: 'pond' },
-    { label: 'Tank (தொட்டி)', value: 'tank' },
-    { label: 'None (இல்லை)', value: 'none' },
+    { label: tBoth('water.borewell', lang), value: 'borewell' },
+    { label: tBoth('water.canal', lang), value: 'canal' },
+    { label: tBoth('water.rainwater', lang), value: 'rainwater' },
+    { label: tBoth('water.drip', lang), value: 'drip' },
+    { label: tBoth('water.sprinkler', lang), value: 'sprinkler' },
+    { label: tBoth('water.river', lang), value: 'river' },
+    { label: tBoth('water.well', lang), value: 'well' },
+    { label: tBoth('water.pond', lang), value: 'pond' },
+    { label: tBoth('water.tank', lang), value: 'tank' },
+    { label: tBoth('water.none', lang), value: 'none' },
   ];
 
   const soilTypes = [
-    { label: 'Red Soil (சிவப்பு மண்)', value: 'red' },
-    { label: 'Black Soil (கருப்பு மண்)', value: 'black' },
-    { label: 'Alluvial Soil (வண்டல் மண்)', value: 'alluvial' },
-    { label: 'Clay Soil (களிமண்)', value: 'clay' },
-    { label: 'Loamy Soil (வண்டல் களிமண்)', value: 'loamy' },
-    { label: 'Sandy Soil (மணல் மண்)', value: 'sandy' },
-    { label: 'Laterite Soil (லேட்டரைட் மண்)', value: 'laterite' },
+    { label: tBoth('soil.red', lang), value: 'red' },
+    { label: tBoth('soil.black', lang), value: 'black' },
+    { label: tBoth('soil.alluvial', lang), value: 'alluvial' },
+    { label: tBoth('soil.clay', lang), value: 'clay' },
+    { label: tBoth('soil.loamy', lang), value: 'loamy' },
+    { label: tBoth('soil.sandy', lang), value: 'sandy' },
+    { label: tBoth('soil.laterite', lang), value: 'laterite' },
   ];
 
   // Fetch GPS location
@@ -105,19 +112,19 @@ export default function LandRegistrationScreen({ navigation, route }) {
         // The device's native geocoder isn't guaranteed to return
         // administrative-level granularity for `district` — it can come
         // back as a neighborhood/residential-layout name instead. Try each
-        // candidate field against the real TN district list and only keep
+        // candidate field against the real Maharashtra district list and only keep
         // one that actually matches; never save an unvalidated guess.
         const districtMatch =
-          matchTnDistrict(place.district) ||
-          matchTnDistrict(place.subregion) ||
-          matchTnDistrict(place.city) ||
+          matchDistrict(place.district) ||
+          matchDistrict(place.subregion) ||
+          matchDistrict(place.city) ||
           '';
 
         setLocation({
           coordinates: { lat: latitude, lng: longitude },
           city: place.city || place.subregion || '',
           district: districtMatch,
-          state: place.region || 'Tamil Nadu',
+          state: place.region || 'Maharashtra',
           pincode: place.postalCode || '',
           address: `${place.street || ''} ${place.name || ''}`.trim(),
         });
@@ -274,7 +281,7 @@ export default function LandRegistrationScreen({ navigation, route }) {
             <Text style={styles.label}>City <Text style={styles.required}>*</Text></Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g., Chennai"
+              placeholder="e.g., Nashik"
               value={location.city}
               onChangeText={(text) => setLocation({ ...location, city: text })}
             />
@@ -284,7 +291,7 @@ export default function LandRegistrationScreen({ navigation, route }) {
             label="District"
             required
             title="Select District"
-            options={TN_DISTRICTS.map((d) => ({ label: d, value: d }))}
+            options={MH_DISTRICTS.map((d) => ({ label: d, value: d }))}
             value={location.district}
             onChange={(value) => setLocation({ ...location, district: value })}
             placeholder="Select your district"

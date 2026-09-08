@@ -14,11 +14,12 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/config';
+import { useLanguage } from '../../i18n/LanguageContext';
 
-// This app is Tamil Nadu only — no need to make farmers pick a state every
-// time. 31 is Agmarknet's own id for Tamil Nadu (verified against its
+// This app is Maharashtra only — no need to make farmers pick a state every
+// time. 20 is Agmarknet's own id for Maharashtra (verified against its
 // /daily-price-arrival/filters response).
-const TAMIL_NADU_STATE_ID = 31;
+const DEFAULT_STATE_ID = 20;
 const ANY_MARKET_VALUE = 'any';
 
 const toISODate = (d) => d.toISOString().slice(0, 10);
@@ -29,6 +30,7 @@ const toISODate = (d) => d.toISOString().slice(0, 10);
 // next to the one you meant); a plain list row you tap once removes that
 // ambiguity entirely.
 function FieldPicker({ label, value, items, onChange, placeholder, disabled, loading, searchable }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const selectedLabel = items.find((i) => String(i.value) === String(value))?.label;
@@ -60,7 +62,7 @@ function FieldPicker({ label, value, items, onChange, placeholder, disabled, loa
         activeOpacity={0.7}
       >
         <Text style={[styles.fieldButtonText, !selectedLabel && styles.fieldButtonPlaceholder]} numberOfLines={1}>
-          {loading ? 'Loading...' : selectedLabel || placeholder}
+          {loading ? t('marketPrices.loading') : selectedLabel || placeholder}
         </Text>
         <Ionicons name="chevron-down" size={18} color={disabled ? '#ccc' : '#666'} />
       </TouchableOpacity>
@@ -81,7 +83,7 @@ function FieldPicker({ label, value, items, onChange, placeholder, disabled, loa
                 <Ionicons name="search" size={16} color="#999" />
                 <TextInput
                   style={styles.modalSearchInput}
-                  placeholder={`Search ${label.toLowerCase()}...`}
+                  placeholder={`${t('marketPrices.searchPrefix')} ${label.toLowerCase()}...`}
                   value={query}
                   onChangeText={setQuery}
                   autoFocus
@@ -105,7 +107,7 @@ function FieldPicker({ label, value, items, onChange, placeholder, disabled, loa
                   </TouchableOpacity>
                 );
               }}
-              ListEmptyComponent={<Text style={styles.modalEmptyText}>No matches</Text>}
+              ListEmptyComponent={<Text style={styles.modalEmptyText}>{t('marketPrices.noMatches')}</Text>}
             />
           </View>
         </View>
@@ -115,6 +117,7 @@ function FieldPicker({ label, value, items, onChange, placeholder, disabled, loa
 }
 
 export default function MarketPricesScreen({ navigation, route }) {
+  const { lang, t } = useLanguage();
   const { cropName, land } = route.params || {};
 
   // ── Metadata ─────────────────────────────────────────────────────────
@@ -124,7 +127,7 @@ export default function MarketPricesScreen({ navigation, route }) {
   const [metaLoading, setMetaLoading] = useState(true);
   const [metaError, setMetaError] = useState('');
 
-  // ── Selection (state is fixed to Tamil Nadu) ────────────────────────
+  // ── Selection (state is fixed to Maharashtra) ───────────────────────
   const [districtId, setDistrictId] = useState(null);
   const [marketId, setMarketId] = useState(ANY_MARKET_VALUE);
   const [commodityId, setCommodityId] = useState(null);
@@ -134,6 +137,13 @@ export default function MarketPricesScreen({ navigation, route }) {
   const [marketsLoading, setMarketsLoading] = useState(false);
   const [commoditiesLoading, setCommoditiesLoading] = useState(false);
   const [commoditiesScoped, setCommoditiesScoped] = useState(true);
+  // Which list came back: 'district' | 'state' | 'app' | 'national'. The
+  // picker used to fall back to Agmarknet's 605-commodity NATIONAL list on
+  // any date a district had not reported, and simply said "showing all crops"
+  // — so a Maharashtra farmer scrolled past Cardamom and Almond and read it
+  // as the app not knowing where they were. The backend now falls back to the
+  // Maharashtra list; this says which one is on screen.
+  const [commodityScope, setCommodityScope] = useState('district');
 
   // ── Result ───────────────────────────────────────────────────────────
   const [submitting, setSubmitting] = useState(false);
@@ -141,21 +151,28 @@ export default function MarketPricesScreen({ navigation, route }) {
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState('');
 
+  // ── Yield benchmark (D5's data, not a forecast) ─────────────────────
+  // GET /api/mandi/yield-benchmark?commodity=&district= — see
+  // backend/services/yieldBenchmarkService.js. This is what the crop has
+  // ACTUALLY yielded here, ICRISAT 2013-2017 — never worded as a prediction.
+  const [yieldBenchmark, setYieldBenchmark] = useState(null);
+  const [yieldLoading, setYieldLoading] = useState(false);
+
   const dateISO = useMemo(() => toISODate(date), [date]);
 
-  // ── Load Tamil Nadu districts once ──────────────────────────────────
+  // ── Load Maharashtra districts once ─────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
         setMetaLoading(true);
         setMetaError('');
         const res = await axios.get(`${API_ENDPOINTS.MANDI}/districts`, {
-          params: { stateId: TAMIL_NADU_STATE_ID },
+          params: { stateId: DEFAULT_STATE_ID },
           timeout: 15000,
         });
         if (res.data?.success) setDistricts(res.data.data);
       } catch (err) {
-        setMetaError('Could not load mandi filters. Pull to retry.');
+        setMetaError(t('marketPrices.metaError'));
       } finally {
         setMetaLoading(false);
       }
@@ -231,6 +248,7 @@ export default function MarketPricesScreen({ navigation, route }) {
           const list = res.data.data || [];
           setCommodities(list);
           setCommoditiesScoped(res.data.scoped !== false);
+          setCommodityScope(res.data.scope || (res.data.scoped !== false ? 'district' : 'state'));
           // Drop a previously chosen crop if it's no longer in the new list
           // (e.g. it wasn't reported here, or on this date).
           setCommodityId((prev) => (list.some((c) => c.id === prev) ? prev : null));
@@ -263,7 +281,7 @@ export default function MarketPricesScreen({ navigation, route }) {
       const res = await axios.get(`${API_ENDPOINTS.MANDI}/prices`, {
         params: {
           date: toISODate(date),
-          stateId: TAMIL_NADU_STATE_ID,
+          stateId: DEFAULT_STATE_ID,
           districtId,
           marketId: marketId === ANY_MARKET_VALUE ? undefined : marketId,
           commodityId,
@@ -274,11 +292,11 @@ export default function MarketPricesScreen({ navigation, route }) {
         setResult(res.data.data);
       } else {
         setResult(null);
-        setError(res.data?.message || 'Failed to fetch mandi price.');
+        setError(res.data?.message || t('marketPrices.fetchFailed'));
       }
     } catch (err) {
       setResult(null);
-      setError(err.response?.data?.message || 'Failed to fetch mandi price. Please try again.');
+      setError(err.response?.data?.message || t('marketPrices.fetchFailedRetry'));
     } finally {
       setSubmitting(false);
     }
@@ -287,11 +305,38 @@ export default function MarketPricesScreen({ navigation, route }) {
   const selectedCommodityName = commodities.find((c) => c.id === commodityId)?.name;
   const selectedDistrictName = districts.find((d) => d.id === districtId)?.name;
 
+  // Fetch the historical yield benchmark whenever both a district and a crop
+  // are picked. Independent of the price search — this is data about the
+  // land and the crop, not about today's mandi report.
+  useEffect(() => {
+    if (!selectedDistrictName || !selectedCommodityName) {
+      setYieldBenchmark(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        setYieldLoading(true);
+        const res = await axios.get(`${API_ENDPOINTS.MANDI}/yield-benchmark`, {
+          params: { commodity: selectedCommodityName, district: selectedDistrictName },
+          timeout: 15000,
+        });
+        if (cancelled) return;
+        if (res.data?.success) setYieldBenchmark(res.data.benchmark);
+      } catch {
+        if (!cancelled) setYieldBenchmark(null);
+      } finally {
+        if (!cancelled) setYieldLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedDistrictName, selectedCommodityName]);
+
   if (metaLoading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#4CAF50" />
-        <Text style={styles.loadingText}>Loading mandi filters...</Text>
+        <Text style={styles.loadingText}>{t('marketPrices.loadingFilters')}</Text>
       </View>
     );
   }
@@ -305,34 +350,34 @@ export default function MarketPricesScreen({ navigation, route }) {
         </View>
       ) : (
         <View style={styles.formCard}>
-          <Text style={styles.sectionTitle}>🛒 Find Mandi Price</Text>
-          <Text style={styles.sectionSub}>Tamil Nadu — real prices from Agmarknet.</Text>
+          <Text style={styles.sectionTitle}>🛒 {t('marketPrices.title')}</Text>
+          <Text style={styles.sectionSub}>{t('marketPrices.subtitle')}</Text>
 
           <FieldPicker
-            label="District"
+            label={t('marketPrices.districtLabel')}
             value={districtId}
             onChange={setDistrictId}
-            placeholder="Select district..."
+            placeholder={t('marketPrices.selectDistrict')}
             items={districts.map((d) => ({ label: d.name, value: d.id }))}
             searchable
           />
 
           <FieldPicker
-            label="Mandi / Market"
+            label={t('marketPrices.marketLabel')}
             value={marketId}
             onChange={setMarketId}
-            placeholder={!districtId ? 'Select a district first' : 'Any market in this district'}
+            placeholder={!districtId ? t('marketPrices.selectDistrictFirst') : t('marketPrices.anyMarket')}
             disabled={!districtId}
             loading={marketsLoading}
             items={[
-              { label: 'Any market in this district', value: ANY_MARKET_VALUE },
+              { label: t('marketPrices.anyMarket'), value: ANY_MARKET_VALUE },
               ...markets.map((m) => ({ label: m.name, value: m.id })),
             ]}
             searchable
           />
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Date</Text>
+            <Text style={styles.label}>{t('marketPrices.dateLabel')}</Text>
             <TouchableOpacity style={styles.dateButton} onPress={() => setShowDatePicker(true)}>
               <Ionicons name="calendar" size={20} color="#4CAF50" />
               <Text style={styles.dateText}>{date.toLocaleDateString('en-IN')}</Text>
@@ -349,10 +394,10 @@ export default function MarketPricesScreen({ navigation, route }) {
           </View>
 
           <FieldPicker
-            label="Crop / Commodity"
+            label={t('marketPrices.cropLabel')}
             value={commodityId}
             onChange={setCommodityId}
-            placeholder={!districtId ? 'Select a district first' : 'Select crop...'}
+            placeholder={!districtId ? t('marketPrices.selectDistrictFirst') : t('marketPrices.selectCrop')}
             disabled={!districtId}
             loading={commoditiesLoading}
             items={commodities.map((c) => ({ label: c.name, value: c.id }))}
@@ -360,7 +405,7 @@ export default function MarketPricesScreen({ navigation, route }) {
           />
           {districtId && !commoditiesLoading && !commoditiesScoped && commodities.length > 0 && (
             <Text style={styles.scopeFallbackNote}>
-              No reports found in this district on this date — showing all crops instead.
+              {t(`marketPrices.scope.${commodityScope}`)}
             </Text>
           )}
 
@@ -372,7 +417,7 @@ export default function MarketPricesScreen({ navigation, route }) {
             {submitting ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.searchButtonText}>Check Market Price</Text>
+              <Text style={styles.searchButtonText}>{t('marketPrices.checkPrice')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -384,15 +429,15 @@ export default function MarketPricesScreen({ navigation, route }) {
           <View style={styles.priceCard}>
             <View style={styles.priceHeader}>
               <View style={styles.marketInfo}>
-                <Text style={styles.marketName}>{result.commodity} — {result.variety || 'Standard'}</Text>
+                <Text style={styles.marketName}>{result.commodity} — {result.variety || t('marketPrices.standardVariety')}</Text>
                 <Text style={styles.marketLocation}>
                   {result.market}, {result.district}, {result.state}
                 </Text>
                 {result.matchLevel && result.matchLevel !== 'market' && (
                   <Text style={styles.fallbackNote}>
                     {result.matchLevel === 'district'
-                      ? 'Nearest reporting market in your district'
-                      : 'No data in your district — showing nearest reporting market in the state'}
+                      ? t('marketPrices.nearestInDistrict')
+                      : t('marketPrices.nearestInState')}
                   </Text>
                 )}
               </View>
@@ -400,28 +445,28 @@ export default function MarketPricesScreen({ navigation, route }) {
 
             <View style={styles.priceDetails}>
               <View style={styles.priceItem}>
-                <Text style={styles.priceLabel}>Modal Price</Text>
+                <Text style={styles.priceLabel}>{t('marketPrices.modalPrice')}</Text>
                 <Text style={styles.priceValue}>₹{result.modalPrice?.toLocaleString('en-IN')}</Text>
-                <Text style={styles.unitCaption}>per quintal</Text>
+                <Text style={styles.unitCaption}>{t('marketPrices.perQuintal')}</Text>
               </View>
               <View style={styles.priceItem}>
-                <Text style={styles.priceLabel}>Min</Text>
+                <Text style={styles.priceLabel}>{t('marketPrices.min')}</Text>
                 <Text style={styles.priceMin}>₹{result.minPrice?.toLocaleString('en-IN')}</Text>
               </View>
               <View style={styles.priceItem}>
-                <Text style={styles.priceLabel}>Max</Text>
+                <Text style={styles.priceLabel}>{t('marketPrices.max')}</Text>
                 <Text style={styles.priceMax}>₹{result.maxPrice?.toLocaleString('en-IN')}</Text>
               </View>
             </View>
 
             {result.modalPrice != null && (
               <Text style={styles.kgConversion}>
-                ≈ ₹{Math.round(result.modalPrice / 100)} / kg
+                ≈ ₹{Math.round(result.modalPrice / 100)} {t('marketPrices.perKgSuffix')}
               </Text>
             )}
 
             <Text style={styles.priceDate}>
-              {result.date} {result.arrival != null ? `· Arrivals: ${result.arrival} MT` : ''}
+              {result.date} {result.arrival != null ? `· ${t('marketPrices.arrivalsLabel')}: ${result.arrival} MT` : ''}
             </Text>
           </View>
         ) : error ? (
@@ -429,19 +474,53 @@ export default function MarketPricesScreen({ navigation, route }) {
             <Ionicons name="alert-circle-outline" size={60} color="#F44336" />
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={handleSubmit}>
-              <Text style={styles.retryButtonText}>Retry</Text>
+              <Text style={styles.retryButtonText}>{t('marketPrices.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.emptyContainer}>
             <Ionicons name="pricetag-outline" size={60} color="#ccc" />
             <Text style={styles.emptyText}>
-              No mandi price data is available for {selectedCommodityName} in{' '}
-              {selectedDistrictName}, Tamil Nadu on {date.toLocaleDateString('en-IN')}.
+              {t('marketPrices.noDataPrefix')} {selectedCommodityName} {t('marketPrices.noDataMiddle')}{' '}
+              {selectedDistrictName}, {t('marketPrices.noDataSuffix')} {date.toLocaleDateString('en-IN')}.
             </Text>
-            <Text style={styles.emptySubtext}>Try another date, market, or crop.</Text>
+            <Text style={styles.emptySubtext}>{t('marketPrices.tryAnother')}</Text>
           </View>
         )
+      )}
+
+      {/* ── Historical yield benchmark (D5's data, NOT a forecast) ── */}
+      {selectedDistrictName && selectedCommodityName && (
+        <View style={styles.yieldCard}>
+          <View style={styles.yieldHeader}>
+            <Ionicons name="bar-chart-outline" size={18} color="#16A34A" />
+            <Text style={styles.yieldTitle}>{t('marketPrices.historicalYield')}</Text>
+          </View>
+
+          {yieldLoading ? (
+            <ActivityIndicator size="small" color="#16A34A" style={{ marginTop: 10 }} />
+          ) : yieldBenchmark?.available ? (
+            <>
+              <Text style={styles.yieldValue}>
+                {yieldBenchmark.medianYieldKgPerHa?.toLocaleString('en-IN')} kg/ha
+                <Text style={styles.yieldValueUnit}> {t('marketPrices.medianLabel')}</Text>
+              </Text>
+              <Text style={styles.yieldRange}>
+                {t('marketPrices.rangeRecorded')} {yieldBenchmark.rangeKgPerHa?.[0]?.toLocaleString('en-IN')}–
+                {yieldBenchmark.rangeKgPerHa?.[1]?.toLocaleString('en-IN')} kg/ha
+                {yieldBenchmark.yearsOfData ? ` ${t('marketPrices.acrossYearsPrefix')} ${yieldBenchmark.yearsOfData} ${t('marketPrices.yearsSuffix')}` : ''}
+              </Text>
+              <Text style={styles.yieldBasis}>{yieldBenchmark.basis}</Text>
+            </>
+          ) : yieldBenchmark && !yieldBenchmark.available ? (
+            <View style={styles.yieldRefuseBox}>
+              <Ionicons name="information-circle-outline" size={15} color="#B45309" />
+              <Text style={styles.yieldRefuseText}>{yieldBenchmark.reason}</Text>
+            </View>
+          ) : (
+            <Text style={styles.yieldEmptyText}>{t('marketPrices.noYieldRecord')}</Text>
+          )}
+        </View>
       )}
     </ScrollView>
   );
@@ -750,4 +829,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+
+  // ── Yield benchmark (new-screen visual language: #F8FAFC/#fff, #16A34A/#15803D) ──
+  yieldCard: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginTop: 4,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  yieldHeader: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  yieldTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  yieldValue: { fontSize: 22, fontWeight: '800', color: '#15803D', marginTop: 10 },
+  yieldValueUnit: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  yieldRange: { fontSize: 12.5, color: '#374151', marginTop: 4 },
+  yieldBasis: { fontSize: 11, color: '#9CA3AF', marginTop: 10, lineHeight: 16 },
+  yieldRefuseBox: { flexDirection: 'row', gap: 8, backgroundColor: '#FEF3C7', borderRadius: 12, padding: 11, marginTop: 10, alignItems: 'flex-start' },
+  yieldRefuseText: { flex: 1, fontSize: 12.5, color: '#92400E', lineHeight: 18 },
+  yieldEmptyText: { fontSize: 12.5, color: '#9CA3AF', marginTop: 8 },
 });

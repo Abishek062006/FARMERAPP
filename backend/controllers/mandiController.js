@@ -1,4 +1,5 @@
 const agmarknetService = require('../services/agmarknetService');
+const saleWindowService = require('../services/saleWindowService');
 
 // ── Short-lived cache for /nearby-prices ─────────────────────────────────────
 // The underlying Agmarknet fan-out (date walk-back + per-commodity price/trend
@@ -104,25 +105,34 @@ exports.getMarkets = async (req, res) => {
 // GET /api/mandi/commodities
 // GET /api/mandi/commodities?districtId=539&date=2026-08-18
 //   With districtId+date: only commodities actually reported in that
-//   district that day (falls back to the full list if the district has no
-//   markets, or reported nothing, so the picker is never left empty).
-//   Without them: the full Agmarknet commodity list, as before.
+//   district that day, falling back to the REGIONAL (Maharashtra) list.
+//   Without them: the regional list.
+//
+// ⚠️ NEITHER PATH RETURNS AGMARKNET'S NATIONAL LIST ANY MORE. It has 605
+// commodities from every state in India and it was what the "See all" picker
+// showed on any date a district had not reported — i.e. today, every day,
+// until the markets close. `scope` says which list came back
+// ('district' | 'state' | 'app' | 'national') so the screen states it rather
+// than leaving the farmer to work out why Cardamom is on the list.
 // ─────────────────────────────────────────────────────────────────────────────
 exports.getCommodities = async (req, res) => {
   const { districtId, date } = req.query;
 
   try {
     if (districtId && isValidDate(date)) {
-      const { commodities, scoped } = await agmarknetService.getAvailableCommodities({
-        stateId: agmarknetService.TAMIL_NADU_STATE_ID,
+      const { commodities, scoped, scope } = await agmarknetService.getAvailableCommodities({
+        stateId: agmarknetService.DEFAULT_STATE_ID,
         districtId,
         date,
       });
-      return res.json({ success: true, data: commodities, scoped });
+      return res.json({ success: true, data: commodities, scoped, scope });
     }
 
-    const commodities = await agmarknetService.getCommodities();
-    res.json({ success: true, data: commodities, scoped: false });
+    const { commodities, scope } = await agmarknetService.getRegionalCommodities({
+      stateId: agmarknetService.DEFAULT_STATE_ID,
+      date: isValidDate(date) ? date : undefined,
+    });
+    res.json({ success: true, data: commodities, scoped: false, scope });
   } catch (err) {
     handleAgmarknetError(res, err, 'getCommodities');
   }
@@ -205,7 +215,7 @@ exports.getTrend = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET /api/mandi/dashboard-prices?state=Tamil Nadu&district=Madurai&crops=Tomato,Brinjal&date=
+// GET /api/mandi/dashboard-prices?state=Maharashtra&district=Nashik&crops=Onion,Tomato&date=
 //
 // Convenience endpoint for the Farmer Dashboard's Market Prices card. Takes
 // the state/district/crop NAMES the dashboard already has (from the existing
@@ -230,8 +240,8 @@ exports.getDashboardPrices = async (req, res) => {
   const effectiveDate = isValidDate(date) ? date : new Date().toISOString().slice(0, 10);
 
   try {
-    // Tamil Nadu only — see TAMIL_NADU_STATE_ID in agmarknetService.
-    const stateId = agmarknetService.TAMIL_NADU_STATE_ID;
+    // Maharashtra only — see DEFAULT_STATE_ID in agmarknetService.
+    const stateId = agmarknetService.DEFAULT_STATE_ID;
     const districtId = await agmarknetService.resolveDistrictIdByName(stateId, district);
 
     const results = await Promise.all(
@@ -297,14 +307,14 @@ exports.getNearbyPrices = async (req, res) => {
   }
 
   try {
-    const stateId = agmarknetService.TAMIL_NADU_STATE_ID;
+    const stateId = agmarknetService.DEFAULT_STATE_ID;
     const districtId = await agmarknetService.resolveDistrictIdByName(stateId, district);
 
     if (!districtId) {
       return res.json({ success: true, data: [] });
     }
 
-    // Some districts (Chennai notably) have zero Agmarknet-registered
+    // Some districts (Agmarknet's Osmanabad entry notably) have zero registered
     // markets of their own — there is no such thing as "local" data for
     // them, structurally. Everywhere else, we hold the ticker to strictly
     // local (market/district-level) results; only for these do we allow the
@@ -376,7 +386,7 @@ exports.getNearbyPrices = async (req, res) => {
 
     // "Nearby" means genuinely reported in or near this district (matchLevel
     // 'market' or 'district') — never the state-wide "nearest reporting
-    // market anywhere in Tamil Nadu" fallback, which could be hundreds of
+    // market anywhere in Maharashtra" fallback, which could be hundreds of
     // km away and isn't what "near you" means on the dashboard. The one
     // exception: districts with no market of their own have no other real
     // data to show, so the fallback is allowed through there (still labeled
@@ -391,5 +401,46 @@ exports.getNearbyPrices = async (req, res) => {
     res.json({ success: true, data: results });
   } catch (err) {
     handleAgmarknetError(res, err, 'getNearbyPrices');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/mandi/sale-window?commodity=Onion&district=Nashik&date=YYYY-MM-DD
+//
+// "Should I sell now or hold?" — today's modal price against the 30-day mean
+// and the 14-day slope. See services/saleWindowService.js.
+//
+// THE ENDPOINT SHAPE IS THE CONTRACT. Phase D2's sell/hold classifier replaces
+// the engine behind it and flips `engine` from 'statistical' to 'model'; the
+// response keys stay identical so no client changes and a model that fails to
+// converge cannot break the demo.
+// ─────────────────────────────────────────────────────────────────────────────
+exports.getSaleWindow = async (req, res) => {
+  const { commodity, district, date } = req.query;
+
+  if (!commodity || !district) {
+    return res.status(400).json({
+      success: false,
+      error: 'commodity and district are both required',
+    });
+  }
+  if (date && !isValidDate(date)) {
+    return res.status(400).json({ success: false, error: 'date must be YYYY-MM-DD' });
+  }
+
+  try {
+    const window = await saleWindowService.getSaleWindow({ commodity, district, date });
+
+    // Names that don't resolve are a 404, not an invented verdict.
+    if (!window) {
+      return res.status(404).json({
+        success: false,
+        error: `No Agmarknet mapping for ${commodity} in ${district}`,
+      });
+    }
+
+    res.json({ success: true, data: window });
+  } catch (err) {
+    handleAgmarknetError(res, err, 'getSaleWindow');
   }
 };

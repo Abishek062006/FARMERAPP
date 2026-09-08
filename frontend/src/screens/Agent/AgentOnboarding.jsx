@@ -6,17 +6,20 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/config';
 import VehicleIcon from '../../components/vehicles/VehicleIcon';
+import { t as tr, DEFAULT_LANGUAGE } from '../../i18n/strings';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 const TYPES = [
-  { key: 'auto',  label: 'Auto',      tamil: 'ஆட்டோ',        cap: 'up to 300 kg · trips under 20 km' },
-  { key: 'tempo', label: 'Tempo Van', tamil: 'டெம்போ வேன்',  cap: 'up to 1,500 kg · any distance' },
-  { key: 'truck', label: 'Truck',     tamil: 'லாரி',          cap: 'up to 10,000 kg · any distance' },
+  { key: 'auto',  label: 'Auto',      localKey: 'vehicle.auto',  cap: 'up to 300 kg · trips under 20 km' },
+  { key: 'tempo', label: 'Tempo Van', localKey: 'vehicle.tempo', cap: 'up to 1,500 kg · any distance' },
+  { key: 'truck', label: 'Truck',     localKey: 'vehicle.truck', cap: 'up to 10,000 kg · any distance' },
 ];
 
 // Agents need a vehicle type before any job can be offered to them, and
 // RegisterScreen doesn't ask (it is shared by all three roles and works — no
 // reason to disturb it). So they set it here, once, on first launch.
-export default function AgentOnboarding({ visible, uid, initial, onDone }) {
+export default function AgentOnboarding({ visible, uid, initial, onDone, language }) {
+  const { lang } = useLanguage();
   const [type, setType] = useState(initial?.type || null);
   const [number, setNumber] = useState(initial?.number || '');
   const [saving, setSaving] = useState(false);
@@ -41,7 +44,7 @@ export default function AgentOnboarding({ visible, uid, initial, onDone }) {
       <View style={s.overlay}>
         <View style={s.sheet}>
           <Text style={s.title}>What do you drive?</Text>
-          <Text style={s.sub}>நீங்கள் ஓட்டும் வாகனம்</Text>
+          <Text style={s.sub}>{tr('agent.vehiclePrompt', lang)}</Text>
           <Text style={s.blurb}>You will only be offered trips your vehicle can carry.</Text>
 
           <View style={s.list}>
@@ -58,7 +61,7 @@ export default function AgentOnboarding({ visible, uid, initial, onDone }) {
                   <View style={{ flex: 1 }}>
                     <View style={s.optTitleRow}>
                       <Text style={s.optLabel}>{t.label}</Text>
-                      <Text style={s.optTamil}>{t.tamil}</Text>
+                      <Text style={s.optLocal}>{tr(t.localKey, lang)}</Text>
                     </View>
                     <Text style={s.optCap}>{t.cap}</Text>
                   </View>
@@ -73,7 +76,7 @@ export default function AgentOnboarding({ visible, uid, initial, onDone }) {
             style={s.input}
             value={number}
             onChangeText={setNumber}
-            placeholder="TN 45 AB 1234"
+            placeholder="MH 15 AB 1234"
             autoCapitalize="characters"
             placeholderTextColor="#9CA3AF"
           />
@@ -110,7 +113,7 @@ const s = StyleSheet.create({
   optionOn:  { borderColor: '#16A34A', backgroundColor: '#F0FDF4' },
   optTitleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 7 },
   optLabel:  { fontSize: 15.5, fontWeight: '700', color: '#111827' },
-  optTamil:  { fontSize: 11.5, color: '#9CA3AF' },
+  optLocal:  { fontSize: 11.5, color: '#9CA3AF' },
   optCap:    { fontSize: 12, color: '#6B7280', marginTop: 3 },
 
   label: { fontSize: 13, fontWeight: '700', color: '#374151', marginTop: 12 },

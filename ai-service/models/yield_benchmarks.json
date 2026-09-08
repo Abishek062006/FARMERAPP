@@ -1,0 +1,2283 @@
+{
+ "meta": {
+  "source": "ICRISAT District Level Data (apportioned), Maharashtra",
+  "window": [
+   2013,
+   2017
+  ],
+  "unit": "kg per hectare",
+  "cropToApp": {
+   "RICE": "Rice (Paddy)",
+   "WHEAT": "Wheat",
+   "KHARIF SORGHUM": "Jowar (Sorghum)",
+   "RABI SORGHUM": "Jowar (Sorghum)",
+   "SORGHUM": "Jowar (Sorghum)",
+   "PEARL MILLET": "Bajra (Pearl Millet)",
+   "MAIZE": "Maize",
+   "FINGER MILLET": "Ragi (Nachani)",
+   "CHICKPEA": "Gram (Harbhara)",
+   "PIGEONPEA": "Tur (Pigeon Pea)",
+   "GROUNDNUT": "Groundnut",
+   "SOYABEAN": "Soyabean",
+   "SUNFLOWER": "Sunflower",
+   "SAFFLOWER": "Safflower (Karadi)",
+   "SESAMUM": "Sesamum (Til)",
+   "LINSEED": "Linseed (Jawas)",
+   "CASTOR": "Castor",
+   "RAPESEED AND MUSTARD": "Mustard",
+   "BARLEY": "Barley"
+  },
+  "excluded": [
+   "COTTON",
+   "SUGARCANE"
+  ]
+ },
+ "benchmarks": {
+  "RICE": {
+   "Ahmednagar": {
+    "median": 1747,
+    "min": 256,
+    "max": 2405,
+    "years": 5
+   },
+   "Amarawati": {
+    "median": 302,
+    "min": 170,
+    "max": 667,
+    "years": 5
+   },
+   "Beed": {
+    "median": 531,
+    "min": 250,
+    "max": 700,
+    "years": 4
+   },
+   "Bhandara": {
+    "median": 1640,
+    "min": 1422,
+    "max": 2269,
+    "years": 5
+   },
+   "Chandrapur": {
+    "median": 1060,
+    "min": 848,
+    "max": 1790,
+    "years": 5
+   },
+   "Dhule": {
+    "median": 993,
+    "min": 492,
+    "max": 1315,
+    "years": 5
+   },
+   "Kolhapur": {
+    "median": 3054,
+    "min": 2461,
+    "max": 3483,
+    "years": 5
+   },
+   "Nagpur": {
+    "median": 1352,
+    "min": 1210,
+    "max": 1943,
+    "years": 5
+   },
+   "Nanded": {
+    "median": 500,
+    "min": 125,
+    "max": 1857,
+    "years": 5
+   },
+   "Nasik": {
+    "median": 1453,
+    "min": 1218,
+    "max": 2119,
+    "years": 5
+   },
+   "Osmanabad": {
+    "median": 219,
+    "min": 90,
+    "max": 556,
+    "years": 5
+   },
+   "Pune": {
+    "median": 1965,
+    "min": 1658,
+    "max": 2385,
+    "years": 5
+   },
+   "Raigad": {
+    "median": 2800,
+    "min": 2721,
+    "max": 2940,
+    "years": 5
+   },
+   "Ratnagiri": {
+    "median": 3093,
+    "min": 2679,
+    "max": 3196,
+    "years": 5
+   },
+   "Sangli": {
+    "median": 2026,
+    "min": 1759,
+    "max": 2554,
+    "years": 5
+   },
+   "Satara": {
+    "median": 1747,
+    "min": 1500,
+    "max": 1812,
+    "years": 5
+   },
+   "Solapur": {
+    "median": 232,
+    "min": 117,
+    "max": 250,
+    "years": 4
+   },
+   "Thane": {
+    "median": 2393,
+    "min": 1856,
+    "max": 2828,
+    "years": 5
+   }
+  },
+  "WHEAT": {
+   "Ahmednagar": {
+    "median": 1940,
+    "min": 1219,
+    "max": 2224,
+    "years": 5
+   },
+   "Akola": {
+    "median": 1451,
+    "min": 870,
+    "max": 1621,
+    "years": 5
+   },
+   "Amarawati": {
+    "median": 1520,
+    "min": 1019,
+    "max": 1766,
+    "years": 5
+   },
+   "Aurangabad": {
+    "median": 1490,
+    "min": 949,
+    "max": 1915,
+    "years": 5
+   },
+   "Beed": {
+    "median": 988,
+    "min": 275,
+    "max": 1683,
+    "years": 5
+   },
+   "Bhandara": {
+    "median": 1116,
+    "min": 1023,
+    "max": 1233,
+    "years": 5
+   },
+   "Buldhana": {
+    "median": 1299,
+    "min": 812,
+    "max": 1567,
+    "years": 5
+   },
+   "Chandrapur": {
+    "median": 1120,
+    "min": 748,
+    "max": 1264,
+    "years": 5
+   },
+   "Dhule": {
+    "median": 1810,
+    "min": 1624,
+    "max": 2126,
+    "years": 5
+   },
+   "Jalgaon": {
+    "median": 1907,
+    "min": 1501,
+    "max": 2561,
+    "years": 5
+   },
+   "Kolhapur": {
+    "median": 2256,
+    "min": 2221,
+    "max": 2512,
+    "years": 5
+   },
+   "Nagpur": {
+    "median": 1250,
+    "min": 964,
+    "max": 1808,
+    "years": 5
+   },
+   "Nanded": {
+    "median": 998,
+    "min": 453,
+    "max": 1249,
+    "years": 5
+   },
+   "Nasik": {
+    "median": 1698,
+    "min": 1352,
+    "max": 2242,
+    "years": 5
+   },
+   "Osmanabad": {
+    "median": 658,
+    "min": 251,
+    "max": 1391,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 994,
+    "min": 553,
+    "max": 1578,
+    "years": 5
+   },
+   "Pune": {
+    "median": 2090,
+    "min": 1508,
+    "max": 2448,
+    "years": 5
+   },
+   "Sangli": {
+    "median": 1984,
+    "min": 1688,
+    "max": 2484,
+    "years": 5
+   },
+   "Satara": {
+    "median": 1840,
+    "min": 1603,
+    "max": 2019,
+    "years": 5
+   },
+   "Solapur": {
+    "median": 1191,
+    "min": 697,
+    "max": 1339,
+    "years": 5
+   },
+   "Thane": {
+    "median": 1419,
+    "min": 1000,
+    "max": 2833,
+    "years": 3
+   },
+   "Wardha": {
+    "median": 1453,
+    "min": 1182,
+    "max": 1517,
+    "years": 5
+   },
+   "Yeotmal": {
+    "median": 1016,
+    "min": 890,
+    "max": 1294,
+    "years": 5
+   }
+  },
+  "KHARIF SORGHUM": {
+   "Akola": {
+    "median": 725,
+    "min": 577,
+    "max": 1185,
+    "years": 5
+   },
+   "Amarawati": {
+    "median": 954,
+    "min": 645,
+    "max": 1230,
+    "years": 5
+   },
+   "Aurangabad": {
+    "median": 1241,
+    "min": 364,
+    "max": 1615,
+    "years": 5
+   },
+   "Beed": {
+    "median": 531,
+    "min": 292,
+    "max": 1276,
+    "years": 5
+   },
+   "Buldhana": {
+    "median": 921,
+    "min": 623,
+    "max": 1429,
+    "years": 5
+   },
+   "Chandrapur": {
+    "median": 667,
+    "min": 370,
+    "max": 3964,
+    "years": 5
+   },
+   "Dhule": {
+    "median": 1406,
+    "min": 972,
+    "max": 1518,
+    "years": 5
+   },
+   "Jalgaon": {
+    "median": 2236,
+    "min": 1245,
+    "max": 2302,
+    "years": 5
+   },
+   "Kolhapur": {
+    "median": 1772,
+    "min": 1633,
+    "max": 1848,
+    "years": 5
+   },
+   "Nagpur": {
+    "median": 682,
+    "min": 404,
+    "max": 875,
+    "years": 5
+   },
+   "Nanded": {
+    "median": 372,
+    "min": 324,
+    "max": 807,
+    "years": 5
+   },
+   "Nasik": {
+    "median": 1642,
+    "min": 875,
+    "max": 1985,
+    "years": 4
+   },
+   "Osmanabad": {
+    "median": 823,
+    "min": 435,
+    "max": 1364,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 508,
+    "min": 312,
+    "max": 1059,
+    "years": 5
+   },
+   "Pune": {
+    "median": 714,
+    "min": 222,
+    "max": 941,
+    "years": 5
+   },
+   "Sangli": {
+    "median": 862,
+    "min": 469,
+    "max": 1067,
+    "years": 5
+   },
+   "Satara": {
+    "median": 1373,
+    "min": 1037,
+    "max": 1778,
+    "years": 5
+   },
+   "Solapur": {
+    "median": 400,
+    "min": 333,
+    "max": 400,
+    "years": 3
+   },
+   "Wardha": {
+    "median": 433,
+    "min": 233,
+    "max": 512,
+    "years": 5
+   },
+   "Yeotmal": {
+    "median": 445,
+    "min": 323,
+    "max": 537,
+    "years": 5
+   }
+  },
+  "RABI SORGHUM": {
+   "Ahmednagar": {
+    "median": 543,
+    "min": 228,
+    "max": 704,
+    "years": 5
+   },
+   "Akola": {
+    "median": 765,
+    "min": 591,
+    "max": 1130,
+    "years": 5
+   },
+   "Aurangabad": {
+    "median": 701,
+    "min": 313,
+    "max": 979,
+    "years": 5
+   },
+   "Beed": {
+    "median": 528,
+    "min": 286,
+    "max": 649,
+    "years": 5
+   },
+   "Buldhana": {
+    "median": 805,
+    "min": 563,
+    "max": 1161,
+    "years": 5
+   },
+   "Chandrapur": {
+    "median": 460,
+    "min": 356,
+    "max": 636,
+    "years": 5
+   },
+   "Dhule": {
+    "median": 1262,
+    "min": 981,
+    "max": 1382,
+    "years": 5
+   },
+   "Jalgaon": {
+    "median": 1568,
+    "min": 1127,
+    "max": 1718,
+    "years": 5
+   },
+   "Kolhapur": {
+    "median": 1537,
+    "min": 1219,
+    "max": 2159,
+    "years": 5
+   },
+   "Nagpur": {
+    "median": 364,
+    "min": 140,
+    "max": 833,
+    "years": 5
+   },
+   "Nanded": {
+    "median": 733,
+    "min": 377,
+    "max": 1053,
+    "years": 5
+   },
+   "Nasik": {
+    "median": 655,
+    "min": 586,
+    "max": 725,
+    "years": 5
+   },
+   "Osmanabad": {
+    "median": 728,
+    "min": 311,
+    "max": 887,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 652,
+    "min": 224,
+    "max": 953,
+    "years": 5
+   },
+   "Pune": {
+    "median": 491,
+    "min": 351,
+    "max": 731,
+    "years": 5
+   },
+   "Sangli": {
+    "median": 572,
+    "min": 413,
+    "max": 673,
+    "years": 5
+   },
+   "Satara": {
+    "median": 813,
+    "min": 727,
+    "max": 912,
+    "years": 5
+   },
+   "Solapur": {
+    "median": 549,
+    "min": 175,
+    "max": 569,
+    "years": 5
+   },
+   "Wardha": {
+    "median": 579,
+    "min": 364,
+    "max": 743,
+    "years": 5
+   },
+   "Yeotmal": {
+    "median": 790,
+    "min": 559,
+    "max": 1152,
+    "years": 4
+   }
+  },
+  "SORGHUM": {
+   "Ahmednagar": {
+    "median": 544,
+    "min": 228,
+    "max": 704,
+    "years": 5
+   },
+   "Akola": {
+    "median": 726,
+    "min": 579,
+    "max": 1179,
+    "years": 5
+   },
+   "Amarawati": {
+    "median": 954,
+    "min": 645,
+    "max": 1230,
+    "years": 5
+   },
+   "Aurangabad": {
+    "median": 711,
+    "min": 314,
+    "max": 985,
+    "years": 5
+   },
+   "Beed": {
+    "median": 519,
+    "min": 286,
+    "max": 689,
+    "years": 5
+   },
+   "Buldhana": {
+    "median": 845,
+    "min": 603,
+    "max": 1329,
+    "years": 5
+   },
+   "Chandrapur": {
+    "median": 535,
+    "min": 453,
+    "max": 1538,
+    "years": 5
+   },
+   "Dhule": {
+    "median": 1365,
+    "min": 975,
+    "max": 1456,
+    "years": 5
+   },
+   "Jalgaon": {
+    "median": 1917,
+    "min": 1200,
+    "max": 2116,
+    "years": 5
+   },
+   "Kolhapur": {
+    "median": 1613,
+    "min": 1404,
+    "max": 2009,
+    "years": 5
+   },
+   "Nagpur": {
+    "median": 586,
+    "min": 523,
+    "max": 809,
+    "years": 5
+   },
+   "Nanded": {
+    "median": 526,
+    "min": 365,
+    "max": 789,
+    "years": 5
+   },
+   "Nasik": {
+    "median": 758,
+    "min": 621,
+    "max": 1245,
+    "years": 5
+   },
+   "Osmanabad": {
+    "median": 762,
+    "min": 359,
+    "max": 1053,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 673,
+    "min": 252,
+    "max": 861,
+    "years": 5
+   },
+   "Pune": {
+    "median": 491,
+    "min": 350,
+    "max": 733,
+    "years": 5
+   },
+   "Sangli": {
+    "median": 665,
+    "min": 432,
+    "max": 757,
+    "years": 5
+   },
+   "Satara": {
+    "median": 964,
+    "min": 771,
+    "max": 984,
+    "years": 5
+   },
+   "Solapur": {
+    "median": 549,
+    "min": 175,
+    "max": 568,
+    "years": 5
+   },
+   "Wardha": {
+    "median": 462,
+    "min": 438,
+    "max": 600,
+    "years": 5
+   },
+   "Yeotmal": {
+    "median": 478,
+    "min": 323,
+    "max": 549,
+    "years": 5
+   }
+  },
+  "PEARL MILLET": {
+   "Ahmednagar": {
+    "median": 1005,
+    "min": 249,
+    "max": 1035,
+    "years": 5
+   },
+   "Akola": {
+    "median": 412,
+    "min": 200,
+    "max": 667,
+    "years": 4
+   },
+   "Aurangabad": {
+    "median": 672,
+    "min": 378,
+    "max": 1218,
+    "years": 5
+   },
+   "Beed": {
+    "median": 591,
+    "min": 257,
+    "max": 1067,
+    "years": 5
+   },
+   "Buldhana": {
+    "median": 335,
+    "min": 105,
+    "max": 657,
+    "years": 5
+   },
+   "Dhule": {
+    "median": 819,
+    "min": 592,
+    "max": 1325,
+    "years": 5
+   },
+   "Jalgaon": {
+    "median": 1175,
+    "min": 620,
+    "max": 1400,
+    "years": 5
+   },
+   "Nasik": {
+    "median": 1120,
+    "min": 573,
+    "max": 1598,
+    "years": 5
+   },
+   "Osmanabad": {
+    "median": 286,
+    "min": 160,
+    "max": 652,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 357,
+    "min": 95,
+    "max": 625,
+    "years": 5
+   },
+   "Pune": {
+    "median": 730,
+    "min": 710,
+    "max": 835,
+    "years": 5
+   },
+   "Sangli": {
+    "median": 298,
+    "min": 148,
+    "max": 763,
+    "years": 5
+   },
+   "Satara": {
+    "median": 506,
+    "min": 363,
+    "max": 732,
+    "years": 5
+   },
+   "Solapur": {
+    "median": 349,
+    "min": 230,
+    "max": 400,
+    "years": 5
+   },
+   "Yeotmal": {
+    "median": 440,
+    "min": 432,
+    "max": 1000,
+    "years": 3
+   }
+  },
+  "MAIZE": {
+   "Ahmednagar": {
+    "median": 3086,
+    "min": 1591,
+    "max": 4315,
+    "years": 5
+   },
+   "Akola": {
+    "median": 2000,
+    "min": 1222,
+    "max": 2600,
+    "years": 5
+   },
+   "Amarawati": {
+    "median": 2136,
+    "min": 692,
+    "max": 2538,
+    "years": 5
+   },
+   "Aurangabad": {
+    "median": 2027,
+    "min": 844,
+    "max": 3855,
+    "years": 5
+   },
+   "Beed": {
+    "median": 744,
+    "min": 314,
+    "max": 1953,
+    "years": 5
+   },
+   "Bhandara": {
+    "median": 864,
+    "min": 444,
+    "max": 3000,
+    "years": 5
+   },
+   "Buldhana": {
+    "median": 2208,
+    "min": 1150,
+    "max": 2617,
+    "years": 5
+   },
+   "Chandrapur": {
+    "median": 2309,
+    "min": 1381,
+    "max": 2741,
+    "years": 5
+   },
+   "Dhule": {
+    "median": 2656,
+    "min": 1712,
+    "max": 3102,
+    "years": 5
+   },
+   "Jalgaon": {
+    "median": 3392,
+    "min": 1752,
+    "max": 3570,
+    "years": 5
+   },
+   "Kolhapur": {
+    "median": 2912,
+    "min": 2545,
+    "max": 3700,
+    "years": 5
+   },
+   "Nagpur": {
+    "median": 1333,
+    "min": 492,
+    "max": 2188,
+    "years": 5
+   },
+   "Nanded": {
+    "median": 1000,
+    "min": 945,
+    "max": 1884,
+    "years": 5
+   },
+   "Nasik": {
+    "median": 3850,
+    "min": 2404,
+    "max": 4708,
+    "years": 5
+   },
+   "Osmanabad": {
+    "median": 657,
+    "min": 267,
+    "max": 1598,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 836,
+    "min": 472,
+    "max": 1429,
+    "years": 5
+   },
+   "Pune": {
+    "median": 3098,
+    "min": 2374,
+    "max": 6042,
+    "years": 5
+   },
+   "Ratnagiri": {
+    "median": 2000,
+    "min": 1333,
+    "max": 3509,
+    "years": 3
+   },
+   "Sangli": {
+    "median": 2419,
+    "min": 1923,
+    "max": 3828,
+    "years": 5
+   },
+   "Satara": {
+    "median": 2189,
+    "min": 1964,
+    "max": 2886,
+    "years": 5
+   },
+   "Solapur": {
+    "median": 2059,
+    "min": 1353,
+    "max": 2612,
+    "years": 5
+   },
+   "Thane": {
+    "median": 3571,
+    "min": 3000,
+    "max": 4000,
+    "years": 3
+   },
+   "Wardha": {
+    "median": 1000,
+    "min": 442,
+    "max": 1538,
+    "years": 5
+   },
+   "Yeotmal": {
+    "median": 1250,
+    "min": 882,
+    "max": 2147,
+    "years": 5
+   }
+  },
+  "FINGER MILLET": {
+   "Ahmednagar": {
+    "median": 1000,
+    "min": 1000,
+    "max": 1286,
+    "years": 5
+   },
+   "Dhule": {
+    "median": 1300,
+    "min": 417,
+    "max": 1625,
+    "years": 5
+   },
+   "Kolhapur": {
+    "median": 1596,
+    "min": 1312,
+    "max": 1664,
+    "years": 5
+   },
+   "Nasik": {
+    "median": 761,
+    "min": 667,
+    "max": 942,
+    "years": 5
+   },
+   "Pune": {
+    "median": 844,
+    "min": 815,
+    "max": 1283,
+    "years": 5
+   },
+   "Raigad": {
+    "median": 847,
+    "min": 791,
+    "max": 1000,
+    "years": 5
+   },
+   "Ratnagiri": {
+    "median": 1404,
+    "min": 1256,
+    "max": 1500,
+    "years": 5
+   },
+   "Satara": {
+    "median": 1059,
+    "min": 978,
+    "max": 1150,
+    "years": 5
+   },
+   "Thane": {
+    "median": 809,
+    "min": 690,
+    "max": 1052,
+    "years": 5
+   }
+  },
+  "CHICKPEA": {
+   "Ahmednagar": {
+    "median": 773,
+    "min": 402,
+    "max": 816,
+    "years": 5
+   },
+   "Akola": {
+    "median": 927,
+    "min": 551,
+    "max": 1173,
+    "years": 5
+   },
+   "Amarawati": {
+    "median": 1149,
+    "min": 792,
+    "max": 1260,
+    "years": 5
+   },
+   "Aurangabad": {
+    "median": 692,
+    "min": 334,
+    "max": 1148,
+    "years": 5
+   },
+   "Beed": {
+    "median": 603,
+    "min": 263,
+    "max": 854,
+    "years": 5
+   },
+   "Bhandara": {
+    "median": 535,
+    "min": 427,
+    "max": 961,
+    "years": 5
+   },
+   "Buldhana": {
+    "median": 799,
+    "min": 557,
+    "max": 1118,
+    "years": 5
+   },
+   "Chandrapur": {
+    "median": 519,
+    "min": 435,
+    "max": 617,
+    "years": 5
+   },
+   "Dhule": {
+    "median": 1112,
+    "min": 757,
+    "max": 2164,
+    "years": 5
+   },
+   "Jalgaon": {
+    "median": 1157,
+    "min": 947,
+    "max": 1387,
+    "years": 5
+   },
+   "Kolhapur": {
+    "median": 852,
+    "min": 833,
+    "max": 1193,
+    "years": 5
+   },
+   "Nagpur": {
+    "median": 755,
+    "min": 629,
+    "max": 1158,
+    "years": 5
+   },
+   "Nanded": {
+    "median": 913,
+    "min": 330,
+    "max": 1593,
+    "years": 5
+   },
+   "Nasik": {
+    "median": 697,
+    "min": 656,
+    "max": 851,
+    "years": 5
+   },
+   "Osmanabad": {
+    "median": 731,
+    "min": 235,
+    "max": 1184,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 921,
+    "min": 319,
+    "max": 2024,
+    "years": 5
+   },
+   "Pune": {
+    "median": 865,
+    "min": 814,
+    "max": 1137,
+    "years": 5
+   },
+   "Sangli": {
+    "median": 834,
+    "min": 628,
+    "max": 978,
+    "years": 5
+   },
+   "Satara": {
+    "median": 798,
+    "min": 760,
+    "max": 932,
+    "years": 5
+   },
+   "Solapur": {
+    "median": 674,
+    "min": 295,
+    "max": 749,
+    "years": 5
+   },
+   "Thane": {
+    "median": 879,
+    "min": 677,
+    "max": 1182,
+    "years": 5
+   },
+   "Wardha": {
+    "median": 787,
+    "min": 755,
+    "max": 1172,
+    "years": 5
+   },
+   "Yeotmal": {
+    "median": 797,
+    "min": 738,
+    "max": 847,
+    "years": 5
+   }
+  },
+  "PIGEONPEA": {
+   "Ahmednagar": {
+    "median": 836,
+    "min": 198,
+    "max": 1003,
+    "years": 5
+   },
+   "Akola": {
+    "median": 693,
+    "min": 350,
+    "max": 1538,
+    "years": 5
+   },
+   "Amarawati": {
+    "median": 989,
+    "min": 355,
+    "max": 1392,
+    "years": 5
+   },
+   "Aurangabad": {
+    "median": 805,
+    "min": 244,
+    "max": 1243,
+    "years": 5
+   },
+   "Beed": {
+    "median": 564,
+    "min": 162,
+    "max": 915,
+    "years": 5
+   },
+   "Bhandara": {
+    "median": 630,
+    "min": 343,
+    "max": 1944,
+    "years": 5
+   },
+   "Buldhana": {
+    "median": 627,
+    "min": 266,
+    "max": 828,
+    "years": 5
+   },
+   "Chandrapur": {
+    "median": 847,
+    "min": 500,
+    "max": 1829,
+    "years": 5
+   },
+   "Dhule": {
+    "median": 581,
+    "min": 331,
+    "max": 676,
+    "years": 5
+   },
+   "Jalgaon": {
+    "median": 738,
+    "min": 497,
+    "max": 1109,
+    "years": 5
+   },
+   "Kolhapur": {
+    "median": 267,
+    "min": 133,
+    "max": 500,
+    "years": 5
+   },
+   "Nagpur": {
+    "median": 454,
+    "min": 340,
+    "max": 2569,
+    "years": 5
+   },
+   "Nanded": {
+    "median": 644,
+    "min": 187,
+    "max": 1210,
+    "years": 5
+   },
+   "Nasik": {
+    "median": 703,
+    "min": 263,
+    "max": 816,
+    "years": 5
+   },
+   "Osmanabad": {
+    "median": 1044,
+    "min": 224,
+    "max": 2546,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 787,
+    "min": 204,
+    "max": 1157,
+    "years": 5
+   },
+   "Pune": {
+    "median": 571,
+    "min": 233,
+    "max": 873,
+    "years": 5
+   },
+   "Raigad": {
+    "median": 500,
+    "min": 375,
+    "max": 819,
+    "years": 5
+   },
+   "Ratnagiri": {
+    "median": 609,
+    "min": 286,
+    "max": 1000,
+    "years": 4
+   },
+   "Sangli": {
+    "median": 297,
+    "min": 113,
+    "max": 524,
+    "years": 5
+   },
+   "Satara": {
+    "median": 308,
+    "min": 100,
+    "max": 500,
+    "years": 5
+   },
+   "Solapur": {
+    "median": 489,
+    "min": 165,
+    "max": 628,
+    "years": 5
+   },
+   "Thane": {
+    "median": 480,
+    "min": 355,
+    "max": 819,
+    "years": 5
+   },
+   "Wardha": {
+    "median": 674,
+    "min": 264,
+    "max": 1515,
+    "years": 5
+   },
+   "Yeotmal": {
+    "median": 736,
+    "min": 228,
+    "max": 1331,
+    "years": 5
+   }
+  },
+  "MINOR PULSES": {
+   "Ahmednagar": {
+    "median": 470,
+    "min": 72,
+    "max": 1180,
+    "years": 5
+   },
+   "Akola": {
+    "median": 267,
+    "min": 219,
+    "max": 819,
+    "years": 5
+   },
+   "Amarawati": {
+    "median": 216,
+    "min": 129,
+    "max": 685,
+    "years": 5
+   },
+   "Aurangabad": {
+    "median": 249,
+    "min": 117,
+    "max": 825,
+    "years": 5
+   },
+   "Beed": {
+    "median": 409,
+    "min": 43,
+    "max": 554,
+    "years": 5
+   },
+   "Bhandara": {
+    "median": 451,
+    "min": 218,
+    "max": 550,
+    "years": 5
+   },
+   "Buldhana": {
+    "median": 569,
+    "min": 269,
+    "max": 794,
+    "years": 5
+   },
+   "Chandrapur": {
+    "median": 395,
+    "min": 220,
+    "max": 538,
+    "years": 5
+   },
+   "Dhule": {
+    "median": 405,
+    "min": 344,
+    "max": 586,
+    "years": 5
+   },
+   "Jalgaon": {
+    "median": 548,
+    "min": 316,
+    "max": 709,
+    "years": 5
+   },
+   "Kolhapur": {
+    "median": 499,
+    "min": 303,
+    "max": 685,
+    "years": 5
+   },
+   "Nagpur": {
+    "median": 306,
+    "min": 196,
+    "max": 453,
+    "years": 5
+   },
+   "Nanded": {
+    "median": 301,
+    "min": 176,
+    "max": 684,
+    "years": 5
+   },
+   "Nasik": {
+    "median": 516,
+    "min": 365,
+    "max": 1108,
+    "years": 5
+   },
+   "Osmanabad": {
+    "median": 284,
+    "min": 121,
+    "max": 1075,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 328,
+    "min": 89,
+    "max": 528,
+    "years": 5
+   },
+   "Pune": {
+    "median": 321,
+    "min": 145,
+    "max": 421,
+    "years": 5
+   },
+   "Raigad": {
+    "median": 653,
+    "min": 325,
+    "max": 710,
+    "years": 5
+   },
+   "Ratnagiri": {
+    "median": 681,
+    "min": 632,
+    "max": 700,
+    "years": 5
+   },
+   "Sangli": {
+    "median": 549,
+    "min": 210,
+    "max": 649,
+    "years": 5
+   },
+   "Satara": {
+    "median": 501,
+    "min": 463,
+    "max": 938,
+    "years": 5
+   },
+   "Solapur": {
+    "median": 520,
+    "min": 192,
+    "max": 614,
+    "years": 5
+   },
+   "Thane": {
+    "median": 614,
+    "min": 429,
+    "max": 711,
+    "years": 5
+   },
+   "Wardha": {
+    "median": 400,
+    "min": 322,
+    "max": 1163,
+    "years": 3
+   },
+   "Yeotmal": {
+    "median": 275,
+    "min": 178,
+    "max": 531,
+    "years": 5
+   }
+  },
+  "GROUNDNUT": {
+   "Ahmednagar": {
+    "median": 984,
+    "min": 491,
+    "max": 1352,
+    "years": 5
+   },
+   "Akola": {
+    "median": 1359,
+    "min": 918,
+    "max": 1600,
+    "years": 5
+   },
+   "Amarawati": {
+    "median": 1328,
+    "min": 1188,
+    "max": 1579,
+    "years": 5
+   },
+   "Aurangabad": {
+    "median": 711,
+    "min": 245,
+    "max": 1085,
+    "years": 5
+   },
+   "Beed": {
+    "median": 391,
+    "min": 49,
+    "max": 909,
+    "years": 5
+   },
+   "Bhandara": {
+    "median": 500,
+    "min": 400,
+    "max": 1000,
+    "years": 3
+   },
+   "Buldhana": {
+    "median": 1124,
+    "min": 816,
+    "max": 1577,
+    "years": 5
+   },
+   "Chandrapur": {
+    "median": 1167,
+    "min": 700,
+    "max": 2000,
+    "years": 3
+   },
+   "Dhule": {
+    "median": 874,
+    "min": 640,
+    "max": 1152,
+    "years": 5
+   },
+   "Jalgaon": {
+    "median": 1108,
+    "min": 711,
+    "max": 1388,
+    "years": 5
+   },
+   "Kolhapur": {
+    "median": 1597,
+    "min": 1512,
+    "max": 1896,
+    "years": 5
+   },
+   "Nagpur": {
+    "median": 1087,
+    "min": 600,
+    "max": 1558,
+    "years": 5
+   },
+   "Nanded": {
+    "median": 843,
+    "min": 542,
+    "max": 1233,
+    "years": 5
+   },
+   "Nasik": {
+    "median": 1037,
+    "min": 924,
+    "max": 1646,
+    "years": 5
+   },
+   "Osmanabad": {
+    "median": 701,
+    "min": 200,
+    "max": 1039,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 1019,
+    "min": 587,
+    "max": 1232,
+    "years": 5
+   },
+   "Pune": {
+    "median": 1107,
+    "min": 967,
+    "max": 1520,
+    "years": 5
+   },
+   "Raigad": {
+    "median": 1626,
+    "min": 1500,
+    "max": 3000,
+    "years": 5
+   },
+   "Ratnagiri": {
+    "median": 1515,
+    "min": 1447,
+    "max": 1921,
+    "years": 5
+   },
+   "Sangli": {
+    "median": 1119,
+    "min": 748,
+    "max": 1282,
+    "years": 5
+   },
+   "Satara": {
+    "median": 1446,
+    "min": 1379,
+    "max": 1649,
+    "years": 5
+   },
+   "Solapur": {
+    "median": 1108,
+    "min": 829,
+    "max": 1190,
+    "years": 5
+   },
+   "Thane": {
+    "median": 1160,
+    "min": 1000,
+    "max": 1765,
+    "years": 4
+   },
+   "Wardha": {
+    "median": 1689,
+    "min": 1202,
+    "max": 1809,
+    "years": 5
+   },
+   "Yeotmal": {
+    "median": 1211,
+    "min": 662,
+    "max": 1250,
+    "years": 5
+   }
+  },
+  "SESAMUM": {
+   "Ahmednagar": {
+    "median": 250,
+    "min": 210,
+    "max": 324,
+    "years": 3
+   },
+   "Akola": {
+    "median": 143,
+    "min": 100,
+    "max": 239,
+    "years": 5
+   },
+   "Amarawati": {
+    "median": 250,
+    "min": 183,
+    "max": 263,
+    "years": 3
+   },
+   "Aurangabad": {
+    "median": 166,
+    "min": 95,
+    "max": 333,
+    "years": 4
+   },
+   "Beed": {
+    "median": 172,
+    "min": 76,
+    "max": 333,
+    "years": 5
+   },
+   "Bhandara": {
+    "median": 201,
+    "min": 167,
+    "max": 273,
+    "years": 4
+   },
+   "Buldhana": {
+    "median": 250,
+    "min": 205,
+    "max": 297,
+    "years": 5
+   },
+   "Chandrapur": {
+    "median": 215,
+    "min": 125,
+    "max": 316,
+    "years": 4
+   },
+   "Dhule": {
+    "median": 271,
+    "min": 214,
+    "max": 321,
+    "years": 5
+   },
+   "Jalgaon": {
+    "median": 343,
+    "min": 194,
+    "max": 370,
+    "years": 5
+   },
+   "Nanded": {
+    "median": 158,
+    "min": 71,
+    "max": 320,
+    "years": 5
+   },
+   "Osmanabad": {
+    "median": 127,
+    "min": 93,
+    "max": 262,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 158,
+    "min": 75,
+    "max": 241,
+    "years": 4
+   },
+   "Pune": {
+    "median": 284,
+    "min": 96,
+    "max": 314,
+    "years": 4
+   },
+   "Ratnagiri": {
+    "median": 300,
+    "min": 143,
+    "max": 356,
+    "years": 3
+   },
+   "Sangli": {
+    "median": 250,
+    "min": 200,
+    "max": 909,
+    "years": 3
+   },
+   "Satara": {
+    "median": 250,
+    "min": 100,
+    "max": 300,
+    "years": 3
+   },
+   "Solapur": {
+    "median": 351,
+    "min": 273,
+    "max": 500,
+    "years": 5
+   },
+   "Thane": {
+    "median": 286,
+    "min": 239,
+    "max": 545,
+    "years": 5
+   },
+   "Yeotmal": {
+    "median": 200,
+    "min": 200,
+    "max": 248,
+    "years": 3
+   }
+  },
+  "SAFFLOWER": {
+   "Ahmednagar": {
+    "median": 146,
+    "min": 75,
+    "max": 400,
+    "years": 4
+   },
+   "Akola": {
+    "median": 500,
+    "min": 400,
+    "max": 600,
+    "years": 5
+   },
+   "Amarawati": {
+    "median": 1000,
+    "min": 500,
+    "max": 1000,
+    "years": 3
+   },
+   "Aurangabad": {
+    "median": 500,
+    "min": 250,
+    "max": 2032,
+    "years": 5
+   },
+   "Beed": {
+    "median": 432,
+    "min": 158,
+    "max": 1469,
+    "years": 5
+   },
+   "Buldhana": {
+    "median": 500,
+    "min": 400,
+    "max": 1000,
+    "years": 4
+   },
+   "Dhule": {
+    "median": 469,
+    "min": 200,
+    "max": 500,
+    "years": 4
+   },
+   "Nanded": {
+    "median": 622,
+    "min": 125,
+    "max": 953,
+    "years": 5
+   },
+   "Osmanabad": {
+    "median": 554,
+    "min": 216,
+    "max": 691,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 450,
+    "min": 234,
+    "max": 686,
+    "years": 5
+   },
+   "Sangli": {
+    "median": 600,
+    "min": 337,
+    "max": 1294,
+    "years": 5
+   },
+   "Satara": {
+    "median": 1000,
+    "min": 400,
+    "max": 2000,
+    "years": 5
+   },
+   "Solapur": {
+    "median": 500,
+    "min": 250,
+    "max": 905,
+    "years": 5
+   }
+  },
+  "CASTOR": {
+   "Ahmednagar": {
+    "median": 275,
+    "min": 202,
+    "max": 333,
+    "years": 4
+   },
+   "Amarawati": {
+    "median": 472,
+    "min": 280,
+    "max": 500,
+    "years": 4
+   },
+   "Aurangabad": {
+    "median": 219,
+    "min": 150,
+    "max": 400,
+    "years": 4
+   },
+   "Beed": {
+    "median": 306,
+    "min": 100,
+    "max": 600,
+    "years": 4
+   },
+   "Buldhana": {
+    "median": 500,
+    "min": 333,
+    "max": 1000,
+    "years": 5
+   },
+   "Dhule": {
+    "median": 300,
+    "min": 200,
+    "max": 500,
+    "years": 5
+   },
+   "Nagpur": {
+    "median": 310,
+    "min": 200,
+    "max": 1000,
+    "years": 3
+   },
+   "Nanded": {
+    "median": 333,
+    "min": 200,
+    "max": 400,
+    "years": 3
+   },
+   "Nasik": {
+    "median": 333,
+    "min": 222,
+    "max": 333,
+    "years": 5
+   },
+   "Osmanabad": {
+    "median": 200,
+    "min": 154,
+    "max": 261,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 192,
+    "min": 92,
+    "max": 250,
+    "years": 5
+   },
+   "Sangli": {
+    "median": 352,
+    "min": 333,
+    "max": 500,
+    "years": 4
+   },
+   "Satara": {
+    "median": 317,
+    "min": 208,
+    "max": 333,
+    "years": 4
+   },
+   "Solapur": {
+    "median": 267,
+    "min": 200,
+    "max": 333,
+    "years": 3
+   }
+  },
+  "LINSEED": {
+   "Beed": {
+    "median": 312,
+    "min": 71,
+    "max": 513,
+    "years": 5
+   },
+   "Bhandara": {
+    "median": 250,
+    "min": 171,
+    "max": 309,
+    "years": 5
+   },
+   "Chandrapur": {
+    "median": 226,
+    "min": 206,
+    "max": 308,
+    "years": 4
+   },
+   "Nagpur": {
+    "median": 400,
+    "min": 200,
+    "max": 1000,
+    "years": 3
+   },
+   "Osmanabad": {
+    "median": 250,
+    "min": 167,
+    "max": 347,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 250,
+    "min": 250,
+    "max": 353,
+    "years": 3
+   },
+   "Solapur": {
+    "median": 425,
+    "min": 100,
+    "max": 667,
+    "years": 4
+   }
+  },
+  "SUNFLOWER": {
+   "Ahmednagar": {
+    "median": 553,
+    "min": 204,
+    "max": 827,
+    "years": 5
+   },
+   "Akola": {
+    "median": 414,
+    "min": 286,
+    "max": 856,
+    "years": 3
+   },
+   "Amarawati": {
+    "median": 429,
+    "min": 236,
+    "max": 500,
+    "years": 3
+   },
+   "Aurangabad": {
+    "median": 334,
+    "min": 43,
+    "max": 795,
+    "years": 4
+   },
+   "Beed": {
+    "median": 318,
+    "min": 85,
+    "max": 806,
+    "years": 5
+   },
+   "Buldhana": {
+    "median": 479,
+    "min": 200,
+    "max": 571,
+    "years": 4
+   },
+   "Dhule": {
+    "median": 581,
+    "min": 412,
+    "max": 1000,
+    "years": 5
+   },
+   "Jalgaon": {
+    "median": 417,
+    "min": 200,
+    "max": 556,
+    "years": 4
+   },
+   "Kolhapur": {
+    "median": 1091,
+    "min": 631,
+    "max": 1391,
+    "years": 5
+   },
+   "Nagpur": {
+    "median": 317,
+    "min": 242,
+    "max": 447,
+    "years": 5
+   },
+   "Nanded": {
+    "median": 500,
+    "min": 175,
+    "max": 765,
+    "years": 5
+   },
+   "Nasik": {
+    "median": 471,
+    "min": 91,
+    "max": 1000,
+    "years": 4
+   },
+   "Osmanabad": {
+    "median": 434,
+    "min": 200,
+    "max": 646,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 333,
+    "min": 77,
+    "max": 945,
+    "years": 5
+   },
+   "Pune": {
+    "median": 556,
+    "min": 174,
+    "max": 872,
+    "years": 5
+   },
+   "Sangli": {
+    "median": 514,
+    "min": 140,
+    "max": 584,
+    "years": 5
+   },
+   "Satara": {
+    "median": 523,
+    "min": 300,
+    "max": 653,
+    "years": 5
+   },
+   "Solapur": {
+    "median": 517,
+    "min": 230,
+    "max": 735,
+    "years": 5
+   },
+   "Thane": {
+    "median": 561,
+    "min": 286,
+    "max": 667,
+    "years": 4
+   }
+  },
+  "SOYABEAN": {
+   "Ahmednagar": {
+    "median": 802,
+    "min": 484,
+    "max": 1466,
+    "years": 5
+   },
+   "Akola": {
+    "median": 736,
+    "min": 360,
+    "max": 1453,
+    "years": 5
+   },
+   "Amarawati": {
+    "median": 924,
+    "min": 346,
+    "max": 1332,
+    "years": 5
+   },
+   "Aurangabad": {
+    "median": 650,
+    "min": 381,
+    "max": 1581,
+    "years": 5
+   },
+   "Beed": {
+    "median": 708,
+    "min": 164,
+    "max": 1863,
+    "years": 5
+   },
+   "Bhandara": {
+    "median": 457,
+    "min": 136,
+    "max": 1208,
+    "years": 5
+   },
+   "Buldhana": {
+    "median": 1187,
+    "min": 455,
+    "max": 1928,
+    "years": 5
+   },
+   "Chandrapur": {
+    "median": 626,
+    "min": 505,
+    "max": 995,
+    "years": 5
+   },
+   "Dhule": {
+    "median": 1238,
+    "min": 818,
+    "max": 1574,
+    "years": 5
+   },
+   "Jalgaon": {
+    "median": 1637,
+    "min": 553,
+    "max": 1876,
+    "years": 5
+   },
+   "Kolhapur": {
+    "median": 2164,
+    "min": 1900,
+    "max": 2392,
+    "years": 5
+   },
+   "Nagpur": {
+    "median": 429,
+    "min": 361,
+    "max": 1183,
+    "years": 5
+   },
+   "Nanded": {
+    "median": 334,
+    "min": 295,
+    "max": 1287,
+    "years": 5
+   },
+   "Nasik": {
+    "median": 1499,
+    "min": 1164,
+    "max": 2039,
+    "years": 5
+   },
+   "Osmanabad": {
+    "median": 690,
+    "min": 287,
+    "max": 2129,
+    "years": 5
+   },
+   "Parbhani": {
+    "median": 989,
+    "min": 299,
+    "max": 1167,
+    "years": 5
+   },
+   "Pune": {
+    "median": 2128,
+    "min": 1648,
+    "max": 3884,
+    "years": 5
+   },
+   "Sangli": {
+    "median": 1666,
+    "min": 1303,
+    "max": 2216,
+    "years": 5
+   },
+   "Satara": {
+    "median": 1812,
+    "min": 1607,
+    "max": 2046,
+    "years": 5
+   },
+   "Solapur": {
+    "median": 1148,
+    "min": 169,
+    "max": 1800,
+    "years": 5
+   },
+   "Wardha": {
+    "median": 656,
+    "min": 435,
+    "max": 1528,
+    "years": 5
+   },
+   "Yeotmal": {
+    "median": 548,
+    "min": 319,
+    "max": 1116,
+    "years": 5
+   }
+  },
+  "OILSEEDS": {
+   "Ahmednagar": {
+    "median": 621,
+    "min": 475,
+    "max": 1231,
+    "years": 3
+   },
+   "Akola": {
+    "median": 513,
+    "min": 367,
+    "max": 928,
+    "years": 3
+   },
+   "Amarawati": {
+    "median": 368,
+    "min": 361,
+    "max": 971,
+    "years": 3
+   },
+   "Aurangabad": {
+    "median": 466,
+    "min": 375,
+    "max": 1521,
+    "years": 3
+   },
+   "Beed": {
+    "median": 333,
+    "min": 148,
+    "max": 1574,
+    "years": 3
+   },
+   "Bhandara": {
+    "median": 268,
+    "min": 225,
+    "max": 298,
+    "years": 3
+   },
+   "Buldhana": {
+    "median": 541,
+    "min": 458,
+    "max": 1505,
+    "years": 3
+   },
+   "Chandrapur": {
+    "median": 501,
+    "min": 492,
+    "max": 584,
+    "years": 3
+   },
+   "Dhule": {
+    "median": 955,
+    "min": 710,
+    "max": 1158,
+    "years": 3
+   },
+   "Jalgaon": {
+    "median": 1246,
+    "min": 537,
+    "max": 1602,
+    "years": 3
+   },
+   "Kolhapur": {
+    "median": 1847,
+    "min": 1740,
+    "max": 1993,
+    "years": 3
+   },
+   "Nagpur": {
+    "median": 399,
+    "min": 361,
+    "max": 419,
+    "years": 3
+   },
+   "Nanded": {
+    "median": 316,
+    "min": 305,
+    "max": 1269,
+    "years": 3
+   },
+   "Nasik": {
+    "median": 1270,
+    "min": 1064,
+    "max": 1470,
+    "years": 3
+   },
+   "Osmanabad": {
+    "median": 524,
+    "min": 273,
+    "max": 1829,
+    "years": 3
+   },
+   "Parbhani": {
+    "median": 347,
+    "min": 315,
+    "max": 1064,
+    "years": 3
+   },
+   "Pune": {
+    "median": 1400,
+    "min": 1117,
+    "max": 1966,
+    "years": 3
+   },
+   "Raigad": {
+    "median": 1500,
+    "min": 857,
+    "max": 2000,
+    "years": 3
+   },
+   "Ratnagiri": {
+    "median": 1392,
+    "min": 1133,
+    "max": 1417,
+    "years": 3
+   },
+   "Sangli": {
+    "median": 1219,
+    "min": 1141,
+    "max": 1508,
+    "years": 3
+   },
+   "Satara": {
+    "median": 1640,
+    "min": 1516,
+    "max": 1884,
+    "years": 3
+   },
+   "Solapur": {
+    "median": 789,
+    "min": 267,
+    "max": 1168,
+    "years": 3
+   },
+   "Thane": {
+    "median": 414,
+    "min": 321,
+    "max": 483,
+    "years": 3
+   },
+   "Wardha": {
+    "median": 540,
+    "min": 482,
+    "max": 662,
+    "years": 3
+   },
+   "Yeotmal": {
+    "median": 500,
+    "min": 346,
+    "max": 582,
+    "years": 3
+   }
+  }
+ }
+}

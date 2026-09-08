@@ -8,7 +8,10 @@ import AuthNavigator from './AuthNavigator';
 import FarmerNavigator from './FarmerNavigator';
 import VendorNavigator from './VendorNavigator';
 import AgentNavigator from './AgentNavigator';
+import FpoNavigator from './FpoNavigator';
 import { COLORS } from '../constants/colors';
+import { LanguageProvider } from '../i18n/LanguageContext';
+import { DEFAULT_STATE } from '../utils/districts';
 
 const RootNavigator = () => {
   const [user, setUser] = useState(null);
@@ -83,19 +86,33 @@ const RootNavigator = () => {
         console.log('❌ MongoDB connection failed - using offline mode');
         setLoadingMessage('Loading in offline mode...');
         
-        // Extract name from email or displayName
-        const userName = currentUser.displayName || 
-                        currentUser.email.split('@')[0].replace(/[^a-zA-Z ]/g, ' ');
-        
+        // ⚠️ NULL-SAFE ON EMAIL — a phone sign-in has none.
+        // This was `currentUser.email.split('@')[0]`, which throws
+        // "Cannot read properties of null (reading 'split')" for every
+        // phone-authenticated user who lands here. And this is the OFFLINE
+        // path, so it fires exactly when the backend is unreachable and the
+        // app is meant to degrade gracefully — instead it would have crashed
+        // on launch, with the network already being the suspected problem.
+        const userName = currentUser.displayName
+          || (currentUser.email ? currentUser.email.split('@')[0].replace(/[^a-zA-Z ]/g, ' ') : null)
+          || currentUser.phoneNumber
+          || 'Your account';
+
         setUserData({
           uid: currentUser.uid,
           email: currentUser.email,
+          phone: currentUser.phoneNumber || null,
           name: userName,
           role: 'farmer', // Default
+          // Offline fallback: no network to fetch the real profile, and no
+          // coordinate here to derive from. Leave city/district unset rather
+          // than inventing one — every downstream feature keyed on district
+          // (mandi prices, proximity ranking) treats null as "unknown" and
+          // degrades honestly, whereas a wrong district ranks silently wrong.
           location: {
-            city: 'Chennai',
-            district: 'Chennai',
-            state: 'Tamil Nadu',
+            city: null,
+            district: null,
+            state: DEFAULT_STATE,
           },
         });
         
@@ -143,13 +160,26 @@ const RootNavigator = () => {
     );
   }
 
-  // User is logged in, show appropriate navigator based on role
+  // User is logged in, show appropriate navigator based on role.
+  //
+  // LanguageProvider wraps the navigators rather than sitting in App.js so it
+  // can be given the uid — the farmer's choice is written to User.language and
+  // therefore survives a reinstall. It is INSIDE the logged-in branch on
+  // purpose: there is no uid to persist against on the Auth screens, and the
+  // register screen already shows both languages side by side.
   return (
-    <NavigationContainer>
-      {userData.role === 'farmer' && <FarmerNavigator userData={userData} />}
-      {userData.role === 'vendor' && <VendorNavigator userData={userData} />}
-      {userData.role === 'agent' && <AgentNavigator userData={userData} />}
-    </NavigationContainer>
+    <LanguageProvider uid={userData.uid || userData.firebaseUid}>
+      <NavigationContainer>
+        {userData.role === 'farmer' && <FarmerNavigator userData={userData} />}
+        {userData.role === 'vendor' && <VendorNavigator userData={userData} />}
+        {userData.role === 'agent' && <AgentNavigator userData={userData} />}
+        {/* The organisation's own account. Its stack is defined by what is
+            ABSENT — no land, no crops, no tasks, no harvests, and no route
+            back into the farmer dashboard, because an FPO does not farm.
+            See FpoNavigator.jsx. */}
+        {userData.role === 'fpo' && <FpoNavigator userData={userData} />}
+      </NavigationContainer>
+    </LanguageProvider>
   );
 };
 

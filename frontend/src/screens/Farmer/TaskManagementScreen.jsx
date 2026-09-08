@@ -16,6 +16,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/config';
+import { tBoth, DEFAULT_LANGUAGE } from '../../i18n/strings';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export default function TaskManagementScreen({ navigation, route }) {
   const { crop, userData } = route.params || {};
@@ -34,16 +36,17 @@ export default function TaskManagementScreen({ navigation, route }) {
   const [estimatedTime, setEstimatedTime] = useState('30');
 
   const firebaseUid = userData?.firebaseUid || userData?.uid;
+  const { lang } = useLanguage();
 
   const taskTypes = [
-    { value: 'watering', label: 'Watering (நீர்ப்பாசனம்)' },
-    { value: 'fertilizing', label: 'Fertilizing (உரமிடுதல்)' },
-    { value: 'weeding', label: 'Weeding (களை எடுத்தல்)' },
-    { value: 'pruning', label: 'Pruning (கத்தரித்தல்)' },
-    { value: 'pest-control', label: 'Pest Control (பூச்சி கட்டுப்பாடு)' },
-    { value: 'harvesting', label: 'Harvesting (அறுவடை)' },
-    { value: 'monitoring', label: 'Monitoring (கண்காணிப்பு)' },
-    { value: 'other', label: 'Other (மற்றவை)' },
+    { value: 'watering', label: tBoth('task.watering', lang) },
+    { value: 'fertilizing', label: tBoth('task.fertilizing', lang) },
+    { value: 'weeding', label: tBoth('task.weeding', lang) },
+    { value: 'pruning', label: tBoth('task.pruning', lang) },
+    { value: 'pest-control', label: tBoth('task.pest-control', lang) },
+    { value: 'harvesting', label: tBoth('task.harvesting', lang) },
+    { value: 'monitoring', label: tBoth('task.monitoring', lang) },
+    { value: 'other', label: tBoth('task.other', lang) },
   ];
 
   useEffect(() => {
@@ -77,9 +80,9 @@ export default function TaskManagementScreen({ navigation, route }) {
         date: taskDate.toISOString(),
         taskType,
         title: title.trim(),
-        titleTamil: '',
+        titleLocal: '',
         description: description.trim(),
-        descriptionTamil: '',
+        descriptionLocal: '',
         priority,
         estimatedTime: parseInt(estimatedTime),
         weatherConsiderations: '',

@@ -25,9 +25,11 @@ const agmarknet = axios.create({
   },
 });
 
-// This app serves Tamil Nadu farmers only — 31 is Agmarknet's own id for
-// Tamil Nadu (verified live against /daily-price-arrival/filters).
-const TAMIL_NADU_STATE_ID = 31;
+// This app serves Maharashtra farmers — 20 is Agmarknet's own id for
+// Maharashtra (verified live against /daily-price-arrival/filters).
+// Agmarknet is a national API, so the whole price layer ports off this one
+// constant; it stays a named default rather than a hardcoded literal.
+const DEFAULT_STATE_ID = 20;
 
 // ── Sentinel "All ..." rows Agmarknet includes in its filter lists ──────────
 const ALL_STATE_ID = 100000;
@@ -77,6 +79,11 @@ async function cached(key, ttlMs, fetcher) {
   inFlight.set(key, promise);
   return promise;
 }
+
+// Below this much movement across the whole 7-point window the direction is
+// noise, and the series is reported as 'flat' rather than being forced into
+// up/down. See the reasoning at the bottom of getTrendForSelection.
+const FLAT_TREND_PCT = 2;
 
 const METADATA_TTL_MS = 24 * 60 * 60 * 1000; // filters barely change day to day
 const PRICE_TTL_MS = 6 * 60 * 60 * 1000;     // matches market.js's existing convention
@@ -162,6 +169,143 @@ async function getCommodities() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// REGIONAL commodity list — what is actually traded in THIS state.
+//
+// ⚠️ `getCommodities()` above is Agmarknet's NATIONAL list: 605 commodities
+// covering every state, most of which a Maharashtra farmer will never see in
+// their mandi (measured live 2026-08-27). It was being used as the fallback
+// whenever a district reported nothing on the chosen date — which is most
+// days, because today's report is empty until the markets close — so the
+// "See all" crop picker routinely showed all 605. A farmer scrolling past
+// Cardamom, Almond and Black pepper reads that as the app not knowing where
+// they are.
+//
+// The regional list is the union of two things, and both halves are needed:
+//
+//   (a) EVERY commodity any Maharashtra market actually reported over the
+//       last REGIONAL_LOOKBACK_DAYS. This is Agmarknet's OWN data about this
+//       state — not our opinion of what Maharashtra grows — and it is what
+//       makes the list honest. Measured over 9 days: 117 distinct names.
+//
+//   (b) The app's own canonical crop list (data/agroZones.js, 64 crops, all
+//       64 exact-matching an Agmarknet commodity name). A crop the
+//       recommender can suggest MUST be findable in this picker, or the two
+//       screens contradict each other — see the invariant asserted in
+//       scripts/testMarketIntel.js. Thin-trade crops drop out of (a) in any
+//       given week; they must not drop out of the picker.
+//
+// This does NOT narrow the district-scoped path below. When a district
+// genuinely reported commodities that day, that is a better answer than any
+// state-level list and is used unchanged.
+// ─────────────────────────────────────────────────────────────────────────────
+// ⚠️ REQUIRED LAZILY, AND IT MUST STAY THAT WAY. data/agroZones.js requires
+// THIS module back (for resolveTalukDistrict), so a top-level require here
+// closes a cycle: agroZones would load while this module's exports object is
+// still empty and destructure `resolveTalukDistrict` as undefined, silently
+// breaking resolveZone() and therefore every crop recommendation. Node warns
+// about it ("Accessing non-existent property ... inside circular dependency")
+// and nothing else would.
+function canonicalCropNames() {
+  const { CROPS } = require('../data/agroZones');
+  return new Set(CROPS.map((c) => c.mandiName.trim().toLowerCase()));
+}
+
+// One week. The union stops growing after ~4 days (109 → 117 over 9), so a
+// longer window costs another 1-2MB state report per day for nothing.
+const REGIONAL_LOOKBACK_DAYS = 7;
+
+function shiftDate(dateISO, days) {
+  const d = new Date(`${dateISO}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+// Commodity names any market in the state reported across the lookback
+// window ending at `date`. Individual days are allowed to fail — a partial
+// union is still a Maharashtra list, and an empty one falls back to (b).
+async function getStateReportedCommodityNames({ stateId, date }) {
+  // A future date has no report and never will until it arrives; walk back
+  // from today instead so a farmer checking tomorrow still gets a real list.
+  const today = new Date().toISOString().slice(0, 10);
+  const end = date > today ? today : date;
+
+  const days = Array.from({ length: REGIONAL_LOOKBACK_DAYS }, (_, i) => shiftDate(end, -i));
+  const names = new Set();
+
+  // Concurrency 3: each day is a ~1-2MB state report and this fans out
+  // against a public government API on a single tap.
+  let next = 0;
+  async function worker() {
+    while (next < days.length) {
+      const day = days[next++];
+      try {
+        const report = await getDailyStateReport({ stateId, date: day });
+        for (const market of report || []) {
+          for (const group of market.commodityGroups || []) {
+            for (const commodity of group.commodities || []) {
+              names.add(commodity.commodityName.trim().toLowerCase());
+            }
+          }
+        }
+      } catch (err) {
+        console.error(`⚠️ [agmarknet] state report ${day} failed:`, err.message);
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(3, days.length) }, worker));
+
+  return names;
+}
+
+/**
+ * The commodity picker's answer for a whole state.
+ *
+ * Returns { commodities, scope } where scope is:
+ *   'state'    — the real regional list (a) ∪ (b)
+ *   'app'      — Agmarknet was unreachable; the app's own 64 crops only
+ *   'national' — the last resort, and it is reported as such rather than
+ *                being passed off as a Maharashtra list
+ */
+async function getRegionalCommodities({ stateId, date }) {
+  const day = date && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? date
+    : new Date().toISOString().slice(0, 10);
+
+  return cached(`regional:${stateId}:${day}`, PRICE_TTL_MS, async () => {
+    let filters = null;
+    try {
+      filters = await getFilters();
+    } catch (err) {
+      console.error('⚠️ [agmarknet] getFilters failed for regional list:', err.message);
+      throw err; // without the filter list there are no ids to return at all
+    }
+
+    const canonical = canonicalCropNames();
+    const reported = await getStateReportedCommodityNames({ stateId, date: day });
+
+    const keep = new Set([...canonical, ...reported]);
+    const commodities = filters.cmdt_data
+      .filter((c) => keep.has(c.cmdt_name.trim().toLowerCase()))
+      .map((c) => ({ id: c.cmdt_id, name: c.cmdt_name, groupId: c.cmdt_group_id }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    if (commodities.length === 0) {
+      // Should be unreachable — all 64 canonical names exact-match today —
+      // but an empty picker is a dead end, so say what happened rather than
+      // rendering nothing.
+      return {
+        commodities: filters.cmdt_data
+          .map((c) => ({ id: c.cmdt_id, name: c.cmdt_name, groupId: c.cmdt_group_id }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+        scope: 'national',
+      };
+    }
+
+    return { commodities, scope: reported.size > 0 ? 'state' : 'app' };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Full state-wide daily report — every market's every reported commodity for
 // one date. One ~1-2MB call covers the whole state, so it's cached per date
 // and reused across every district a farmer looks at that same day.
@@ -189,9 +333,12 @@ async function getDailyStateReport({ stateId, date }) {
  * so the crop picker only shows what's real for that district instead of
  * all 600+ commodities Agmarknet tracks nationwide.
  *
- * Falls back to the full commodity list if the district has no markets at
- * all (e.g. Chennai) or genuinely reported nothing that day, so a farmer
- * there is never left with an empty, dead-end picker.
+ * ⚠️ Falls back to the REGIONAL list, never to the national one. A district
+ * with no markets (Agmarknet's Osmanabad entry) or no report that day (which
+ * is every district for today, until the markets close) still gets a
+ * Maharashtra list rather than 605 commodities from every state in India.
+ * The response carries `scope` so the screen can say WHICH list it is
+ * showing instead of leaving the farmer to guess.
  */
 async function getAvailableCommodities({ stateId, districtId, date }) {
   const [dailyReport, districtMarkets, filters] = await Promise.all([
@@ -213,7 +360,8 @@ async function getAvailableCommodities({ stateId, districtId, date }) {
   }
 
   if (reportedNames.size === 0) {
-    return { commodities: await getCommodities(), scoped: false };
+    const regional = await getRegionalCommodities({ stateId, date });
+    return { commodities: regional.commodities, scoped: false, scope: regional.scope };
   }
 
   const commodities = filters.cmdt_data
@@ -224,10 +372,11 @@ async function getAvailableCommodities({ stateId, districtId, date }) {
   // Every reported name should resolve back to a known commodity id; if for
   // some reason none did, fall back rather than showing an empty picker.
   if (commodities.length === 0) {
-    return { commodities: await getCommodities(), scoped: false };
+    const regional = await getRegionalCommodities({ stateId, date });
+    return { commodities: regional.commodities, scoped: false, scope: regional.scope };
   }
 
-  return { commodities, scoped: true };
+  return { commodities, scoped: true, scope: 'district' };
 }
 
 // ── Name → ID resolution (for callers that only have names, e.g. the
@@ -238,283 +387,54 @@ function normalize(str) {
 }
 
 // Agmarknet's own district names often don't match what a phone's GPS
-// reverse-geocoder returns for the same place (e.g. "Sivaganga" vs the more
-// common "Sivagangai", "Thiruchirappalli" vs "Tiruchirappalli") — a strict
-// exact match silently drops real matches for a large fraction of Tamil
-// Nadu's districts. Fold the common "Thiru-"/"Tiru-" spelling split and a
-// handful of outright renamed districts to the same form before comparing.
+// reverse-geocoder returns for the same place — a strict exact match silently
+// drops real matches. Maharashtra's three RENAMED districts are the worst of
+// it (Agmarknet still lists Osmanabad alongside Dharashiv), and Agmarknet has
+// its own spellings besides: "Amarawati", "Chattrapati Sambhajinagar" (one h),
+// "Gondiya". Fold them all to one form before comparing.
+//
+// Values here are lowercase Agmarknet-side names, so they are derived from the
+// same canonical list geoService.js resolves to — see DISTRICT_ALIASES there.
+const { MH_DISTRICT_ANCHORS } = require('../data/districtCentroids');
+
 const DISTRICT_ALIASES = {
-  tuticorin: 'thoothukudi',
-  thoothukudi: 'thoothukudi',
-  kancheepuram: 'kanchipuram',
-  kanchipuram: 'kanchipuram',
-  'nagercoil (kannyiakumari)': 'kanyakumari',
-  kanyakumari: 'kanyakumari',
-  nagercoil: 'kanyakumari',
-  thiruvellore: 'tiruvallur',
-  tiruvallur: 'tiruvallur',
-  villupuram: 'viluppuram',
-  viluppuram: 'viluppuram',
-  thiruchirappalli: 'tiruchirappalli',
-  tiruchirappalli: 'tiruchirappalli',
-  trichy: 'tiruchirappalli',
-  kallakuruchi: 'kallakurichi',
-  kallakurichi: 'kallakurichi',
-  thirupathur: 'tirupattur',
-  tirupattur: 'tirupattur',
-  thirupur: 'tiruppur',
-  tiruppur: 'tiruppur',
-  chengalpattu: 'chengalpattu',
-  chengalpet: 'chengalpattu',
+  aurangabad: 'chattrapati sambhajinagar',
+  sambhajinagar: 'chattrapati sambhajinagar',
+  'chhatrapati sambhajinagar': 'chattrapati sambhajinagar',
+  osmanabad: 'dharashiv',
+  usmanabad: 'dharashiv',
+  ahmednagar: 'ahilyanagar',
+  ahmadnagar: 'ahilyanagar',
+  amravati: 'amarawati',
+  amaravati: 'amarawati',
+  gondia: 'gondiya',
+  nasik: 'nashik',
+  bombay: 'mumbai',
+  'mumbai city': 'mumbai',
+  'mumbai suburban': 'mumbai',
+  buldana: 'buldhana',
+  sholapur: 'solapur',
+  poona: 'pune',
 };
 
 function canonicalizeDistrictName(name) {
   const n = normalize(name);
-  if (DISTRICT_ALIASES[n]) return DISTRICT_ALIASES[n];
-  return n.replace(/^thiru/, 'tiru');
+  return DISTRICT_ALIASES[n] || n;
 }
 
 // A phone's GPS reverse-geocoder often returns the nearest well-known TOWN
-// (e.g. "Karaikudi"), not the official revenue district it sits in (e.g.
-// "Sivaganga") — these aren't spelling variants of each other so no amount
-// of normalization catches it. Best-effort, not exhaustive; maps a town to
-// its Agmarknet district name (post-canonicalization spelling).
-const TALUK_TO_DISTRICT = {
-  karaikudi: 'sivaganga',
-  karaikkudi: 'sivaganga',
-  devakottai: 'sivaganga',
-  manamadurai: 'sivaganga',
-  rajapalayam: 'virudhunagar',
-  sivakasi: 'virudhunagar',
-  aruppukkottai: 'virudhunagar',
-  kumbakonam: 'thanjavur',
-  pattukkottai: 'thanjavur',
-  pollachi: 'coimbatore',
-  hosur: 'krishnagiri',
-  vaniyambadi: 'tirupattur',
-  ambur: 'tirupattur',
-  gudiyatham: 'vellore',
-  arakkonam: 'ranipet',
-  tambaram: 'chengalpattu',
-  avadi: 'tiruvallur',
-  poonamallee: 'tiruvallur',
-  ooty: 'nilgiris',
-  udhagamandalam: 'nilgiris',
-  coonoor: 'nilgiris',
-  kodaikanal: 'dindigul',
-  palani: 'dindigul',
-  rameswaram: 'ramanathapuram',
-  paramakudi: 'ramanathapuram',
-  mannargudi: 'tiruvarur',
-  chidambaram: 'cuddalore',
-  neyveli: 'cuddalore',
-  panruti: 'cuddalore',
-  tindivanam: 'viluppuram',
-  tiruchengode: 'namakkal',
-
-  // Tiruvallur
-  ponneri: 'tiruvallur',
-  gummidipoondi: 'tiruvallur',
-  uthukottai: 'tiruvallur',
-  pallipattu: 'tiruvallur',
-  tiruttani: 'tiruvallur',
-  // Kancheepuram
-  uthiramerur: 'kancheepuram',
-  walajabad: 'kancheepuram',
-  // Chengalpattu
-  cheyyur: 'chengalpattu',
-  madurantakam: 'chengalpattu',
-  thirukalukundram: 'chengalpattu',
-  pallavaram: 'chengalpattu',
-  vandalur: 'chengalpattu',
-  // Cuddalore
-  kattumannarkoil: 'cuddalore',
-  virudhachalam: 'cuddalore',
-  vriddhachalam: 'cuddalore',
-  kurinjipadi: 'cuddalore',
-  // Villupuram
-  gingee: 'viluppuram',
-  senji: 'viluppuram',
-  vanur: 'viluppuram',
-  vikravandi: 'viluppuram',
-  marakkanam: 'viluppuram',
-  tirukoilur: 'viluppuram',
-  // Vellore
-  katpadi: 'vellore',
-  anaicut: 'vellore',
-  // Tiruvannamalai
-  arani: 'tiruvannamalai',
-  arni: 'tiruvannamalai',
-  cheyyar: 'tiruvannamalai',
-  polur: 'tiruvannamalai',
-  chengam: 'tiruvannamalai',
-  vandavasi: 'tiruvannamalai',
-  jamunamarathur: 'tiruvannamalai',
-  // Ranipet
-  walajapet: 'ranipet',
-  sholingur: 'ranipet',
-  // Kallakurichi
-  sankarapuram: 'kallakurichi',
-  ulundurpettai: 'kallakurichi',
-  chinnasalem: 'kallakurichi',
-  // Tirupathur
-  natrampalli: 'tirupattur',
-  jolarpettai: 'tirupattur',
-  // Salem
-  attur: 'salem',
-  mettur: 'salem',
-  omalur: 'salem',
-  sankari: 'salem',
-  yercaud: 'salem',
-  // Namakkal
-  rasipuram: 'namakkal',
-  paramathivelur: 'namakkal',
-  // Dharmapuri
-  harur: 'dharmapuri',
-  palacode: 'dharmapuri',
-  pappireddipatti: 'dharmapuri',
-  pennagaram: 'dharmapuri',
-  // Krishnagiri
-  denkanikottai: 'krishnagiri',
-  uthangarai: 'krishnagiri',
-  bargur: 'krishnagiri',
-  pochampalli: 'krishnagiri',
-  // Erode
-  bhavani: 'erode',
-  gobichettipalayam: 'erode',
-  sathyamangalam: 'erode',
-  perundurai: 'erode',
-  anthiyur: 'erode',
-  kodumudi: 'erode',
-  modakurichi: 'erode',
-  // Coimbatore
-  mettupalayam: 'coimbatore',
-  sulur: 'coimbatore',
-  kinathukadavu: 'coimbatore',
-  valparai: 'coimbatore',
-  annur: 'coimbatore',
-  // Tiruppur
-  avinashi: 'tiruppur',
-  palladam: 'tiruppur',
-  udumalaipettai: 'tiruppur',
-  dharapuram: 'tiruppur',
-  kangeyam: 'tiruppur',
-  uthukuli: 'tiruppur',
-  // Karur
-  kulithalai: 'karur',
-  krishnarayapuram: 'karur',
-  aravakurichi: 'karur',
-  // Madurai
-  melur: 'madurai',
-  usilampatti: 'madurai',
-  vadipatti: 'madurai',
-  thirumangalam: 'madurai',
-  peraiyur: 'madurai',
-  sholavandan: 'madurai',
-  // Dindigul
-  nilakottai: 'dindigul',
-  vedasandur: 'dindigul',
-  natham: 'dindigul',
-  oddanchatram: 'dindigul',
-  athoor: 'dindigul',
-  // Theni
-  periyakulam: 'theni',
-  bodinayakanur: 'theni',
-  uthamapalayam: 'theni',
-  andipatti: 'theni',
-  cumbum: 'theni',
-  // Sivaganga
-  ilayangudi: 'sivaganga',
-  singampunari: 'sivaganga',
-  // Ramanathapuram
-  mudukulathur: 'ramanathapuram',
-  kamuthi: 'ramanathapuram',
-  tiruvadanai: 'ramanathapuram',
-  kadaladi: 'ramanathapuram',
-  keelakarai: 'ramanathapuram',
-  // Virudhunagar
-  sattur: 'virudhunagar',
-  srivilliputhur: 'virudhunagar',
-  kariapatti: 'virudhunagar',
-  vembakottai: 'virudhunagar',
-  // Thoothukudi
-  kovilpatti: 'thoothukudi',
-  ottapidaram: 'thoothukudi',
-  sathankulam: 'thoothukudi',
-  srivaikuntam: 'thoothukudi',
-  vilathikulam: 'thoothukudi',
-  tiruchendur: 'thoothukudi',
-  // Tirunelveli
-  ambasamudram: 'tirunelveli',
-  nanguneri: 'tirunelveli',
-  palayamkottai: 'tirunelveli',
-  radhapuram: 'tirunelveli',
-  cheranmahadevi: 'tirunelveli',
-  // Tenkasi
-  shencottai: 'tenkasi',
-  shenkottai: 'tenkasi',
-  sankarankovil: 'tenkasi',
-  kadayanallur: 'tenkasi',
-  alangulam: 'tenkasi',
-  vasudevanallur: 'tenkasi',
-  sivagiri: 'tenkasi',
-  // Kanyakumari
-  nagercoil: 'kanyakumari',
-  colachel: 'kanyakumari',
-  thuckalay: 'kanyakumari',
-  padmanabhapuram: 'kanyakumari',
-  vilavancode: 'kanyakumari',
-  agastheeswaram: 'kanyakumari',
-  kalkulam: 'kanyakumari',
-  // Thanjavur
-  orathanadu: 'thanjavur',
-  papanasam: 'thanjavur',
-  peravurani: 'thanjavur',
-  thiruvaiyaru: 'thanjavur',
-  budalur: 'thanjavur',
-  // Tiruvarur
-  nannilam: 'tiruvarur',
-  needamangalam: 'tiruvarur',
-  kodavasal: 'tiruvarur',
-  thiruthuraipoondi: 'tiruvarur',
-  valangaiman: 'tiruvarur',
-  // Nagapattinam
-  vedaranyam: 'nagapattinam',
-  kilvelur: 'nagapattinam',
-  thirukkuvalai: 'nagapattinam',
-  // Mayiladuthurai
-  sirkazhi: 'mayiladuthurai',
-  tharangambadi: 'mayiladuthurai',
-  tranquebar: 'mayiladuthurai',
-  kuthalam: 'mayiladuthurai',
-  // Pudukkottai
-  aranthangi: 'pudukkottai',
-  illupur: 'pudukkottai',
-  gandarvakottai: 'pudukkottai',
-  alangudi: 'pudukkottai',
-  karambakkudi: 'pudukkottai',
-  manamelkudi: 'pudukkottai',
-  avudaiyarkoil: 'pudukkottai',
-  // Tiruchirappalli
-  srirangam: 'tiruchirappalli',
-  lalgudi: 'tiruchirappalli',
-  musiri: 'tiruchirappalli',
-  manapparai: 'tiruchirappalli',
-  thottiyam: 'tiruchirappalli',
-  manachanallur: 'tiruchirappalli',
-  thuraiyur: 'tiruchirappalli',
-  // Ariyalur
-  udayarpalayam: 'ariyalur',
-  sendurai: 'ariyalur',
-  andimadam: 'ariyalur',
-  // Perambalur
-  kunnam: 'perambalur',
-  veppanthattai: 'perambalur',
-  // Nilgiris
-  kotagiri: 'nilgiris',
-  gudalur: 'nilgiris',
-  pandalur: 'nilgiris',
-};
+// (e.g. "Lasalgaon"), not the official revenue district it sits in (e.g.
+// "Nashik") — these aren't spelling variants of each other, so no amount of
+// normalization catches it.
+//
+// Built from the anchor towns in data/districtCentroids.js rather than
+// restated here, so the coordinate lookup and this name lookup can never
+// disagree about which district a town belongs to. Add towns there.
+const TALUK_TO_DISTRICT = Object.fromEntries(
+  MH_DISTRICT_ANCHORS
+    .filter((a) => a.town)
+    .map((a) => [normalize(a.town), canonicalizeDistrictName(a.district)])
+);
 
 async function resolveDistrictIdByName(stateId, districtName) {
   const filters = await getFilters();
@@ -647,7 +567,8 @@ function totalArrivals(market) {
  *   1. The exact requested market
  *   2. Every other market in the requested district, most active first
  *   3. Every market anywhere in the state, most active first — some
- *      districts (e.g. Chennai) have NO registered Agmarknet markets at
+ *      districts (Agmarknet's Osmanabad entry, and its Murum and Bandra(E)
+ *      pseudo-districts) have NO registered Agmarknet markets at
  *      all, so without this tier a farmer there would never see a price
  *      for any crop no matter what they pick.
  *
@@ -656,17 +577,28 @@ function totalArrivals(market) {
  * so a "found" market that happens to lack today's data doesn't dead-end
  * the search when a real alternative exists.
  */
-// Real Tamil Nadu district adjacency (not distance data — Agmarknet doesn't
-// give market coordinates) for the small set of districts that need it: the
-// ones with zero Agmarknet-registered markets of their own (currently
-// Chennai and Mayiladuthurai — see getNearbyPrices). Without this, their
-// state-wide fallback silently picks Tamil Nadu's single busiest market
-// regardless of where it is (e.g. Hosur, ~350km from Chennai) instead of an
-// actually-adjacent one. Keyed/valued by Agmarknet's own district_name
-// spelling, lowercased.
+// Real Maharashtra district adjacency (not distance data — Agmarknet doesn't
+// give market coordinates) for the small set of districts that need it.
+// Without this, their state-wide fallback silently picks Maharashtra's single
+// busiest market regardless of where it is (Nashik has 29 markets and would
+// win every time, ~500 km from a Konkan farmer) instead of a genuinely
+// adjacent one.
+//
+// Two groups qualify, both verified against a live /filters call:
+//   • Zero-market entries: Osmanabad (Agmarknet still lists it alongside the
+//     renamed Dharashiv, which holds all 8 markets), plus Murum and Bandra(E)
+//     — towns Agmarknet lists as if they were districts.
+//   • One-market districts: Ratnagiri and Sindhudurg, where a single market
+//     often has no data for a given date.
+//
+// Keyed/valued by Agmarknet's own district_name spelling, lowercased.
 const ADJACENT_DISTRICTS = {
-  chennai: ['tiruvellore', 'chengalpattu', 'kancheepuram'],
-  mayiladuthurai: ['nagapattinam', 'thanjavur', 'ariyalur', 'cuddalore'],
+  osmanabad: ['dharashiv', 'latur', 'solapur', 'beed'],
+  murum: ['dharashiv', 'latur', 'solapur'],
+  'bandra(e)': ['mumbai', 'raigad', 'palghar'],
+  mumbai: ['raigad', 'palghar'],
+  ratnagiri: ['sindhudurg', 'kolhapur', 'raigad', 'satara'],
+  sindhudurg: ['ratnagiri', 'kolhapur'],
 };
 
 // marketName -> lowercased home-district name, built once from the already
@@ -818,6 +750,7 @@ async function getTrendForSelection({ stateId, districtId, marketId, commodityId
   const agDate = toAgmarknetDate(date);
   let market = null;
   let points = [];
+  let matchedLevel = null;
 
   for (const candidate of candidates) {
     const upToDate = (candidate.market.dates || []).filter((d) => {
@@ -837,27 +770,60 @@ async function getTrendForSelection({ stateId, districtId, marketId, commodityId
     if (candidatePoints.length > 0) {
       market = candidate.market;
       points = candidatePoints;
+      matchedLevel = candidate.matchLevel;
       break;
     }
   }
 
   if (!market || points.length === 0) return null;
 
-  const trend = points[points.length - 1] >= points[0] ? 'up' : 'down';
-  return { points, trend, market: market.marketName };
+  // ⚠️ A FLAT SERIES IS NOT A RISE. This was `last >= points[0] ? 'up' :
+  // 'down'`, which has no third answer — so seven identical reported modals
+  // (a real case: Guava at Nasik APMC, 4500 ×7) came back as `trend: 'up'`
+  // and cropRecommendationEngine scored it +1 "prices rising". A ternary with
+  // no flat case cannot report "the price is not moving", which is a fact a
+  // farmer deciding what to sow actually needs.
+  //
+  // The 2% band is not cosmetic either. Mandi modals for one commodity move
+  // several percent between markets in one district on one day (the same
+  // observation behind priceBandService's ±8%), so a 0.4% drift across a week
+  // is noise and calling it a direction would make the arrow meaningless.
+  const first = points[0];
+  const last = points[points.length - 1];
+  const changePct = first ? ((last - first) / first) * 100 : 0;
+
+  let trend;
+  if (points.length < 2 || Math.abs(changePct) < FLAT_TREND_PCT) trend = 'flat';
+  else trend = changePct > 0 ? 'up' : 'down';
+
+  return {
+    points,
+    trend,
+    changePct: Number(changePct.toFixed(2)),
+    market: market.marketName,
+    // How far we had to search to find ANY series. Callers that mean "in this
+    // farmer's district" must check it — getPriceForSelection has always
+    // returned it and this one silently did not, so a caller could read a
+    // market 300 km away as their own district's signal.
+    matchLevel: matchedLevel,
+  };
 }
 
 module.exports = {
   AgmarknetError,
-  TAMIL_NADU_STATE_ID,
+  DEFAULT_STATE_ID,
   getStates,
   getDistricts,
   getMarkets,
   getCommodities,
+  getRegionalCommodities,
   getAvailableCommodities,
   getPriceForSelection,
   getTrendForSelection,
   resolveDistrictIdByName,
   resolveCommodityIdByName,
   resolveTalukDistrict,
+  // Exported for saleWindowService, which needs the raw monthly series
+  // rather than a single day's headline price.
+  getMonthlyCommodityPrices,
 };

@@ -22,7 +22,7 @@ const cropSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  tamilName: {
+  localName: {
     type: String,
     required: true,
     trim: true

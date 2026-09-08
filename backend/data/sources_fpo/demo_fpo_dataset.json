@@ -1,0 +1,902 @@
+[
+  {
+    "fpoRegistrationNo": "U01409MH2022 PTC390519",
+    "fpoName": "Nehrai Farmer Producer Company Limited",
+    "district": "Nashik",
+    "block": "Dindori",
+    "villageConfidence": "LOW — only Dindori (taluka HQ) and Vani are villages I could confidently place in Dindori taluka; repeated across farmers below rather than inventing others.",
+    "admin": {
+      "email": "admin.nehrai@example.com",
+      "name": "Sunil Bhagwan Kolhe",
+      "mobile": "9000010001",
+      "designation": "CEO"
+    },
+    "farmers": [
+      {
+        "email": "farmer1.nehrai@example.com",
+        "name": "Sushila Kadam",
+        "mobile": "9000010002",
+        "village": "Dindori",
+        "district": "Nashik",
+        "block": "Dindori",
+        "primaryCrop": "Onion",
+        "landAcres": 0.5
+      },
+      {
+        "email": "farmer2.nehrai@example.com",
+        "name": "Sopan Nikam",
+        "mobile": "9000010003",
+        "village": "Vani",
+        "district": "Nashik",
+        "block": "Dindori",
+        "primaryCrop": "Onion",
+        "landAcres": 1.1
+      },
+      {
+        "email": "farmer3.nehrai@example.com",
+        "name": "Savita Chavan",
+        "mobile": "9000010004",
+        "village": "Dindori",
+        "district": "Nashik",
+        "block": "Dindori",
+        "primaryCrop": "Grapes",
+        "landAcres": 1.7
+      },
+      {
+        "email": "farmer4.nehrai@example.com",
+        "name": "Dattatray Deshmukh",
+        "mobile": "9000010005",
+        "village": "Vani",
+        "district": "Nashik",
+        "block": "Dindori",
+        "primaryCrop": "Wheat",
+        "landAcres": 2.3
+      },
+      {
+        "email": "farmer5.nehrai@example.com",
+        "name": "Shivaji Ghadge",
+        "mobile": "9000010006",
+        "village": "Dindori",
+        "district": "Nashik",
+        "block": "Dindori",
+        "primaryCrop": "Tomato",
+        "landAcres": 2.9
+      },
+      {
+        "email": "farmer6.nehrai@example.com",
+        "name": "Pratibha Gaikwad",
+        "mobile": "9000010007",
+        "village": "Vani",
+        "district": "Nashik",
+        "block": "Dindori",
+        "primaryCrop": "Bajra (Pearl Millet)",
+        "landAcres": 3.5
+      },
+      {
+        "email": "farmer7.nehrai@example.com",
+        "name": "Balasaheb Gaikwad",
+        "mobile": "9000010008",
+        "village": "Dindori",
+        "district": "Nashik",
+        "block": "Dindori",
+        "primaryCrop": "Maize",
+        "landAcres": 4.1
+      },
+      {
+        "email": "farmer8.nehrai@example.com",
+        "name": "Vaishali Rao",
+        "mobile": "9000010009",
+        "village": "Vani",
+        "district": "Nashik",
+        "block": "Dindori",
+        "primaryCrop": "Pomegranate (Dalimb)",
+        "landAcres": 4.7
+      }
+    ]
+  },
+  {
+    "fpoRegistrationNo": "U01100PN2022 PTC209981",
+    "fpoName": "Purandar Agrostar Farmer Producer Company Limited",
+    "district": "Pune",
+    "block": "Purandhar",
+    "villageConfidence": "MEDIUM — Saswad (taluka HQ) and Jejuri are well-known Purandar-taluka towns; Narayanpur (near Purandar fort) is medium confidence.",
+    "admin": {
+      "email": "admin.purandaragrostar@example.com",
+      "name": "Anjali Suresh Kulkarni",
+      "mobile": "9000010010",
+      "designation": "Manager"
+    },
+    "farmers": [
+      {
+        "email": "farmer1.purandaragrostar@example.com",
+        "name": "Rekha Wagh",
+        "mobile": "9000010011",
+        "village": "Saswad",
+        "district": "Pune",
+        "block": "Purandhar",
+        "primaryCrop": "Grapes",
+        "landAcres": 0.5
+      },
+      {
+        "email": "farmer2.purandaragrostar@example.com",
+        "name": "Kavita Jadhav",
+        "mobile": "9000010012",
+        "village": "Jejuri",
+        "district": "Pune",
+        "block": "Purandhar",
+        "primaryCrop": "Onion",
+        "landAcres": 1.1
+      },
+      {
+        "email": "farmer3.purandaragrostar@example.com",
+        "name": "Ganesh Sathe",
+        "mobile": "9000010013",
+        "village": "Narayanpur",
+        "district": "Pune",
+        "block": "Purandhar",
+        "primaryCrop": "Tomato",
+        "landAcres": 1.7
+      },
+      {
+        "email": "farmer4.purandaragrostar@example.com",
+        "name": "Dattatray Pawar",
+        "mobile": "9000010014",
+        "village": "Saswad",
+        "district": "Pune",
+        "block": "Purandhar",
+        "primaryCrop": "Pomegranate (Dalimb)",
+        "landAcres": 2.3
+      },
+      {
+        "email": "farmer5.purandaragrostar@example.com",
+        "name": "Rekha Salunkhe",
+        "mobile": "9000010015",
+        "village": "Jejuri",
+        "district": "Pune",
+        "block": "Purandhar",
+        "primaryCrop": "Wheat",
+        "landAcres": 2.9
+      },
+      {
+        "email": "farmer6.purandaragrostar@example.com",
+        "name": "Pratibha More",
+        "mobile": "9000010016",
+        "village": "Narayanpur",
+        "district": "Pune",
+        "block": "Purandhar",
+        "primaryCrop": "Sugarcane",
+        "landAcres": 3.5
+      },
+      {
+        "email": "farmer7.purandaragrostar@example.com",
+        "name": "Suresh Deshmukh",
+        "mobile": "9000010017",
+        "village": "Saswad",
+        "district": "Pune",
+        "block": "Purandhar",
+        "primaryCrop": "Grapes",
+        "landAcres": 4.1
+      }
+    ]
+  },
+  {
+    "fpoRegistrationNo": "U01100PN2022 PTC212998",
+    "fpoName": "Angarsiddha Agro Producer Company Limited",
+    "district": "Solapur",
+    "block": "Mohol",
+    "villageConfidence": "LOW — only the taluka HQ (Mohol) could be confidently confirmed; every farmer below is placed there rather than inventing other village names.",
+    "admin": {
+      "email": "admin.angarsiddha@example.com",
+      "name": "Rajendra Vitthal Deshmukh",
+      "mobile": "9000010018",
+      "designation": "Director"
+    },
+    "farmers": [
+      {
+        "email": "farmer1.angarsiddha@example.com",
+        "name": "Dnyaneshwar Patil",
+        "mobile": "9000010019",
+        "village": "Mohol",
+        "district": "Solapur",
+        "block": "Mohol",
+        "primaryCrop": "Jowar (Sorghum)",
+        "landAcres": 0.5
+      },
+      {
+        "email": "farmer2.angarsiddha@example.com",
+        "name": "Ramesh Ghadge",
+        "mobile": "9000010020",
+        "village": "Mohol",
+        "district": "Solapur",
+        "block": "Mohol",
+        "primaryCrop": "Bajra (Pearl Millet)",
+        "landAcres": 1.1
+      },
+      {
+        "email": "farmer3.angarsiddha@example.com",
+        "name": "Kavita Patil",
+        "mobile": "9000010021",
+        "village": "Mohol",
+        "district": "Solapur",
+        "block": "Mohol",
+        "primaryCrop": "Pomegranate (Dalimb)",
+        "landAcres": 1.7
+      },
+      {
+        "email": "farmer4.angarsiddha@example.com",
+        "name": "Vaishali Nikam",
+        "mobile": "9000010022",
+        "village": "Mohol",
+        "district": "Solapur",
+        "block": "Mohol",
+        "primaryCrop": "Sunflower",
+        "landAcres": 2.3
+      },
+      {
+        "email": "farmer5.angarsiddha@example.com",
+        "name": "Ganesh Patil",
+        "mobile": "9000010023",
+        "village": "Mohol",
+        "district": "Solapur",
+        "block": "Mohol",
+        "primaryCrop": "Tur (Pigeon Pea)",
+        "landAcres": 2.9
+      },
+      {
+        "email": "farmer6.angarsiddha@example.com",
+        "name": "Dnyaneshwar Deshmukh",
+        "mobile": "9000010024",
+        "village": "Mohol",
+        "district": "Solapur",
+        "block": "Mohol",
+        "primaryCrop": "Cotton",
+        "landAcres": 3.5
+      },
+      {
+        "email": "farmer7.angarsiddha@example.com",
+        "name": "Vaishali Deshmukh",
+        "mobile": "9000010025",
+        "village": "Mohol",
+        "district": "Solapur",
+        "block": "Mohol",
+        "primaryCrop": "Safflower (Karadi)",
+        "landAcres": 4.1
+      },
+      {
+        "email": "farmer8.angarsiddha@example.com",
+        "name": "Vishnu More",
+        "mobile": "9000010026",
+        "village": "Mohol",
+        "district": "Solapur",
+        "block": "Mohol",
+        "primaryCrop": "Custard Apple (Sitaphal)",
+        "landAcres": 4.7
+      }
+    ]
+  },
+  {
+    "fpoRegistrationNo": "U01100MH2021 PTC360444",
+    "fpoName": "Ellichpura Satpuda Farmer Producer Company Limited",
+    "district": "Amravati",
+    "block": "Achalpur",
+    "villageConfidence": "MEDIUM-HIGH — Achalpur (taluka HQ) and Paratwada (adjoining commercial town, same taluka) are both well-known.",
+    "admin": {
+      "email": "admin.ellichpura@example.com",
+      "name": "Meenakshi Prakash Aher",
+      "mobile": "9000010027",
+      "designation": "Authorized Representative"
+    },
+    "farmers": [
+      {
+        "email": "farmer1.ellichpura@example.com",
+        "name": "Lata Mane",
+        "mobile": "9000010028",
+        "village": "Achalpur",
+        "district": "Amravati",
+        "block": "Achalpur",
+        "primaryCrop": "Cotton",
+        "landAcres": 0.5
+      },
+      {
+        "email": "farmer2.ellichpura@example.com",
+        "name": "Anita Bhosale",
+        "mobile": "9000010029",
+        "village": "Paratwada",
+        "district": "Amravati",
+        "block": "Achalpur",
+        "primaryCrop": "Cotton",
+        "landAcres": 1.1
+      },
+      {
+        "email": "farmer3.ellichpura@example.com",
+        "name": "Dattatray Bhosale",
+        "mobile": "9000010030",
+        "village": "Achalpur",
+        "district": "Amravati",
+        "block": "Achalpur",
+        "primaryCrop": "Soyabean",
+        "landAcres": 1.7
+      },
+      {
+        "email": "farmer4.ellichpura@example.com",
+        "name": "Pratibha Nikam",
+        "mobile": "9000010031",
+        "village": "Paratwada",
+        "district": "Amravati",
+        "block": "Achalpur",
+        "primaryCrop": "Tur (Pigeon Pea)",
+        "landAcres": 2.3
+      },
+      {
+        "email": "farmer5.ellichpura@example.com",
+        "name": "Nirmala Kale",
+        "mobile": "9000010032",
+        "village": "Achalpur",
+        "district": "Amravati",
+        "block": "Achalpur",
+        "primaryCrop": "Orange (Nagpur Santra)",
+        "landAcres": 2.9
+      },
+      {
+        "email": "farmer6.ellichpura@example.com",
+        "name": "Shivaji Thorat",
+        "mobile": "9000010033",
+        "village": "Paratwada",
+        "district": "Amravati",
+        "block": "Achalpur",
+        "primaryCrop": "Gram (Harbhara)",
+        "landAcres": 3.5
+      },
+      {
+        "email": "farmer7.ellichpura@example.com",
+        "name": "Baban Jadhav",
+        "mobile": "9000010034",
+        "village": "Achalpur",
+        "district": "Amravati",
+        "block": "Achalpur",
+        "primaryCrop": "Wheat",
+        "landAcres": 4.1
+      }
+    ]
+  },
+  {
+    "fpoRegistrationNo": "U01400MH2021 PTC357655",
+    "fpoName": "Dattasai Farmer Producer Company Limited",
+    "district": "Latur",
+    "block": "Ausa",
+    "villageConfidence": "HIGH — Ausa (taluka HQ) and Killari (of the 1993 earthquake, Ausa taluka) are both well documented as being in Ausa taluka, Latur.",
+    "admin": {
+      "email": "admin.dattasai@example.com",
+      "name": "Balasaheb Namdev Shelke",
+      "mobile": "9000010035",
+      "designation": "CEO"
+    },
+    "farmers": [
+      {
+        "email": "farmer1.dattasai@example.com",
+        "name": "Ramesh Wagh",
+        "mobile": "9000010036",
+        "village": "Ausa",
+        "district": "Latur",
+        "block": "Ausa",
+        "primaryCrop": "Soyabean",
+        "landAcres": 0.5
+      },
+      {
+        "email": "farmer2.dattasai@example.com",
+        "name": "Vishnu Gaikwad",
+        "mobile": "9000010037",
+        "village": "Killari",
+        "district": "Latur",
+        "block": "Ausa",
+        "primaryCrop": "Soyabean",
+        "landAcres": 1.1
+      },
+      {
+        "email": "farmer3.dattasai@example.com",
+        "name": "Namdev Kadam",
+        "mobile": "9000010038",
+        "village": "Ausa",
+        "district": "Latur",
+        "block": "Ausa",
+        "primaryCrop": "Tur (Pigeon Pea)",
+        "landAcres": 1.7
+      },
+      {
+        "email": "farmer4.dattasai@example.com",
+        "name": "Vishnu Salunkhe",
+        "mobile": "9000010039",
+        "village": "Killari",
+        "district": "Latur",
+        "block": "Ausa",
+        "primaryCrop": "Tur (Pigeon Pea)",
+        "landAcres": 2.3
+      },
+      {
+        "email": "farmer5.dattasai@example.com",
+        "name": "Dattatray Ghadge",
+        "mobile": "9000010040",
+        "village": "Ausa",
+        "district": "Latur",
+        "block": "Ausa",
+        "primaryCrop": "Cotton",
+        "landAcres": 2.9
+      },
+      {
+        "email": "farmer6.dattasai@example.com",
+        "name": "Sushila Shinde",
+        "mobile": "9000010041",
+        "village": "Killari",
+        "district": "Latur",
+        "block": "Ausa",
+        "primaryCrop": "Jowar (Sorghum)",
+        "landAcres": 3.5
+      },
+      {
+        "email": "farmer7.dattasai@example.com",
+        "name": "Ganesh Deshmukh",
+        "mobile": "9000010042",
+        "village": "Ausa",
+        "district": "Latur",
+        "block": "Ausa",
+        "primaryCrop": "Wheat",
+        "landAcres": 4.1
+      },
+      {
+        "email": "farmer8.dattasai@example.com",
+        "name": "Meena Ghadge",
+        "mobile": "9000010043",
+        "village": "Killari",
+        "district": "Latur",
+        "block": "Ausa",
+        "primaryCrop": "Banana",
+        "landAcres": 4.7
+      }
+    ]
+  },
+  {
+    "fpoRegistrationNo": "U01100PN2021 PTC200151",
+    "fpoName": "Naturenest Farmer Producer Company Limited",
+    "district": "Kolhapur",
+    "block": "Ajra",
+    "villageConfidence": "MEDIUM — Ajra (taluka HQ) is high confidence; Uttur (a known market village in Ajra taluka) is medium confidence.",
+    "admin": {
+      "email": "admin.naturenest@example.com",
+      "name": "Kavita Ravindra Pathak",
+      "mobile": "9000010044",
+      "designation": "Manager"
+    },
+    "farmers": [
+      {
+        "email": "farmer1.naturenest@example.com",
+        "name": "Rekha Waghmare",
+        "mobile": "9000010045",
+        "village": "Ajra",
+        "district": "Kolhapur",
+        "block": "Ajra",
+        "primaryCrop": "Sugarcane",
+        "landAcres": 0.5
+      },
+      {
+        "email": "farmer2.naturenest@example.com",
+        "name": "Vaishali Salunkhe",
+        "mobile": "9000010046",
+        "village": "Uttur",
+        "district": "Kolhapur",
+        "block": "Ajra",
+        "primaryCrop": "Rice (Paddy)",
+        "landAcres": 1.1
+      },
+      {
+        "email": "farmer3.naturenest@example.com",
+        "name": "Kamal Sathe",
+        "mobile": "9000010047",
+        "village": "Ajra",
+        "district": "Kolhapur",
+        "block": "Ajra",
+        "primaryCrop": "Sugarcane",
+        "landAcres": 1.7
+      },
+      {
+        "email": "farmer4.naturenest@example.com",
+        "name": "Ravindra Patil",
+        "mobile": "9000010048",
+        "village": "Uttur",
+        "district": "Kolhapur",
+        "block": "Ajra",
+        "primaryCrop": "Ragi (Nachani)",
+        "landAcres": 2.3
+      },
+      {
+        "email": "farmer5.naturenest@example.com",
+        "name": "Rekha Rao",
+        "mobile": "9000010049",
+        "village": "Ajra",
+        "district": "Kolhapur",
+        "block": "Ajra",
+        "primaryCrop": "French Beans (Ghevda)",
+        "landAcres": 2.9
+      },
+      {
+        "email": "farmer6.naturenest@example.com",
+        "name": "Balasaheb Bhosale",
+        "mobile": "9000010050",
+        "village": "Uttur",
+        "district": "Kolhapur",
+        "block": "Ajra",
+        "primaryCrop": "Green Peas (Vatana)",
+        "landAcres": 3.5
+      },
+      {
+        "email": "farmer7.naturenest@example.com",
+        "name": "Namdev Waghmare",
+        "mobile": "9000010051",
+        "village": "Ajra",
+        "district": "Kolhapur",
+        "block": "Ajra",
+        "primaryCrop": "Strawberry",
+        "landAcres": 4.1
+      }
+    ]
+  },
+  {
+    "fpoRegistrationNo": "U01611MH2025 PTC440131",
+    "fpoName": "Vilye Farmer Producer Company Limited",
+    "district": "Ratnagiri",
+    "block": "Sangameshwar",
+    "villageConfidence": "HIGH — Sangameshwar (taluka HQ) and Devrukh (the taluka's main commercial town) are both well documented as being in Sangameshwar taluka, Ratnagiri.",
+    "admin": {
+      "email": "admin.vilye@example.com",
+      "name": "Dattatray Sopan Bhoir",
+      "mobile": "9000010052",
+      "designation": "Director"
+    },
+    "farmers": [
+      {
+        "email": "farmer1.vilye@example.com",
+        "name": "Ramesh Pawar",
+        "mobile": "9000010053",
+        "village": "Sangameshwar",
+        "district": "Ratnagiri",
+        "block": "Sangameshwar",
+        "primaryCrop": "Mango (Alphonso/Hapus)",
+        "landAcres": 0.5
+      },
+      {
+        "email": "farmer2.vilye@example.com",
+        "name": "Ramesh Salunkhe",
+        "mobile": "9000010054",
+        "village": "Devrukh",
+        "district": "Ratnagiri",
+        "block": "Sangameshwar",
+        "primaryCrop": "Mango (Alphonso/Hapus)",
+        "landAcres": 1.1
+      },
+      {
+        "email": "farmer3.vilye@example.com",
+        "name": "Savita Pawar",
+        "mobile": "9000010055",
+        "village": "Sangameshwar",
+        "district": "Ratnagiri",
+        "block": "Sangameshwar",
+        "primaryCrop": "Coconut",
+        "landAcres": 1.7
+      },
+      {
+        "email": "farmer4.vilye@example.com",
+        "name": "Kavita Salunkhe",
+        "mobile": "9000010056",
+        "village": "Devrukh",
+        "district": "Ratnagiri",
+        "block": "Sangameshwar",
+        "primaryCrop": "Coconut",
+        "landAcres": 2.3
+      },
+      {
+        "email": "farmer5.vilye@example.com",
+        "name": "Anita Sathe",
+        "mobile": "9000010057",
+        "village": "Sangameshwar",
+        "district": "Ratnagiri",
+        "block": "Sangameshwar",
+        "primaryCrop": "Rice (Paddy)",
+        "landAcres": 2.9
+      },
+      {
+        "email": "farmer6.vilye@example.com",
+        "name": "Sopan Sathe",
+        "mobile": "9000010058",
+        "village": "Devrukh",
+        "district": "Ratnagiri",
+        "block": "Sangameshwar",
+        "primaryCrop": "Cashewnut (Kaju)",
+        "landAcres": 3.5
+      },
+      {
+        "email": "farmer7.vilye@example.com",
+        "name": "Nirmala Kadam",
+        "mobile": "9000010059",
+        "village": "Sangameshwar",
+        "district": "Ratnagiri",
+        "block": "Sangameshwar",
+        "primaryCrop": "Kokum",
+        "landAcres": 4.1
+      },
+      {
+        "email": "farmer8.vilye@example.com",
+        "name": "Pratibha Kadam",
+        "mobile": "9000010060",
+        "village": "Devrukh",
+        "district": "Ratnagiri",
+        "block": "Sangameshwar",
+        "primaryCrop": "Arecanut (Supari)",
+        "landAcres": 4.7
+      }
+    ]
+  },
+  {
+    "fpoRegistrationNo": "U01100PN2022 PTC216322",
+    "fpoName": "Angarmala Shetkari Producer Company Limited",
+    "district": "Sangli",
+    "block": "Valva-islampur",
+    "villageConfidence": "HIGH — Islampur (taluka HQ, taluka officially named Walwa) and Ashta (a large town in the same taluka) are both well documented.",
+    "admin": {
+      "email": "admin.angarmala@example.com",
+      "name": "Sharda Bhausaheb Ubale",
+      "mobile": "9000010061",
+      "designation": "Authorized Representative"
+    },
+    "farmers": [
+      {
+        "email": "farmer1.angarmala@example.com",
+        "name": "Sunita Thorat",
+        "mobile": "9000010062",
+        "village": "Islampur",
+        "district": "Sangli",
+        "block": "Valva-islampur",
+        "primaryCrop": "Grapes",
+        "landAcres": 0.5
+      },
+      {
+        "email": "farmer2.angarmala@example.com",
+        "name": "Dattatray Kadam",
+        "mobile": "9000010063",
+        "village": "Ashta",
+        "district": "Sangli",
+        "block": "Valva-islampur",
+        "primaryCrop": "Grapes",
+        "landAcres": 1.1
+      },
+      {
+        "email": "farmer3.angarmala@example.com",
+        "name": "Rekha More",
+        "mobile": "9000010064",
+        "village": "Islampur",
+        "district": "Sangli",
+        "block": "Valva-islampur",
+        "primaryCrop": "Sugarcane",
+        "landAcres": 1.7
+      },
+      {
+        "email": "farmer4.angarmala@example.com",
+        "name": "Suresh Waghmare",
+        "mobile": "9000010065",
+        "village": "Ashta",
+        "district": "Sangli",
+        "block": "Valva-islampur",
+        "primaryCrop": "Sugarcane",
+        "landAcres": 2.3
+      },
+      {
+        "email": "farmer5.angarmala@example.com",
+        "name": "Anil Chavan",
+        "mobile": "9000010066",
+        "village": "Islampur",
+        "district": "Sangli",
+        "block": "Valva-islampur",
+        "primaryCrop": "Jowar (Sorghum)",
+        "landAcres": 2.9
+      },
+      {
+        "email": "farmer6.angarmala@example.com",
+        "name": "Nirmala Ghadge",
+        "mobile": "9000010067",
+        "village": "Ashta",
+        "district": "Sangli",
+        "block": "Valva-islampur",
+        "primaryCrop": "Groundnut",
+        "landAcres": 3.5
+      },
+      {
+        "email": "farmer7.angarmala@example.com",
+        "name": "Lata Patil",
+        "mobile": "9000010068",
+        "village": "Islampur",
+        "district": "Sangli",
+        "block": "Valva-islampur",
+        "primaryCrop": "Turmeric (Halad)",
+        "landAcres": 4.1
+      }
+    ]
+  },
+  {
+    "fpoRegistrationNo": "U01100MH2022 PTC393734",
+    "fpoName": "Ajantha Khore Women Farmers Producer Company Limited",
+    "district": "Aurangabad",
+    "block": "Phulambri",
+    "villageConfidence": "LOW — only the taluka HQ (Phulambri) could be confidently confirmed; every farmer below is placed there rather than inventing other village names. District recorded as 'Aurangabad' (FpoMaster's own value; resolves via the app's own alias table to Chhatrapati Sambhajinagar).",
+    "admin": {
+      "email": "admin.ajanthakhore@example.com",
+      "name": "Ashok Kailas Wankhede",
+      "mobile": "9000010069",
+      "designation": "CEO"
+    },
+    "farmers": [
+      {
+        "email": "farmer1.ajanthakhore@example.com",
+        "name": "Pratibha Kale",
+        "mobile": "9000010070",
+        "village": "Phulambri",
+        "district": "Aurangabad",
+        "block": "Phulambri",
+        "primaryCrop": "Cotton",
+        "landAcres": 0.5
+      },
+      {
+        "email": "farmer2.ajanthakhore@example.com",
+        "name": "Nirmala Shinde",
+        "mobile": "9000010071",
+        "village": "Phulambri",
+        "district": "Aurangabad",
+        "block": "Phulambri",
+        "primaryCrop": "Cotton",
+        "landAcres": 1.1
+      },
+      {
+        "email": "farmer3.ajanthakhore@example.com",
+        "name": "Namdev Patil",
+        "mobile": "9000010072",
+        "village": "Phulambri",
+        "district": "Aurangabad",
+        "block": "Phulambri",
+        "primaryCrop": "Soyabean",
+        "landAcres": 1.7
+      },
+      {
+        "email": "farmer4.ajanthakhore@example.com",
+        "name": "Savita Wagh",
+        "mobile": "9000010073",
+        "village": "Phulambri",
+        "district": "Aurangabad",
+        "block": "Phulambri",
+        "primaryCrop": "Soyabean",
+        "landAcres": 2.3
+      },
+      {
+        "email": "farmer5.ajanthakhore@example.com",
+        "name": "Namdev Gaikwad",
+        "mobile": "9000010074",
+        "village": "Phulambri",
+        "district": "Aurangabad",
+        "block": "Phulambri",
+        "primaryCrop": "Tur (Pigeon Pea)",
+        "landAcres": 2.9
+      },
+      {
+        "email": "farmer6.ajanthakhore@example.com",
+        "name": "Vishnu Sathe",
+        "mobile": "9000010075",
+        "village": "Phulambri",
+        "district": "Aurangabad",
+        "block": "Phulambri",
+        "primaryCrop": "Jowar (Sorghum)",
+        "landAcres": 3.5
+      },
+      {
+        "email": "farmer7.ajanthakhore@example.com",
+        "name": "Sushila Kale",
+        "mobile": "9000010076",
+        "village": "Phulambri",
+        "district": "Aurangabad",
+        "block": "Phulambri",
+        "primaryCrop": "Bajra (Pearl Millet)",
+        "landAcres": 4.1
+      },
+      {
+        "email": "farmer8.ajanthakhore@example.com",
+        "name": "Ramesh Kale",
+        "mobile": "9000010077",
+        "village": "Phulambri",
+        "district": "Aurangabad",
+        "block": "Phulambri",
+        "primaryCrop": "Wheat",
+        "landAcres": 4.7
+      }
+    ]
+  },
+  {
+    "fpoRegistrationNo": "U01611MH2023 PTC400555",
+    "fpoName": "Shri Rajaramtek Farmers Producer Company Limited",
+    "district": "Nagpur",
+    "block": "Ramtek",
+    "villageConfidence": "HIGH — Ramtek (taluka HQ), Khindsi (lake village) and Mansar (archaeological site village) are all well documented as being in Ramtek taluka, Nagpur.",
+    "admin": {
+      "email": "admin.rajaramtek@example.com",
+      "name": "Vijay Ganesh Bawane",
+      "mobile": "9000010078",
+      "designation": "Manager"
+    },
+    "farmers": [
+      {
+        "email": "farmer1.rajaramtek@example.com",
+        "name": "Rekha Sathe",
+        "mobile": "9000010079",
+        "village": "Ramtek",
+        "district": "Nagpur",
+        "block": "Ramtek",
+        "primaryCrop": "Orange (Nagpur Santra)",
+        "landAcres": 0.5
+      },
+      {
+        "email": "farmer2.rajaramtek@example.com",
+        "name": "Prakash Patil",
+        "mobile": "9000010080",
+        "village": "Khindsi",
+        "district": "Nagpur",
+        "block": "Ramtek",
+        "primaryCrop": "Orange (Nagpur Santra)",
+        "landAcres": 1.1
+      },
+      {
+        "email": "farmer3.rajaramtek@example.com",
+        "name": "Meena Deshmukh",
+        "mobile": "9000010081",
+        "village": "Mansar",
+        "district": "Nagpur",
+        "block": "Ramtek",
+        "primaryCrop": "Cotton",
+        "landAcres": 1.7
+      },
+      {
+        "email": "farmer4.rajaramtek@example.com",
+        "name": "Baban Shinde",
+        "mobile": "9000010082",
+        "village": "Ramtek",
+        "district": "Nagpur",
+        "block": "Ramtek",
+        "primaryCrop": "Soyabean",
+        "landAcres": 2.3
+      },
+      {
+        "email": "farmer5.rajaramtek@example.com",
+        "name": "Sanjay Nikam",
+        "mobile": "9000010083",
+        "village": "Khindsi",
+        "district": "Nagpur",
+        "block": "Ramtek",
+        "primaryCrop": "Tur (Pigeon Pea)",
+        "landAcres": 2.9
+      },
+      {
+        "email": "farmer6.rajaramtek@example.com",
+        "name": "Namdev Sathe",
+        "mobile": "9000010084",
+        "village": "Mansar",
+        "district": "Nagpur",
+        "block": "Ramtek",
+        "primaryCrop": "Gram (Harbhara)",
+        "landAcres": 3.5
+      },
+      {
+        "email": "farmer7.rajaramtek@example.com",
+        "name": "Ravindra Nikam",
+        "mobile": "9000010085",
+        "village": "Ramtek",
+        "district": "Nagpur",
+        "block": "Ramtek",
+        "primaryCrop": "Wheat",
+        "landAcres": 4.1
+      }
+    ]
+  }
+]

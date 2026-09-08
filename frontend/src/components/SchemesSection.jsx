@@ -134,7 +134,7 @@ export default function SchemesSection() {
   return (
     <>
       <SchemeCategoryCard
-        title="Tamil Nadu Schemes"
+        title="Maharashtra Schemes"
         subtitle="State government schemes & subsidies"
         schemes={stateSchemes}
         onPressCard={setSelectedScheme}

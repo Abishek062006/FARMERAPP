@@ -1,0 +1,219 @@
+{
+  "trained_at": "2026-08-22T08:58:54.874797Z",
+  "rows_raw": 623015,
+  "rows_dropped": {
+    "unmapped_market": 23,
+    "modal_zero": 138,
+    "modal_outside_min_max": 1,
+    "unit_scale_outlier": 25
+  },
+  "series": 122,
+  "train_rows": 2309759,
+  "test_rows": 150403,
+  "test_cutoff": "2026-02-21",
+  "test_months": 6,
+  "naive_mape": 9.97,
+  "model_mape": 8.61,
+  "improvement_pct": 13.68,
+  "beats_baseline": true,
+  "by_horizon": [
+    {
+      "horizon": 1,
+      "n": 11144,
+      "naive_mape": 7.61,
+      "model_mape": 6.49
+    },
+    {
+      "horizon": 2,
+      "n": 10994,
+      "naive_mape": 8.12,
+      "model_mape": 6.96
+    },
+    {
+      "horizon": 3,
+      "n": 10753,
+      "naive_mape": 8.65,
+      "model_mape": 7.38
+    },
+    {
+      "horizon": 4,
+      "n": 10669,
+      "naive_mape": 9.11,
+      "model_mape": 7.75
+    },
+    {
+      "horizon": 5,
+      "n": 10728,
+      "naive_mape": 9.31,
+      "model_mape": 8.04
+    },
+    {
+      "horizon": 6,
+      "n": 10652,
+      "naive_mape": 9.86,
+      "model_mape": 8.31
+    },
+    {
+      "horizon": 7,
+      "n": 11717,
+      "naive_mape": 9.14,
+      "model_mape": 8.39
+    },
+    {
+      "horizon": 8,
+      "n": 10565,
+      "naive_mape": 10.54,
+      "model_mape": 9.04
+    },
+    {
+      "horizon": 9,
+      "n": 10492,
+      "naive_mape": 10.77,
+      "model_mape": 9.25
+    },
+    {
+      "horizon": 10,
+      "n": 10361,
+      "naive_mape": 11.0,
+      "model_mape": 9.42
+    },
+    {
+      "horizon": 11,
+      "n": 10324,
+      "naive_mape": 11.24,
+      "model_mape": 9.59
+    },
+    {
+      "horizon": 12,
+      "n": 10378,
+      "naive_mape": 11.48,
+      "model_mape": 9.91
+    },
+    {
+      "horizon": 13,
+      "n": 10322,
+      "naive_mape": 11.82,
+      "model_mape": 10.09
+    },
+    {
+      "horizon": 14,
+      "n": 11304,
+      "naive_mape": 11.27,
+      "model_mape": 10.11
+    }
+  ],
+  "by_commodity": [
+    {
+      "commodity": "Cotton",
+      "n": 8339,
+      "naive_mape": 2.98,
+      "model_mape": 2.75
+    },
+    {
+      "commodity": "Onion",
+      "n": 32615,
+      "naive_mape": 14.09,
+      "model_mape": 11.99
+    },
+    {
+      "commodity": "Paddy(Common)",
+      "n": 7486,
+      "naive_mape": 5.95,
+      "model_mape": 4.77
+    },
+    {
+      "commodity": "Soyabean",
+      "n": 31114,
+      "naive_mape": 5.37,
+      "model_mape": 5.08
+    },
+    {
+      "commodity": "Tomato",
+      "n": 29249,
+      "naive_mape": 20.47,
+      "model_mape": 17.72
+    },
+    {
+      "commodity": "Wheat",
+      "n": 41600,
+      "naive_mape": 4.92,
+      "model_mape": 4.04
+    }
+  ],
+  "top_features": [
+    {
+      "feature": "district",
+      "gain": 2508
+    },
+    {
+      "feature": "weekofyear",
+      "gain": 2415
+    },
+    {
+      "feature": "roll_mean_30",
+      "gain": 941
+    },
+    {
+      "feature": "commodity",
+      "gain": 897
+    },
+    {
+      "feature": "modal_price",
+      "gain": 845
+    },
+    {
+      "feature": "price_vs_mean_30",
+      "gain": 815
+    },
+    {
+      "feature": "horizon",
+      "gain": 814
+    },
+    {
+      "feature": "roll_std_30",
+      "gain": 759
+    },
+    {
+      "feature": "roll_mean_7",
+      "gain": 724
+    },
+    {
+      "feature": "cv_30",
+      "gain": 702
+    },
+    {
+      "feature": "price_vs_mean_7",
+      "gain": 695
+    },
+    {
+      "feature": "month",
+      "gain": 542
+    },
+    {
+      "feature": "lag_30",
+      "gain": 510
+    },
+    {
+      "feature": "roll_std_7",
+      "gain": 475
+    },
+    {
+      "feature": "arr_roll_30",
+      "gain": 473
+    }
+  ],
+  "params": {
+    "objective": "regression_l1",
+    "n_estimators": 300,
+    "learning_rate": 0.06,
+    "num_leaves": 96,
+    "min_child_samples": 40,
+    "subsample": 0.85,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.85,
+    "reg_lambda": 1.0,
+    "random_state": 42,
+    "verbose": -1
+  },
+  "best_iteration": 174
+}

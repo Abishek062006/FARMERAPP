@@ -1,0 +1,146 @@
+{
+  "trained_at": "2026-08-24T03:22:05.049920Z",
+  "images": {
+    "train": 29099,
+    "val": 6219,
+    "test": 6219
+  },
+  "classes": 30,
+  "produce_types": 15,
+  "accuracy_28class": 98.07,
+  "baseline_majority_28class": 19.83,
+  "accuracy_freshness": 99.0,
+  "baseline_majority_freshness": 52.98,
+  "accuracy_produce_type": 98.86,
+  "beats_baseline": true,
+  "per_produce": [
+    {
+      "produce": "Apple",
+      "test_n": 803,
+      "train_n": 3757,
+      "freshness_acc": 99.5,
+      "mean_confidence": 0.982
+    },
+    {
+      "produce": "Banana",
+      "test_n": 718,
+      "train_n": 3360,
+      "freshness_acc": 99.86,
+      "mean_confidence": 0.998
+    },
+    {
+      "produce": "Bellpepper",
+      "test_n": 179,
+      "train_n": 844,
+      "freshness_acc": 96.65,
+      "mean_confidence": 0.961
+    },
+    {
+      "produce": "Carrot",
+      "test_n": 178,
+      "train_n": 842,
+      "freshness_acc": 94.94,
+      "mean_confidence": 0.966
+    },
+    {
+      "produce": "Cucumber",
+      "test_n": 179,
+      "train_n": 843,
+      "freshness_acc": 97.77,
+      "mean_confidence": 0.985
+    },
+    {
+      "produce": "Grape",
+      "test_n": 60,
+      "train_n": 280,
+      "freshness_acc": 96.67,
+      "mean_confidence": 0.974
+    },
+    {
+      "produce": "Guava",
+      "test_n": 60,
+      "train_n": 280,
+      "freshness_acc": 98.33,
+      "mean_confidence": 0.983
+    },
+    {
+      "produce": "Jujube",
+      "test_n": 60,
+      "train_n": 280,
+      "freshness_acc": 95.0,
+      "mean_confidence": 0.918
+    },
+    {
+      "produce": "Mango",
+      "test_n": 608,
+      "train_n": 2844,
+      "freshness_acc": 99.34,
+      "mean_confidence": 0.995
+    },
+    {
+      "produce": "Onion",
+      "test_n": 1839,
+      "train_n": 8582,
+      "freshness_acc": 99.67,
+      "mean_confidence": 0.997
+    },
+    {
+      "produce": "Orange",
+      "test_n": 638,
+      "train_n": 2985,
+      "freshness_acc": 99.37,
+      "mean_confidence": 0.989
+    },
+    {
+      "produce": "Pomegranate",
+      "test_n": 60,
+      "train_n": 280,
+      "freshness_acc": 93.33,
+      "mean_confidence": 0.947
+    },
+    {
+      "produce": "Potato",
+      "test_n": 179,
+      "train_n": 840,
+      "freshness_acc": 93.3,
+      "mean_confidence": 0.933
+    },
+    {
+      "produce": "Strawberry",
+      "test_n": 479,
+      "train_n": 2241,
+      "freshness_acc": 100.0,
+      "mean_confidence": 0.996
+    },
+    {
+      "produce": "Tomato",
+      "test_n": 179,
+      "train_n": 841,
+      "freshness_acc": 98.88,
+      "mean_confidence": 0.987
+    }
+  ],
+  "supported_produce": [
+    "Apple",
+    "Banana",
+    "Bellpepper",
+    "Carrot",
+    "Cucumber",
+    "Mango",
+    "Onion",
+    "Orange",
+    "Potato",
+    "Strawberry",
+    "Tomato"
+  ],
+  "unsupported_produce": [
+    "Grape",
+    "Guava",
+    "Jujube",
+    "Pomegranate"
+  ],
+  "min_train_images": 400,
+  "min_accuracy": 90.0,
+  "onion_in_dataset": true,
+  "scope_note": "Binary freshness only. This is NOT commercial grading and must never be shown as one \u2014 see data/gradeSpecs.js, where grades are farmer-declared."
+}

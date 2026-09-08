@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
+import { Ionicons } from '@expo/vector-icons';
+import { PHONE_AUTH_ENABLED } from '../../utils/config';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../utils/firebase';
 import { COLORS } from '../../constants/colors';
@@ -73,8 +75,8 @@ const LoginScreen = ({ navigation }) => {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.icon}>🌾</Text>
-          <Text style={styles.headerTitle}>TN Farming App</Text>
-          <Text style={styles.headerSubtitle}>Smart Farming for Tamil Nadu</Text>
+          <Text style={styles.headerTitle}>Maharashtra Farming App</Text>
+          <Text style={styles.headerSubtitle}>Smart Farming for Maharashtra</Text>
         </View>
 
         {/* Login Form */}
@@ -141,6 +143,29 @@ const LoginScreen = ({ navigation }) => {
               </View>
             )}
           </Formik>
+
+          {/* ── SIGN IN WITH A PHONE INSTEAD ──────────────────────────
+              A second door, not a replacement — and currently CLOSED.
+              `PHONE_AUTH_ENABLED` is false: SMS is the one leg of sign-in that
+              can fail live (provider toggle, handset, SMS quota), and email
+              already carries every account. The screen behind this stays
+              registered and tested; only the way in is hidden. */}
+          {PHONE_AUTH_ENABLED && (<>
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+          <TouchableOpacity
+            style={styles.phoneButton}
+            onPress={() => navigation.navigate('PhoneLogin')}
+            activeOpacity={0.85}
+            accessibilityLabel="Sign in with your phone number"
+          >
+            <Ionicons name="phone-portrait-outline" size={18} color="#15803D" />
+            <Text style={styles.phoneButtonText}>Sign in with phone number</Text>
+          </TouchableOpacity>
+          </>)}
 
           {/* Register Link */}
           <View style={styles.registerContainer}>
@@ -246,6 +271,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 24,
   },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 20, marginBottom: 14 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
+  dividerText: { fontSize: 12.5, color: '#9CA3AF' },
+  phoneButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#F0FDF4', borderWidth: 1.5, borderColor: '#BBF7D0',
+    borderRadius: 14, paddingVertical: 14,
+  },
+  phoneButtonText: { color: '#15803D', fontSize: 15, fontWeight: '700' },
   registerText: {
     color: COLORS.textLight,
     fontSize: 14,

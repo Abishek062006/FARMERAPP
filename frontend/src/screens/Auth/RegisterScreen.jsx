@@ -14,10 +14,24 @@ import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../../utils/firebase';
+import { roleLabel } from '../../i18n/strings';
 import { createUser } from '../../utils/mongoAPI';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../../constants/colors';
+import { matchDistrict, DEFAULT_STATE } from '../../utils/districts';
+
+// The four things an account can be. Stored values are `farmer | vendor |
+// agent | fpo`; what a person READS comes from roleLabel() (vendor → "Buyer",
+// agent → "Captain"), so a hardcoded label never drifts from the rest of the
+// app. The blurbs are here and not in the i18n table for the reason given at
+// the render site below.
+const ROLE_CHOICES = [
+  { role: 'farmer', emoji: '🌾', blurb: 'I grow crops' },
+  { role: 'vendor', emoji: '🏪', blurb: 'I buy produce' },
+  { role: 'agent',  emoji: '🚚', blurb: 'I drive a vehicle' },
+  { role: 'fpo',    emoji: '🏛️', blurb: 'I run a farmer producer company' },
+];
 
 const RegisterSchema = Yup.object().shape({
   name: Yup.string().min(2, 'Too Short!').required('Name is required'),
@@ -92,16 +106,43 @@ const RegisterScreen = ({ navigation }) => {
         try {
           console.log('📍 Getting location...');
           const location = await Location.getCurrentPositionAsync({});
+
+          // Reverse-geocode and run the result through matchDistrict, rather
+          // than hardcoding one. Every existing user has district "Chennai"
+          // because this block used to write that literal for everyone
+          // regardless of where they were, which made proximity ranking
+          // meaningless. The geocoder can return a neighbourhood name, so
+          // matchDistrict returns null rather than a guess when nothing
+          // plausible matches — the district is then left unset for the
+          // farmer to pick at land registration, which is honest.
+          let city = null;
+          let district = null;
+          try {
+            const [place] = await Location.reverseGeocodeAsync({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            });
+            city = place?.city || place?.subregion || null;
+            district =
+              matchDistrict(place?.district) ||
+              matchDistrict(place?.subregion) ||
+              matchDistrict(place?.city) ||
+              matchDistrict(place?.region) ||
+              null;
+          } catch (geoError) {
+            console.log('⚠️ Reverse geocode failed (keeping coordinates):', geoError.message);
+          }
+
           locationData = {
             coordinates: {
               lat: location.coords.latitude,
               lng: location.coords.longitude,
             },
-            city: 'Chennai',
-            district: 'Chennai',
-            state: 'Tamil Nadu',
+            city,
+            district,
+            state: DEFAULT_STATE,
           };
-          console.log('✅ Location obtained');
+          console.log(`✅ Location obtained → ${district || 'district unresolved'}`);
         } catch (locError) {
           console.log('⚠️ Location error (skipping):', locError.message);
         }
@@ -185,7 +226,7 @@ const RegisterScreen = ({ navigation }) => {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Create Account</Text>
-          <Text style={styles.headerSubtitle}>Join TN Farming Community</Text>
+          <Text style={styles.headerSubtitle}>Join the Maharashtra Farming Community</Text>
         </View>
 
         {/* Form */}
@@ -274,11 +315,29 @@ const RegisterScreen = ({ navigation }) => {
                   )}
                 </View>
 
-                {/* Role Selection */}
+                {/* Role Selection — WHAT YOU ARE, chosen once at signup.
+                    `fpo` is the fourth: the organisation's OWN account, not a
+                    farmer who happens to run one. It exists because a real
+                    FPO's CEO or Manager is an appointed officer of a producer
+                    company and often does not farm at all — see
+                    backend/models/User.js.
+
+                    Four tiles wrap 2×2 rather than sitting in one row: four
+                    across is too narrow to read, and the wrap leaves room for
+                    the one-line description each choice needs. "FPO" in
+                    particular is an acronym nobody should have to guess at.
+
+                    Copy here is inline English on purpose. This whole screen
+                    is English-only and does not use the i18n table (there is
+                    no uid to persist a language against before signup, and
+                    LanguageProvider sits inside the logged-in branch of
+                    RootNavigator). Adding i18n to one field would be the
+                    half-translated state CLAUDE.md records as worse than
+                    either consistent option. */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>I am a... *</Text>
                   <View style={styles.roleContainer}>
-                    {['farmer', 'vendor', 'agent'].map((role) => (
+                    {ROLE_CHOICES.map(({ role, emoji, blurb }) => (
                       <TouchableOpacity
                         key={role}
                         style={[
@@ -287,20 +346,32 @@ const RegisterScreen = ({ navigation }) => {
                         ]}
                         onPress={() => setFieldValue('role', role)}
                       >
-                        <Text style={styles.roleEmoji}>
-                          {role === 'farmer' ? '🌾' : role === 'vendor' ? '🏪' : '👔'}
-                        </Text>
+                        <Text style={styles.roleEmoji}>{emoji}</Text>
                         <Text
                           style={[
                             styles.roleText,
                             values.role === role && styles.roleTextSelected,
                           ]}
                         >
-                          {role.charAt(0).toUpperCase() + role.slice(1)}
+                          {roleLabel(role, 'en')}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.roleBlurb,
+                            values.role === role && styles.roleBlurbSelected,
+                          ]}
+                        >
+                          {blurb}
                         </Text>
                       </TouchableOpacity>
                     ))}
                   </View>
+                  {values.role === 'fpo' && (
+                    <Text style={styles.roleNote}>
+                      After signing up you will search the official SFAC registry for your
+                      producer company and claim it. A person reviews every claim.
+                    </Text>
+                  )}
                   {touched.role && errors.role && (
                     <Text style={styles.errorText}>{errors.role}</Text>
                   )}
@@ -416,13 +487,17 @@ const styles = StyleSheet.create({
   },
   roleContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: 8,
   },
   roleButton: {
-    flex: 1,
+    // `flexBasis` rather than `flex: 1` — with four tiles, flex:1 packs them
+    // into one unreadable row. 47% plus the 8px gap gives a 2x2 grid.
+    flexBasis: '47%',
+    flexGrow: 1,
     backgroundColor: COLORS.cardBackground,
-    padding: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 2,
@@ -443,6 +518,23 @@ const styles = StyleSheet.create({
   },
   roleTextSelected: {
     color: COLORS.secondary,
+  },
+  roleBlurb: {
+    fontSize: 10,
+    color: COLORS.textLight,
+    fontWeight: '500',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  roleBlurbSelected: {
+    color: COLORS.secondary,
+    opacity: 0.85,
+  },
+  roleNote: {
+    fontSize: 11,
+    color: COLORS.textLight,
+    marginTop: 10,
+    lineHeight: 16,
   },
   permissionsBox: {
     backgroundColor: COLORS.primary + '20',

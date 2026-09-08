@@ -1,0 +1,322 @@
+{
+  "trained_at": "2026-08-23T05:37:57.011360Z",
+  "source": "ICRISAT District Level Data",
+  "state": "Maharashtra",
+  "data_years": [
+    1978,
+    2017
+  ],
+  "districts": 26,
+  "train_rows": 13519,
+  "test_rows": 1592,
+  "test_from": 2012,
+  "model_mape": 50.08,
+  "persistence_mape": 59.25,
+  "hist_mean_mape": 61.44,
+  "beats_baselines": true,
+  "by_crop": [
+    {
+      "crop": "CASTOR",
+      "app_crop": null,
+      "n": 56,
+      "model_mape": 38.96,
+      "persistence_mape": 49.0,
+      "hist_mean_mape": 89.63,
+      "median_yield": 258.0,
+      "unit_note": null
+    },
+    {
+      "crop": "CHICKPEA",
+      "app_crop": "Gram (Harbhara)",
+      "n": 94,
+      "model_mape": 28.94,
+      "persistence_mape": 41.23,
+      "hist_mean_mape": 34.53,
+      "median_yield": 745.0,
+      "unit_note": null
+    },
+    {
+      "crop": "COTTON",
+      "app_crop": "Cotton",
+      "n": 76,
+      "model_mape": 52.96,
+      "persistence_mape": 66.52,
+      "hist_mean_mape": 65.94,
+      "median_yield": 241.0,
+      "unit_note": null
+    },
+    {
+      "crop": "FINGER MILLET",
+      "app_crop": "Ragi (Nachani)",
+      "n": 36,
+      "model_mape": 21.85,
+      "persistence_mape": 21.84,
+      "hist_mean_mape": 20.78,
+      "median_yield": 1075.0,
+      "unit_note": null
+    },
+    {
+      "crop": "GROUNDNUT",
+      "app_crop": "Groundnut",
+      "n": 95,
+      "model_mape": 37.29,
+      "persistence_mape": 38.15,
+      "hist_mean_mape": 43.26,
+      "median_yield": 1087.0,
+      "unit_note": null
+    },
+    {
+      "crop": "KHARIF SORGHUM",
+      "app_crop": "Jowar (Sorghum)",
+      "n": 78,
+      "model_mape": 48.11,
+      "persistence_mape": 58.59,
+      "hist_mean_mape": 61.36,
+      "median_yield": 875.0,
+      "unit_note": null
+    },
+    {
+      "crop": "LINSEED",
+      "app_crop": "Linseed (Jawas)",
+      "n": 26,
+      "model_mape": 84.66,
+      "persistence_mape": 73.69,
+      "hist_mean_mape": 56.09,
+      "median_yield": 228.0,
+      "unit_note": null
+    },
+    {
+      "crop": "MAIZE",
+      "app_crop": "Maize",
+      "n": 90,
+      "model_mape": 42.84,
+      "persistence_mape": 52.48,
+      "hist_mean_mape": 54.34,
+      "median_yield": 1710.0,
+      "unit_note": null
+    },
+    {
+      "crop": "MINOR PULSES",
+      "app_crop": null,
+      "n": 98,
+      "model_mape": 56.18,
+      "persistence_mape": 71.17,
+      "hist_mean_mape": 66.94,
+      "median_yield": 425.0,
+      "unit_note": null
+    },
+    {
+      "crop": "OILSEEDS",
+      "app_crop": null,
+      "n": 100,
+      "model_mape": 48.17,
+      "persistence_mape": 54.3,
+      "hist_mean_mape": 59.37,
+      "median_yield": 976.0,
+      "unit_note": null
+    },
+    {
+      "crop": "PEARL MILLET",
+      "app_crop": "Bajra (Pearl Millet)",
+      "n": 58,
+      "model_mape": 55.71,
+      "persistence_mape": 62.02,
+      "hist_mean_mape": 68.83,
+      "median_yield": 606.0,
+      "unit_note": null
+    },
+    {
+      "crop": "PIGEONPEA",
+      "app_crop": "Tur (Pigeon Pea)",
+      "n": 100,
+      "model_mape": 77.96,
+      "persistence_mape": 105.38,
+      "hist_mean_mape": 95.46,
+      "median_yield": 413.0,
+      "unit_note": null
+    },
+    {
+      "crop": "RABI SORGHUM",
+      "app_crop": "Jowar (Sorghum)",
+      "n": 80,
+      "model_mape": 34.58,
+      "persistence_mape": 47.36,
+      "hist_mean_mape": 46.06,
+      "median_yield": 640.0,
+      "unit_note": null
+    },
+    {
+      "crop": "RICE",
+      "app_crop": "Rice (Paddy)",
+      "n": 73,
+      "model_mape": 44.58,
+      "persistence_mape": 54.09,
+      "hist_mean_mape": 47.45,
+      "median_yield": 1368.0,
+      "unit_note": null
+    },
+    {
+      "crop": "SAFFLOWER",
+      "app_crop": "Safflower (Karadi)",
+      "n": 52,
+      "model_mape": 101.4,
+      "persistence_mape": 133.86,
+      "hist_mean_mape": 125.37,
+      "median_yield": 433.0,
+      "unit_note": null
+    },
+    {
+      "crop": "SESAMUM",
+      "app_crop": "Sesamum (Til)",
+      "n": 68,
+      "model_mape": 59.67,
+      "persistence_mape": 59.21,
+      "hist_mean_mape": 71.5,
+      "median_yield": 234.0,
+      "unit_note": null
+    },
+    {
+      "crop": "SORGHUM",
+      "app_crop": "Jowar (Sorghum)",
+      "n": 84,
+      "model_mape": 42.26,
+      "persistence_mape": 57.03,
+      "hist_mean_mape": 56.3,
+      "median_yield": 696.0,
+      "unit_note": null
+    },
+    {
+      "crop": "SOYABEAN",
+      "app_crop": "Soyabean",
+      "n": 88,
+      "model_mape": 65.99,
+      "persistence_mape": 71.7,
+      "hist_mean_mape": 81.65,
+      "median_yield": 1077.0,
+      "unit_note": null
+    },
+    {
+      "crop": "SUGARCANE",
+      "app_crop": "Sugarcane",
+      "n": 86,
+      "model_mape": 21.95,
+      "persistence_mape": 24.54,
+      "hist_mean_mape": 24.28,
+      "median_yield": 7158.0,
+      "unit_note": "Recorded as gur/jaggery equivalent (~7,100 kg/ha) rather than cane (~80,000). Not served \u2014 the figure would read as wrong to any grower."
+    },
+    {
+      "crop": "SUNFLOWER",
+      "app_crop": "Sunflower",
+      "n": 65,
+      "model_mape": 95.22,
+      "persistence_mape": 89.02,
+      "hist_mean_mape": 102.7,
+      "median_yield": 431.0,
+      "unit_note": null
+    },
+    {
+      "crop": "WHEAT",
+      "app_crop": "Wheat",
+      "n": 89,
+      "model_mape": 28.42,
+      "persistence_mape": 31.13,
+      "hist_mean_mape": 37.1,
+      "median_yield": 1313.0,
+      "unit_note": null
+    }
+  ],
+  "served_crops": [
+    "CASTOR",
+    "CHICKPEA",
+    "GROUNDNUT",
+    "RABI SORGHUM",
+    "WHEAT"
+  ],
+  "max_mape_to_serve": 40.0,
+  "withheld_crops": [
+    "COTTON",
+    "FINGER MILLET",
+    "KHARIF SORGHUM",
+    "LINSEED",
+    "MAIZE",
+    "MINOR PULSES",
+    "OILSEEDS",
+    "PEARL MILLET",
+    "PIGEONPEA",
+    "RICE",
+    "SAFFLOWER",
+    "SESAMUM",
+    "SORGHUM",
+    "SOYABEAN",
+    "SUGARCANE",
+    "SUNFLOWER"
+  ],
+  "unit_suspect": {
+    "SUGARCANE": "Recorded as gur/jaggery equivalent (~7,100 kg/ha) rather than cane (~80,000). Not served \u2014 the figure would read as wrong to any grower."
+  },
+  "data_ends": 2017,
+  "extrapolation_warning": "Training data ends in 2017. Yields trend upward with seed and irrigation improvements, so predictions for years well beyond that will read LOW. Treat a present-day figure as a floor, not a forecast.",
+  "top_features": [
+    {
+      "feature": "yield_trend",
+      "gain": 2894
+    },
+    {
+      "feature": "area_change",
+      "gain": 2742
+    },
+    {
+      "feature": "district",
+      "gain": 2552
+    },
+    {
+      "feature": "yield_lag_3",
+      "gain": 2536
+    },
+    {
+      "feature": "state_yield_lag_1",
+      "gain": 2442
+    },
+    {
+      "feature": "yield_std_5",
+      "gain": 2320
+    },
+    {
+      "feature": "crop",
+      "gain": 2229
+    },
+    {
+      "feature": "rain_post",
+      "gain": 2219
+    },
+    {
+      "feature": "rain_sep",
+      "gain": 2193
+    },
+    {
+      "feature": "yield_lag_2",
+      "gain": 2115
+    },
+    {
+      "feature": "year",
+      "gain": 2090
+    },
+    {
+      "feature": "area",
+      "gain": 2026
+    }
+  ],
+  "SHIPPED": true,
+  "verdict": "SHIPPED, narrowly. With district rainfall joined, the model scores 50.08% MAPE against 59.25% for persistence and 61.44% for the historical mean \u2014 it beats both by 15.5%. An ablation on the IDENTICAL test split shows rainfall itself is worth 4.46 points (8.2%); the model beat persistence without it too, so the earlier \"no signal without rainfall\" conclusion was partly an artifact of the old 2012-2017 test window. Only 5 of 21 crops are actually served: beating a bad baseline is not enough, so a crop must ALSO come in under 40% MAPE. Safflower beat its baselines at 101% MAPE and is withheld.",
+  "ablation": {
+    "test_rows": 1592,
+    "test_years": "2012-2015",
+    "persistence": 59.25,
+    "model_without_rainfall": 54.54,
+    "model_with_rainfall": 50.08,
+    "rainfall_worth_points": 4.46,
+    "rainfall_worth_relative_pct": 8.2
+  },
+  "rainfall_source": "ICRISAT DLD Biophysical \u2014 Monthly Rainfall, apportioned, Maharashtra 1966-2015"
+}

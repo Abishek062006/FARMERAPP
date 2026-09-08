@@ -1,0 +1,200 @@
+{
+  "trained_at": "2026-08-22T09:01:26.583955Z",
+  "rows_dropped": {
+    "unmapped_market": 23,
+    "modal_zero": 138,
+    "modal_outside_min_max": 1,
+    "unit_scale_outlier": 25
+  },
+  "train_rows": 519608,
+  "test_rows": 34246,
+  "test_cutoff": "2026-02-19",
+  "test_months": 6,
+  "threshold": 0.4200000000000001,
+  "hold_rate_pct": 48.72,
+  "auc": 0.693,
+  "accuracy": 63.81,
+  "precision_hold": 63.77,
+  "recall_hold": 59.55,
+  "f1_hold": 61.58,
+  "returns": {
+    "always_sell": 0.0,
+    "always_hold": 1.564,
+    "majority_class": 0.0,
+    "model": 3.016,
+    "perfect_foresight": 5.861,
+    "captured_pct_of_ceiling": 51.5
+  },
+  "beats_naive": true,
+  "by_horizon": [
+    {
+      "horizon": 3,
+      "n": 10911,
+      "auc": 0.723,
+      "precision_hold": 63.84,
+      "model_return": 2.702,
+      "always_hold_return": 1.022
+    },
+    {
+      "horizon": 7,
+      "n": 11876,
+      "auc": 0.684,
+      "precision_hold": 63.22,
+      "model_return": 2.7,
+      "always_hold_return": 1.393
+    },
+    {
+      "horizon": 14,
+      "n": 11459,
+      "auc": 0.675,
+      "precision_hold": 64.29,
+      "model_return": 3.641,
+      "always_hold_return": 2.257
+    }
+  ],
+  "by_commodity": [
+    {
+      "commodity": "Cotton",
+      "n": 1875,
+      "hold_rate": 50.99,
+      "auc": 0.649,
+      "precision_hold": 68.14,
+      "model_return": 0.545,
+      "always_hold_return": 0.292
+    },
+    {
+      "commodity": "Onion",
+      "n": 7332,
+      "hold_rate": 52.82,
+      "auc": 0.716,
+      "precision_hold": 67.55,
+      "model_return": 6.516,
+      "always_hold_return": 5.255
+    },
+    {
+      "commodity": "Paddy(Common)",
+      "n": 1729,
+      "hold_rate": 45.17,
+      "auc": 0.795,
+      "precision_hold": 70.06,
+      "model_return": 1.762,
+      "always_hold_return": 0.436
+    },
+    {
+      "commodity": "Soyabean",
+      "n": 7168,
+      "hold_rate": 51.49,
+      "auc": 0.561,
+      "precision_hold": 56.62,
+      "model_return": 0.898,
+      "always_hold_return": 0.941
+    },
+    {
+      "commodity": "Tomato",
+      "n": 6555,
+      "hold_rate": 44.16,
+      "auc": 0.71,
+      "precision_hold": 60.05,
+      "model_return": 5.065,
+      "always_hold_return": 1.213
+    },
+    {
+      "commodity": "Wheat",
+      "n": 9587,
+      "hold_rate": 46.8,
+      "auc": 0.746,
+      "precision_hold": 66.49,
+      "model_return": 1.23,
+      "always_hold_return": -0.101
+    }
+  ],
+  "holding_cost_sensitivity": [
+    {
+      "multiplier": 0.5,
+      "hold_rate": 50.81,
+      "model_return": 3.325
+    },
+    {
+      "multiplier": 1.0,
+      "hold_rate": 48.72,
+      "model_return": 3.016
+    },
+    {
+      "multiplier": 2.0,
+      "hold_rate": 43.96,
+      "model_return": 2.397
+    }
+  ],
+  "holding_cost_pct_per_week": {
+    "Tomato": 3.0,
+    "Onion": 1.5,
+    "Paddy(Common)": 0.5,
+    "Wheat": 0.5,
+    "Soyabean": 0.5,
+    "Cotton": 0.4
+  },
+  "holding_cost_is_assumption": true,
+  "top_features": [
+    {
+      "feature": "weekofyear",
+      "gain": 1264
+    },
+    {
+      "feature": "district",
+      "gain": 955
+    },
+    {
+      "feature": "modal_price",
+      "gain": 542
+    },
+    {
+      "feature": "price_vs_mean_30",
+      "gain": 471
+    },
+    {
+      "feature": "commodity",
+      "gain": 470
+    },
+    {
+      "feature": "price_vs_mean_7",
+      "gain": 463
+    },
+    {
+      "feature": "roll_mean_30",
+      "gain": 454
+    },
+    {
+      "feature": "month",
+      "gain": 347
+    },
+    {
+      "feature": "cv_30",
+      "gain": 316
+    },
+    {
+      "feature": "roll_mean_7",
+      "gain": 313
+    },
+    {
+      "feature": "roll_std_30",
+      "gain": 310
+    },
+    {
+      "feature": "lag_30",
+      "gain": 263
+    },
+    {
+      "feature": "horizon",
+      "gain": 232
+    },
+    {
+      "feature": "arr_vs_mean_30",
+      "gain": 182
+    },
+    {
+      "feature": "roll_std_7",
+      "gain": 162
+    }
+  ],
+  "best_iteration": 82
+}

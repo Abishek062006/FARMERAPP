@@ -1,7 +1,7 @@
 """
 pesticide_rules.py
 ==================
-Pesticide calculation database for TN Farming App.
+Pesticide calculation database for the Maharashtra Farming App.
 
 Keys are derived by normalizing the EXACT training folder names:
   - Replace ___ with _
@@ -332,7 +332,7 @@ PESTICIDE_DATABASE = {
     },
 
     # ══════════════════════════════════════════════════════
-    # RICE  (not in PlantVillage but added for TN farming)
+    # RICE  (not in PlantVillage but added for Konkan/Vidarbha paddy)
     # ══════════════════════════════════════════════════════
     "Rice_Brown_spot": {
         "name": "Propiconazole 25% EC",

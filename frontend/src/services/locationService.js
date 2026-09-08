@@ -1,3 +1,4 @@
+import { matchDistrict, DEFAULT_STATE } from '../utils/districts';
   import * as Location from 'expo-location';
 
   export const getCurrentLocation = async () => {
@@ -22,9 +23,17 @@
       return {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        city: address[0]?.city || address[0]?.subregion || 'Chennai',
-        district: address[0]?.district || address[0]?.subregion || 'Chennai',
-        state: address[0]?.region || 'Tamil Nadu',
+        city: address[0]?.city || address[0]?.subregion || null,
+        // matchDistrict returns null rather than a guess when the geocoder
+        // hands back a neighbourhood name, which it often does. Never fall
+        // back to a literal district — that is how every existing user ended
+        // up stored as "Chennai".
+        district:
+          matchDistrict(address[0]?.district) ||
+          matchDistrict(address[0]?.subregion) ||
+          matchDistrict(address[0]?.city) ||
+          null,
+        state: address[0]?.region || DEFAULT_STATE,
         country: address[0]?.country || 'India',
       };
     } catch (error) {
@@ -35,46 +44,52 @@
 
   export const getCurrentSeason = () => {
     const month = new Date().getMonth() + 1; // 1-12
-    
-    // Tamil Nadu seasons
-    if (month >= 1 && month <= 5) {
-      return { 
-        name: 'Summer', 
-        tamil: 'கோடை காலம்', 
+
+    // Maharashtra seasons. These are the agricultural seasons the crop tables
+    // key on (agroZones.js uses Monsoon = Kharif, Winter = Rabi, Summer), not
+    // calendar seasons.
+    if (month >= 3 && month <= 5) {
+      return {
+        name: 'Summer',
+        localKey: 'season.summer',
         icon: '☀️',
         value: 'summer'
       };
-    } else if (month >= 6 && month <= 9) {
-      return { 
-        name: 'Monsoon', 
-        tamil: 'மழைக்காலம்', 
+    } else if (month >= 6 && month <= 10) {
+      return {
+        name: 'Monsoon',
+        localKey: 'season.monsoon',
         icon: '🌧️',
         value: 'monsoon'
       };
     } else {
-      return { 
-        name: 'Winter', 
-        tamil: 'குளிர்காலம்', 
+      return {
+        name: 'Winter',
+        localKey: 'season.winter',
         icon: '🍂',
         value: 'winter'
       };
     }
   };
 
+  // Labels are keys into i18n/strings.js rather than inline text, so adding a
+  // language does not mean editing this file. `value` matches Land's enums.
   export const soilTypes = [
-    { value: 'red', label: 'Red Soil', tamil: 'சிவப்பு மண்' },
-    { value: 'black', label: 'Black Soil', tamil: 'கருப்பு மண்' },
-    { value: 'clay', label: 'Clay Soil', tamil: 'களிமண்' },
-    { value: 'sandy', label: 'Sandy Soil', tamil: 'மணல் மண்' },
-    { value: 'loamy', label: 'Loamy Soil', tamil: 'வண்டல் மண்' },
-    { value: 'alluvial', label: 'Alluvial Soil', tamil: 'வண்டல் படிவு மண்' },
+    { value: 'red', label: 'Red Soil', localKey: 'soil.red' },
+    { value: 'black', label: 'Black Soil', localKey: 'soil.black' },
+    { value: 'clay', label: 'Clay Soil', localKey: 'soil.clay' },
+    { value: 'sandy', label: 'Sandy Soil', localKey: 'soil.sandy' },
+    { value: 'loamy', label: 'Loamy Soil', localKey: 'soil.loamy' },
+    { value: 'alluvial', label: 'Alluvial Soil', localKey: 'soil.alluvial' },
+    { value: 'laterite', label: 'Laterite Soil', localKey: 'soil.laterite' },
   ];
 
   export const waterSources = [
-    { value: 'borewell', label: 'Borewell', tamil: 'ஆழ்துளை கிணறு' },
-    { value: 'well', label: 'Well', tamil: 'கிணறு' },
-    { value: 'canal', label: 'Canal', tamil: 'கால்வாய்' },
-    { value: 'river', label: 'River', tamil: 'ஆறு' },
-    { value: 'rainwater', label: 'Rainwater', tamil: 'மழை நீர்' },
-    { value: 'tank', label: 'Tank/Pond', tamil: 'குளம்' },
+    { value: 'borewell', label: 'Borewell', localKey: 'water.borewell' },
+    { value: 'well', label: 'Well', localKey: 'water.well' },
+    { value: 'canal', label: 'Canal', localKey: 'water.canal' },
+    { value: 'river', label: 'River', localKey: 'water.river' },
+    { value: 'rainwater', label: 'Rainwater', localKey: 'water.rainwater' },
+    { value: 'tank', label: 'Tank', localKey: 'water.tank' },
+    { value: 'pond', label: 'Pond', localKey: 'water.pond' },
   ];

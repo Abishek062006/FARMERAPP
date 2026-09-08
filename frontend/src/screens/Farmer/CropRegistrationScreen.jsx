@@ -14,10 +14,13 @@
   import { Picker } from '@react-native-picker/picker';
   import axios from 'axios';
   import { API_ENDPOINTS } from '../../utils/config';
+  import { tBoth } from '../../i18n/strings';
+  import { useLanguage } from '../../i18n/LanguageContext';
 
   export default function CropRegistrationScreen({ navigation, route }) {
+    const { lang, t } = useLanguage();
     const { selectedCrops, land, plots, plotAllocations, userData } = route.params || {};
-    
+
     const [loading, setLoading] = useState(false);
     const [currentCropIndex, setCurrentCropIndex] = useState(0);
     
@@ -43,12 +46,16 @@
       const userFirebaseUid = userData?.firebaseUid || userData?.uid;
       
       if (!userData || !userFirebaseUid) {
-        Alert.alert('Error', 'User data not found. Please login again.');
+        Alert.alert(t('cropRegistration.errorTitle'), t('cropRegistration.userDataNotFound'));
         navigation.navigate('Dashboard');
       }
     }, []);
 
-    const units = ['plants', 'seeds', 'kg', 'grams', 'saplings'];
+    const unitValues = ['plants', 'seeds', 'kg', 'grams', 'saplings'];
+    const units = unitValues.map((u) => ({
+      value: u,
+      label: tBoth(`cropRegistration.unit.${u}`, lang),
+    }));
 
     const handleDateChange = (event, selectedDate) => {
       setShowDatePicker(false);
@@ -60,14 +67,14 @@
     const handleRegister = async () => {
       // Validate
       if (!quantity || quantity <= 0) {
-        Alert.alert('Required', 'Please enter quantity');
+        Alert.alert(t('cropRegistration.requiredTitle'), t('cropRegistration.enterQuantity'));
         return;
       }
 
       const userFirebaseUid = userData?.firebaseUid || userData?.uid;
-      
+
       if (!userFirebaseUid) {
-        Alert.alert('Error', 'User authentication error. Please login again.');
+        Alert.alert(t('cropRegistration.errorTitle'), t('cropRegistration.authError'));
         return;
       }
 
@@ -79,7 +86,7 @@
           landId: land._id,
           plotId: currentPlot ? currentPlot._id : null,
           name: currentCrop.name,
-          tamilName: currentCrop.tamilName,
+          localName: currentCrop.localName,
           variety: variety || 'Standard',
           plantingDate: plantingDate.toISOString().split('T')[0],
           duration: currentCrop.duration,
@@ -101,18 +108,18 @@
           // Check if there are more crops to register
           if (currentCropIndex < selectedCrops.length - 1) {
             Alert.alert(
-              'Success! 🎉',
-              `${currentCrop.name} registered! Register next crop?`,
+              t('cropRegistration.successTitle'),
+              `${currentCrop.name} ${t('cropRegistration.registeredRegisterNext')}`,
               [
                 {
-                  text: 'Skip Remaining',
+                  text: t('cropRegistration.skipRemaining'),
                   onPress: () => {
                     Alert.alert(
-                      'Success!',
-                      `${currentCropIndex + 1} crop(s) registered successfully!`,
+                      t('cropRegistration.successTitle'),
+                      `${currentCropIndex + 1} ${t('cropRegistration.cropsRegisteredSuccessfully')}`,
                       [
                         {
-                          text: 'Go to Dashboard',
+                          text: t('cropRegistration.goToDashboard'),
                           onPress: () => navigation.navigate('Dashboard'),
                         },
                       ]
@@ -120,7 +127,7 @@
                   },
                 },
                 {
-                  text: 'Next Crop',
+                  text: t('cropRegistration.nextCrop'),
                   onPress: () => {
                     setCurrentCropIndex(currentCropIndex + 1);
                     // Reset form
@@ -135,11 +142,11 @@
           } else {
             // All crops registered
             Alert.alert(
-              'All Done! 🎉',
-              `Successfully registered ${selectedCrops.length} crop(s)!`,
+              t('cropRegistration.allDoneTitle'),
+              `${t('cropRegistration.successfullyRegisteredPrefix')} ${selectedCrops.length} ${t('cropRegistration.cropsExclaim')}`,
               [
                 {
-                  text: 'Go to Dashboard',
+                  text: t('cropRegistration.goToDashboard'),
                   onPress: () => navigation.navigate('Dashboard'),
                 },
               ]
@@ -150,8 +157,8 @@
         console.error('❌ Error registering crop:', error);
         console.error('❌ Error response:', error.response?.data);
         Alert.alert(
-          'Error', 
-          error.response?.data?.message || 'Failed to register crop. Please try again.'
+          t('cropRegistration.errorTitle'),
+          error.response?.data?.message || t('cropRegistration.failedToRegister')
         );
       } finally {
         setLoading(false);
@@ -161,12 +168,12 @@
     if (!currentCrop) {
       return (
         <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>No crop selected</Text>
+          <Text style={styles.errorText}>{t('cropRegistration.noCropSelected')}</Text>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.navigate('Dashboard')}
           >
-            <Text style={styles.backButtonText}>Go to Dashboard</Text>
+            <Text style={styles.backButtonText}>{t('cropRegistration.goToDashboard')}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -176,9 +183,9 @@
       <ScrollView style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Register Crop</Text>
+          <Text style={styles.headerTitle}>{t('cropRegistration.headerTitle')}</Text>
           <Text style={styles.headerSubtitle}>
-            {currentCropIndex + 1} of {selectedCrops.length}
+            {currentCropIndex + 1} {t('cropRegistration.ofWord')} {selectedCrops.length}
           </Text>
         </View>
 
@@ -201,9 +208,9 @@
           </View>
           <View style={styles.cropInfo}>
             <Text style={styles.cropName}>{currentCrop.name}</Text>
-            <Text style={styles.cropTamilName}>{currentCrop.tamilName}</Text>
+            <Text style={styles.cropLocalName}>{currentCrop.localName}</Text>
             <Text style={styles.cropDuration}>
-              Duration: {currentCrop.duration} days
+              {t('cropRegistration.durationPrefix')} {currentCrop.duration} {t('cropRegistration.days')}
             </Text>
           </View>
         </View>
@@ -213,10 +220,10 @@
           <View style={styles.plotInfoCard}>
             <Ionicons name="grid" size={20} color="#4CAF50" />
             <View style={styles.plotInfoText}>
-              <Text style={styles.plotInfoLabel}>Allocated Plot</Text>
+              <Text style={styles.plotInfoLabel}>{t('cropRegistration.allocatedPlot')}</Text>
               <Text style={styles.plotInfoValue}>
-                {currentAllocation.area.value} {currentAllocation.area.unit} 
-                ({currentAllocation.percentage.toFixed(1)}% of land)
+                {currentAllocation.area.value} {currentAllocation.area.unit}
+                ({currentAllocation.percentage.toFixed(1)}% {t('cropRegistration.ofLand')})
               </Text>
             </View>
           </View>
@@ -227,7 +234,7 @@
           {/* Planting Date */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>
-              Planting Date <Text style={styles.required}>*</Text>
+              {t('cropRegistration.plantingDate')} <Text style={styles.required}>*</Text>
             </Text>
             <TouchableOpacity
               style={styles.dateButton}
@@ -252,12 +259,12 @@
           {/* Quantity */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>
-              Quantity <Text style={styles.required}>*</Text>
+              {t('cropRegistration.quantity')} <Text style={styles.required}>*</Text>
             </Text>
             <View style={styles.row}>
               <TextInput
                 style={[styles.input, { flex: 2 }]}
-                placeholder="e.g., 100"
+                placeholder={t('cropRegistration.quantityPlaceholder')}
                 keyboardType="numeric"
                 value={quantity}
                 onChangeText={setQuantity}
@@ -269,7 +276,7 @@
                   style={styles.picker}
                 >
                   {units.map((u) => (
-                    <Picker.Item key={u} label={u} value={u} />
+                    <Picker.Item key={u.value} label={u.label} value={u.value} />
                   ))}
                 </Picker>
               </View>
@@ -278,10 +285,10 @@
 
           {/* Variety */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Variety (Optional)</Text>
+            <Text style={styles.label}>{t('cropRegistration.variety')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g., Hybrid, Local, Organic"
+              placeholder={t('cropRegistration.varietyPlaceholder')}
               value={variety}
               onChangeText={setVariety}
             />
@@ -290,10 +297,10 @@
 
           {/* Notes */}
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Notes (Optional)</Text>
+            <Text style={styles.label}>{t('cropRegistration.notes')}</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="Any additional notes..."
+              placeholder={t('cropRegistration.notesPlaceholder')}
               value={notes}
               onChangeText={setNotes}
               multiline
@@ -314,7 +321,7 @@
             <>
               <Ionicons name="checkmark-circle" size={24} color="#fff" />
               <Text style={styles.registerButtonText}>
-                Register {currentCrop.name}
+                {t('cropRegistration.registerPrefix')} {currentCrop.name}
               </Text>
             </>
           )}
@@ -326,19 +333,19 @@
             style={styles.skipButton}
             onPress={() => {
               Alert.alert(
-                'Skip Registration',
-                'Skip remaining crops and go to dashboard?',
+                t('cropRegistration.skipRegistrationTitle'),
+                t('cropRegistration.skipConfirmMsg'),
                 [
-                  { text: 'Cancel', style: 'cancel' },
+                  { text: t('cropRegistration.cancel'), style: 'cancel' },
                   {
-                    text: 'Skip',
+                    text: t('cropRegistration.skip'),
                     onPress: () => {
                       Alert.alert(
-                        'Success!',
-                        `${currentCropIndex + 1} crop(s) registered!`,
+                        t('cropRegistration.successTitle'),
+                        `${currentCropIndex + 1} ${t('cropRegistration.cropsRegistered')}`,
                         [
                           {
-                            text: 'Go to Dashboard',
+                            text: t('cropRegistration.goToDashboard'),
                             onPress: () => navigation.navigate('Dashboard'),
                           },
                         ]
@@ -349,7 +356,7 @@
               );
             }}
           >
-            <Text style={styles.skipButtonText}>Skip Remaining Crops</Text>
+            <Text style={styles.skipButtonText}>{t('cropRegistration.skipRemainingCrops')}</Text>
           </TouchableOpacity>
         )}
 
@@ -433,7 +440,7 @@
       fontWeight: 'bold',
       color: '#333',
     },
-    cropTamilName: {
+    cropLocalName: {
       fontSize: 16,
       color: '#666',
       marginTop: 4,

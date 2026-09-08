@@ -8,6 +8,14 @@ import * as Location from 'expo-location';
 import { useKeepAwake } from 'expo-keep-awake';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/config';
+// The gate vocabulary, shared with the multi-farm run's own sheet
+// (components/StopOutcomeSheet). One list of weighing methods and one list of
+// condition flags across both recording screens, so neither can quietly drift
+// from what backend/data/gateRecord.js accepts.
+import {
+  POSTABLE_WEIGHT_METHODS, WEIGHT_METHOD, weightRefApplies,
+  CONDITION_FLAGS, conditionBody,
+} from '../../utils/stopOutcome';
 import VehicleIcon from '../../components/vehicles/VehicleIcon';
 import usePolling from '../../hooks/usePolling';
 import TrackingMapSurface from '../../components/map/TrackingMapSurface';
@@ -27,6 +35,24 @@ export default function AgentTripScreen({ navigation, route }) {
   const [order, setOrder]   = useState(null);
   const [loading, setLoading] = useState(true);
   const [otpOpen, setOtpOpen] = useState(false);
+  // ── WHAT THE GATE RECORD NEEDS, ON THE ONE-FARM PICKUP ─────────────────
+  //
+  // `POST /api/orders/:id/pickup` used to take an OTP and nothing else, so a
+  // buyer's receipt printed a quantity with "Not recorded" where its
+  // provenance should be — on the commonest kind of pickup in this app.
+  //
+  // The server now REQUIRES `weightMethod` (400 WEIGHT_METHOD_REQUIRED) and
+  // accepts visible CONDITION. `estimated` is a first-class answer; what is
+  // refused is silence, because an empty box lets a guess be read as a
+  // measurement.
+  //
+  // ⚠️ NO GRADE IS ASKED FOR HERE, EVER. This screen belongs to a captain from
+  // the public pool, and the server refuses a posted grade outright — see
+  // backend/data/gateRecord.js GRADING_ROLES.
+  const [weightMethod, setWeightMethod] = useState(null);
+  const [weightRef, setWeightRef] = useState('');
+  const [condChecked, setCondChecked] = useState(false);
+  const [condFlags, setCondFlags] = useState([]);
   const [otp, setOtp]       = useState('');
   const [busy, setBusy]     = useState(false);
   const [simulating, setSimulating] = useState(false);
@@ -143,17 +169,39 @@ export default function AgentTripScreen({ navigation, route }) {
   const submitOtp = async () => {
     const code = otp.trim();
     if (code.length !== 4) return;
+    // Asked here as well as refused there, so the captain stays in the form
+    // instead of bouncing off an error toast. The wording is the server's own.
+    if (collecting && !POSTABLE_WEIGHT_METHODS.includes(weightMethod)) {
+      return Alert.alert('Check this', 'Say how the weight was arrived at. "Not weighed" is an '
+        + 'answer — most farm gates have no scale. Leaving it blank is what is not accepted, '
+        + 'because an empty box lets a guess be read as a measurement.');
+    }
     setBusy(true);
     try {
       const step = collecting ? 'pickup' : 'deliver';
-      const r = await axios.post(`${API_ENDPOINTS.ORDERS}/${orderId}/${step}`, { otp: code });
+      const r = await axios.post(`${API_ENDPOINTS.ORDERS}/${orderId}/${step}`, {
+        otp: code,
+        // Only the pickup leg records a gate. Delivery is the buyer's own code
+        // and has nothing to weigh.
+        ...(collecting
+          ? {
+            weightMethod,
+            ...(weightRefApplies(weightMethod) && weightRef.trim()
+              ? { weightRef: weightRef.trim() } : {}),
+            ...conditionBody(condChecked, condFlags, ''),
+          }
+          : {}),
+      });
       if (r.data.success) {
         setOtpOpen(false);
         setOtp('');
         setOrder(r.data.order);
         if (r.data.order.status === 'delivered') {
+          const fare = r.data.order.fare?.total ?? 0;
           Alert.alert('Trip complete 🎉',
-            `₹${(r.data.order.fare?.agentPayout ?? r.data.order.fare?.total)?.toLocaleString('en-IN')} earned. Collect ₹${r.data.order.grandTotal?.toLocaleString('en-IN')} cash from the buyer.`,
+            `₹${(r.data.order.fare?.agentPayout ?? fare)?.toLocaleString('en-IN')} earned. ` +
+            `Collect ₹${fare.toLocaleString('en-IN')} cash from the buyer — the FARE only. ` +
+            `The buyer pays the farmer for the crop directly.`,
             [{ text: 'Done', onPress: () => navigation.goBack() }]);
         }
       }
@@ -278,11 +326,16 @@ export default function AgentTripScreen({ navigation, route }) {
           </View>
         </View>
 
+        {/* The FARE only — never grandTotal. grandTotal includes the crop
+            value, which the buyer settles with the farmer directly; telling
+            the agent to collect it made the farmer's money disappear into the
+            agent's pocket with nothing recording it was ever owed. */}
         <View style={s.codBox}>
           <Ionicons name="cash-outline" size={18} color="#C2410C" />
           <Text style={s.codText}>
-            Collect <Text style={{ fontWeight: '800' }}>₹{order.grandTotal?.toLocaleString('en-IN')}</Text> cash
-            from the buyer on delivery.
+            Collect <Text style={{ fontWeight: '800' }}>₹{order.fare?.total?.toLocaleString('en-IN')}</Text> cash
+            from the buyer on delivery — this is the transport fare only.
+            The buyer pays the farmer for the crop separately.
           </Text>
         </View>
 
@@ -299,7 +352,10 @@ export default function AgentTripScreen({ navigation, route }) {
 
       {order.status !== 'delivered' && (
         <View style={s.footer}>
-          <TouchableOpacity style={s.cta} onPress={() => { setOtp(''); setOtpOpen(true); }} activeOpacity={0.85}>
+          <TouchableOpacity style={s.cta} onPress={() => {
+            setOtp(''); setWeightMethod(null); setWeightRef('');
+            setCondChecked(false); setCondFlags([]); setOtpOpen(true);
+          }} activeOpacity={0.85}>
             <Ionicons name="keypad-outline" size={18} color="#fff" />
             <Text style={s.ctaText}>
               {collecting ? 'Enter pickup code' : 'Enter delivery code'}
@@ -311,7 +367,16 @@ export default function AgentTripScreen({ navigation, route }) {
       {/* OTP gate */}
       <Modal visible={otpOpen} transparent animationType="fade" onRequestClose={() => setOtpOpen(false)}>
         <View style={s.otpOverlay}>
-          <View style={s.otpSheet}>
+          {/* The pickup leg now asks two more questions (how the weight was
+              arrived at, and what the lot looked like), so the sheet has to be
+              able to scroll on a small phone. `maxHeight` on the container plus
+              a ScrollView keeps the confirm button reachable rather than
+              pushed off the bottom of the screen. */}
+          <ScrollView
+            style={s.otpSheetScroll}
+            contentContainerStyle={s.otpSheet}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text style={s.otpTitle}>{collecting ? 'Pickup code' : 'Delivery code'}</Text>
             <Text style={s.otpSub}>
               {collecting
@@ -328,6 +393,112 @@ export default function AgentTripScreen({ navigation, route }) {
               placeholder="0000"
               placeholderTextColor="#CBD5E1"
             />
+            {/* ── THE GATE RECORD, ON THE PICKUP LEG ONLY ─────────────────
+                Delivery is the buyer's own code and has nothing to weigh. */}
+            {collecting && (
+              <View style={s.gateBlock}>
+                <Text style={s.gateLabel}>How was this weight arrived at?</Text>
+                <Text style={s.gateHelp}>
+                  This app does not weigh anything. You are recording HOW the kilograms were
+                  established — nothing here is checked against a scale and no figure is corrected.
+                </Text>
+                {[
+                  [WEIGHT_METHOD.BRIDGE, 'Public weighbridge', 'Issues a ticket both sides can produce. The only one here that does not depend on trusting whoever typed it.'],
+                  [WEIGHT_METHOD.FARM, "The farm's own scale", 'Real, but uncertified and unwitnessed.'],
+                  [WEIGHT_METHOD.CENTRE, 'A collection centre scale', "The seller's group's own instrument, not an independent one."],
+                  [WEIGHT_METHOD.ESTIMATED, 'Not weighed — counted or judged by eye', 'An honest answer, and the common one. Bags counted and multiplied, or an experienced eye.'],
+                ].map(([m, title, sub]) => {
+                  const on = weightMethod === m;
+                  return (
+                    <TouchableOpacity
+                      key={m}
+                      style={[s.gateCard, on && s.gateCardOn]}
+                      onPress={() => setWeightMethod(m)}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons
+                        name={on ? 'radio-button-on' : 'radio-button-off'}
+                        size={16}
+                        color={on ? '#16A34A' : '#CBD5E1'}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[s.gateCardTitle, on && { color: '#111827' }]}>{title}</Text>
+                        <Text style={s.gateCardSub}>{sub}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                {/* Offered for the ONE method that issues a ticket. A reference
+                    against an eyeballed figure would invite inventing one. */}
+                {weightRefApplies(weightMethod) && (
+                  <TextInput
+                    style={s.gateInput}
+                    value={weightRef}
+                    onChangeText={setWeightRef}
+                    placeholder="Weighbridge ticket number (optional)"
+                    placeholderTextColor="#9CA3AF"
+                    maxLength={60}
+                  />
+                )}
+
+                <Text style={s.gateLabel}>What did the lot look like?</Text>
+                {/* ⚠️ NO GRADE HERE. Grading judges size, colour uniformity and
+                    blemish tolerance against a published standard — a skilled
+                    call carrying a price premium, about produce you will never
+                    see again. This app does not ask a driver for it, and says
+                    so rather than leaving a blank that reads as an oversight. */}
+                <Text style={s.gateHelp}>
+                  Only what you could see. This is not a grade — the farmer's declared grade stands,
+                  labelled unchecked, and the buyer judges the lot on arrival. Nothing here changes
+                  a price.
+                </Text>
+                <TouchableOpacity
+                  style={[s.gateCard, condChecked && condFlags.length === 0 && s.gateCardOn]}
+                  onPress={() => { setCondChecked(true); setCondFlags([]); }}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons
+                    name={condChecked && condFlags.length === 0 ? 'radio-button-on' : 'radio-button-off'}
+                    size={16}
+                    color={condChecked && condFlags.length === 0 ? '#16A34A' : '#CBD5E1'}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.gateCardTitle, condChecked && condFlags.length === 0 && { color: '#111827' }]}>
+                      I looked — nothing visibly wrong
+                    </Text>
+                    {/* The distinction the record keeps: saying nothing is not
+                        the same as saying it was fine. */}
+                    <Text style={s.gateCardSub}>
+                      Skip this and the record says nobody looked, which is a different fact.
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                <View style={s.chipWrap}>
+                  {CONDITION_FLAGS.map((f) => {
+                    const on = condFlags.includes(f.key);
+                    const bad = f.severity === 'serious';
+                    return (
+                      <TouchableOpacity
+                        key={f.key}
+                        style={[s.chip, on && (bad ? s.chipSerious : s.chipOn)]}
+                        onPress={() => {
+                          setCondFlags((cur) => (cur.includes(f.key)
+                            ? cur.filter((k) => k !== f.key) : [...cur, f.key]));
+                          setCondChecked(true);
+                        }}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={[s.chipText, on && { color: bad ? '#B91C1C' : '#15803D' }]}>
+                          {LOCAL_COND_LABEL[f.key]}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
             <View style={s.otpActions}>
               <TouchableOpacity style={[s.otpBtn, s.otpCancel]} onPress={() => setOtpOpen(false)}>
                 <Text style={s.otpCancelText}>Cancel</Text>
@@ -340,14 +511,51 @@ export default function AgentTripScreen({ navigation, route }) {
                 {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.otpConfirmText}>Confirm</Text>}
               </TouchableOpacity>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
     </View>
   );
 }
 
+// The captain's stack is ENGLISH ONLY — a deliberate product decision (a trader
+// and a driver deal in English forms daily; a smallholder does not). Keys match
+// CONDITION_FLAGS in utils/stopOutcome.js and CONDITION_FLAGS in
+// backend/data/gateRecord.js.
+const LOCAL_COND_LABEL = {
+  wrong_crop: 'Not the crop ordered',
+  visibly_spoiled: 'Rotten or mouldy',
+  sprouting: 'Sprouting',
+  wet: 'Wet or damp',
+  damaged: 'Crushed or bruised',
+  packaging_damaged: 'Bags or crates damaged',
+};
+
 const s = StyleSheet.create({
+  gateBlock: { marginTop: 14, borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 14 },
+  gateLabel: { fontSize: 13, fontWeight: '800', color: '#111827', marginTop: 6, marginBottom: 4 },
+  gateHelp: { fontSize: 11, color: '#6B7280', lineHeight: 16, marginBottom: 8 },
+  gateCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 9,
+    borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC',
+    borderRadius: 12, padding: 10, marginBottom: 7,
+  },
+  gateCardOn: { borderColor: '#16A34A', backgroundColor: '#F0FDF4' },
+  gateCardTitle: { fontSize: 12, fontWeight: '700', color: '#6B7280' },
+  gateCardSub: { fontSize: 10, color: '#9CA3AF', lineHeight: 14, marginTop: 2 },
+  gateInput: {
+    borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12,
+    paddingHorizontal: 12, paddingVertical: 9, fontSize: 13, color: '#111827', marginBottom: 8,
+  },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 4 },
+  chip: {
+    paddingHorizontal: 11, paddingVertical: 8, borderRadius: 999,
+    borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC',
+  },
+  chipOn: { borderColor: '#16A34A', backgroundColor: '#DCFCE7' },
+  chipSerious: { borderColor: '#DC2626', backgroundColor: '#FEE2E2' },
+  chipText: { fontSize: 11, color: '#6B7280', fontWeight: '600' },
+
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   mapWrap:   { height: 240, backgroundColor: '#E2E8F0' },
   recenter: {
@@ -438,7 +646,8 @@ const s = StyleSheet.create({
   ctaText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
   otpOverlay: { flex: 1, backgroundColor: 'rgba(17,24,39,0.55)', alignItems: 'center', justifyContent: 'center', padding: 28 },
-  otpSheet:   { backgroundColor: '#fff', borderRadius: 20, padding: 22, width: '100%', gap: 8 },
+  otpSheetScroll: { backgroundColor: '#fff', borderRadius: 20, width: '100%', maxHeight: '100%' },
+  otpSheet:   { padding: 22, gap: 8 },
   otpTitle:   { fontSize: 19, fontWeight: '800', color: '#111827' },
   otpSub:     { fontSize: 13.5, color: '#6B7280', lineHeight: 19 },
   otpInput: {

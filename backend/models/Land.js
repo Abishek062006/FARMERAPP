@@ -18,7 +18,7 @@ const landSchema = new mongoose.Schema({
     },
     city: { type: String, required: true },
     district: { type: String, required: true },
-    state: { type: String, required: true, default: 'Tamil Nadu' },
+    state: { type: String, required: true, default: 'Maharashtra' },
     pincode: { type: String },
     address: { type: String }
   },

@@ -23,9 +23,11 @@ import { getCropEmoji } from '../../components/growth-illustration/cropVisuals';
 import DailyTaskCard from '../../components/DailyTaskCard';
 import GrowthCalendarStrip from '../../components/GrowthCalendarStrip';
 import HarvestPostModal from './HarvestPostModal';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export default function CropDetailScreen({ navigation, route }) {
   const { crop, userData } = route.params || {};
+  const { lang, t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -119,7 +121,7 @@ export default function CropDetailScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('❌ Error loading crop details:', error);
-      Alert.alert('Error', 'Failed to load crop details');
+      Alert.alert(t('cropDetail.error'), t('cropDetail.failedLoadDetails'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -129,17 +131,17 @@ export default function CropDetailScreen({ navigation, route }) {
   const handleRefresh = () => { setRefreshing(true); loadCropDetails(); };
 
   const handleScanPlant = () => {
-    Alert.alert('Scan Plant Health', 'Choose an option to detect diseases', [
-      { text: 'Take Photo', onPress: () => openCamera() },
-      { text: 'Choose from Gallery', onPress: () => pickImageFromGallery() },
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('cropDetail.scanPlantHealthTitle'), t('cropDetail.scanPlantHealthMsg'), [
+      { text: t('cropDetail.takePhoto'), onPress: () => openCamera() },
+      { text: t('cropDetail.chooseFromGallery'), onPress: () => pickImageFromGallery() },
+      { text: t('cropDetail.cancel'), style: 'cancel' },
     ]);
   };
 
   const openCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Camera permission is required to scan plants');
+      Alert.alert(t('cropDetail.permissionNeededTitle'), t('cropDetail.cameraPermissionMsg'));
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -181,13 +183,13 @@ export default function CropDetailScreen({ navigation, route }) {
         console.log('🧪 Pesticide:', pesticideInfo);
 
         if (aiData.healthy) {
-          Alert.alert('Good News! 🌿', 'Your plant appears healthy!', [
-            { text: 'OK', onPress: () => { setShowDiseaseModal(false); setCapturedImage(null); } }
+          Alert.alert(t('cropDetail.goodNewsTitle'), t('cropDetail.plantHealthyMsg'), [
+            { text: t('cropDetail.ok'), onPress: () => { setShowDiseaseModal(false); setCapturedImage(null); } }
           ]);
         } else {
           const disease = aiData.diseases?.[0] || null;
           if (!disease) {
-            Alert.alert('Error', 'No disease information available');
+            Alert.alert(t('cropDetail.error'), t('cropDetail.noDiseaseInfoMsg'));
             setShowDiseaseModal(false); setCapturedImage(null); return;
           }
 
@@ -206,28 +208,28 @@ export default function CropDetailScreen({ navigation, route }) {
 
           setDiseaseResult({
             isHealthy: false,
-            diseaseName: disease.name || 'Unknown Disease',
+            diseaseName: disease.name || t('cropDetail.unknownDisease'),
             scientificName: disease.commonNames?.[0] || '',
             severity: 'moderate',
             affectedArea: 'leaves',
-            symptoms: disease.cause || disease.description || 'No symptoms information available',
-            treatment: treatmentText || 'Consult an agricultural expert for treatment recommendations',
+            symptoms: disease.cause || disease.description || t('cropDetail.noSymptomsInfo'),
+            treatment: treatmentText || t('cropDetail.defaultTreatment'),
             confidence: (aiData.confidence || disease.probability || 50) / 100,
             pesticides,
             pesticideInfo,
           });
         }
       } else {
-        Alert.alert('Error', response.data.message || 'Failed to analyze image');
+        Alert.alert(t('cropDetail.error'), response.data.message || t('cropDetail.failedAnalyzeImage'));
         setShowDiseaseModal(false); setCapturedImage(null);
       }
     } catch (error) {
       console.error('❌ Error detecting disease:', error);
-      let msg = 'Could not analyze the image. Please try again with a clearer photo.';
-      if (error.code === 'ECONNABORTED') msg = 'Request timed out. The AI service might be slow.';
-      else if (error.response?.status === 503) msg = 'AI service is not running. Please start the Python server.';
+      let msg = t('cropDetail.errCouldNotAnalyze');
+      if (error.code === 'ECONNABORTED') msg = t('cropDetail.errTimedOut');
+      else if (error.response?.status === 503) msg = t('cropDetail.errAiServiceDown');
       else if (error.response?.data?.message) msg = error.response.data.message;
-      Alert.alert('Detection Failed', msg);
+      Alert.alert(t('cropDetail.detectionFailedTitle'), msg);
       setShowDiseaseModal(false); setCapturedImage(null);
     } finally {
       setScanningDisease(false);
@@ -257,9 +259,9 @@ export default function CropDetailScreen({ navigation, route }) {
           setPesticideExpanded(true);
         }
 
-        Alert.alert('Saved! ✅', 'Disease logged successfully', [
+        Alert.alert(t('cropDetail.savedTitle'), t('cropDetail.diseaseLoggedMsg'), [
           {
-            text: 'OK',
+            text: t('cropDetail.ok'),
             onPress: () => {
               setShowDiseaseModal(false);
               setCapturedImage(null);
@@ -271,7 +273,7 @@ export default function CropDetailScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('❌ Error saving disease:', error);
-      Alert.alert('Error', 'Failed to save disease information');
+      Alert.alert(t('cropDetail.error'), t('cropDetail.failedSaveDisease'));
     }
   };
 
@@ -297,9 +299,9 @@ export default function CropDetailScreen({ navigation, route }) {
     setShowHarvestModal(false);
     setCropData((prev) => ({ ...prev, isHarvested: true, isActive: false, currentStage: 'completed' }));
     Alert.alert(
-      '🎉 Listed on Farm Market',
-      `${listing.quantityKg} kg of ${listing.cropName} is now visible to vendors.\n\nThis crop is marked harvested and its plot is free for your next crop.`,
-      [{ text: 'Done', onPress: () => navigation.goBack() }]
+      t('cropDetail.listedTitle'),
+      `${listing.quantityKg} ${t('cropDetail.kgOf')} ${listing.cropName} ${t('cropDetail.listedMsgSuffix')}`,
+      [{ text: t('cropDetail.done'), onPress: () => navigation.goBack() }]
     );
   };
 
@@ -308,22 +310,22 @@ export default function CropDetailScreen({ navigation, route }) {
   // POST /api/crops would block that plot forever.
   const handleHarvestOnly = () => {
     Alert.alert(
-      'Harvest without selling?',
-      'Use this if the crop failed or you are not selling through the app. The plot will be freed for your next crop.',
+      t('cropDetail.harvestWithoutSellingTitle'),
+      t('cropDetail.harvestWithoutSellingMsg'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cropDetail.cancel'), style: 'cancel' },
         {
-          text: 'Harvest only',
+          text: t('cropDetail.harvestOnly'),
           style: 'destructive',
           onPress: async () => {
             try {
               const r = await axios.put(`${API_ENDPOINTS.CROPS}/${cropData._id}/harvest`, { actualYield: 0 });
               if (r.data.success) {
                 setCropData((prev) => ({ ...prev, isHarvested: true, isActive: false }));
-                Alert.alert('Harvested', 'The plot is now free.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+                Alert.alert(t('cropDetail.harvestedTitle'), t('cropDetail.plotNowFreeMsg'), [{ text: t('cropDetail.ok'), onPress: () => navigation.goBack() }]);
               }
             } catch {
-              Alert.alert('Error', 'Could not mark this crop harvested.');
+              Alert.alert(t('cropDetail.error'), t('cropDetail.couldNotMarkHarvested'));
             }
           },
         },
@@ -332,15 +334,15 @@ export default function CropDetailScreen({ navigation, route }) {
   };
 
   const handleDeleteCrop = () => {
-    Alert.alert('Delete Crop', 'Are you sure? This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('cropDetail.deleteCropTitle'), t('cropDetail.confirmDeleteMsg'), [
+      { text: t('cropDetail.cancel'), style: 'cancel' },
       {
-        text: 'Delete', style: 'destructive',
+        text: t('cropDetail.delete'), style: 'destructive',
         onPress: async () => {
           try {
             const r = await axios.delete(`${API_ENDPOINTS.CROPS}/${cropData._id}`);
-            if (r.data.success) Alert.alert('Deleted', 'Crop deleted successfully', [{ text: 'OK', onPress: () => navigation.goBack() }]);
-          } catch { Alert.alert('Error', 'Failed to delete crop'); }
+            if (r.data.success) Alert.alert(t('cropDetail.deletedTitle'), t('cropDetail.cropDeletedMsg'), [{ text: t('cropDetail.ok'), onPress: () => navigation.goBack() }]);
+          } catch { Alert.alert(t('cropDetail.error'), t('cropDetail.failedDeleteCrop')); }
         },
       },
     ]);
@@ -383,7 +385,7 @@ export default function CropDetailScreen({ navigation, route }) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#4CAF50" />
-        <Text style={styles.loadingText}>Loading crop details...</Text>
+        <Text style={styles.loadingText}>{t('cropDetail.loadingDetails')}</Text>
       </View>
     );
   }
@@ -392,9 +394,9 @@ export default function CropDetailScreen({ navigation, route }) {
     return (
       <View style={styles.centerContainer}>
         <Ionicons name="alert-circle-outline" size={60} color="#ccc" />
-        <Text style={styles.errorText}>Crop not found</Text>
+        <Text style={styles.errorText}>{t('cropDetail.cropNotFound')}</Text>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>Go Back</Text>
+          <Text style={styles.backButtonText}>{t('cropDetail.goBack')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -419,9 +421,9 @@ export default function CropDetailScreen({ navigation, route }) {
               <Text style={{ fontSize: 20 }}>🧪</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.pesticideMainTitle}>Pesticide Recommendation</Text>
+              <Text style={styles.pesticideMainTitle}>{t('cropDetail.pesticideRecTitle')}</Text>
               <Text style={styles.pesticideDiseaseName} numberOfLines={1}>
-                For: {savedDiseaseName}
+                {t('cropDetail.forPrefix')} {savedDiseaseName}
               </Text>
             </View>
           </View>
@@ -443,9 +445,9 @@ export default function CropDetailScreen({ navigation, route }) {
             <View style={styles.landContextRow}>
               <Ionicons name="map-outline" size={14} color="#2E7D32" />
               <Text style={styles.landContextText}>
-                Calculated for{' '}
-                <Text style={styles.landContextBold}>{landArea.toLocaleString()} sq ft</Text>{' '}
-                of land
+                {t('cropDetail.calculatedFor')}{' '}
+                <Text style={styles.landContextBold}>{landArea.toLocaleString()} {t('cropDetail.sqFt')}</Text>{' '}
+                {t('cropDetail.ofLand')}
               </Text>
             </View>
 
@@ -458,26 +460,26 @@ export default function CropDetailScreen({ navigation, route }) {
               <View style={styles.pesticideGridItem}>
                 <Text style={styles.gridEmoji}>💧</Text>
                 <Text style={styles.gridValue}>{info.total_water_litre} L</Text>
-                <Text style={styles.gridLabel}>Water{'\n'}Needed</Text>
+                <Text style={styles.gridLabel}>{t('cropDetail.waterNeeded')}</Text>
               </View>
               <View style={styles.pesticideGridDivider} />
               <View style={styles.pesticideGridItem}>
                 <Text style={styles.gridEmoji}>🧴</Text>
                 <Text style={styles.gridValue}>{info.total_pesticide_ml} ml</Text>
-                <Text style={styles.gridLabel}>Pesticide{'\n'}Amount</Text>
+                <Text style={styles.gridLabel}>{t('cropDetail.pesticideAmount')}</Text>
               </View>
               <View style={styles.pesticideGridDivider} />
               <View style={styles.pesticideGridItem}>
                 <Text style={styles.gridEmoji}>🏷️</Text>
                 <Text style={styles.gridValue}>{info.bottles_needed_litre} L</Text>
-                <Text style={styles.gridLabel}>Bottle{'\n'}Size</Text>
+                <Text style={styles.gridLabel}>{t('cropDetail.bottleSize')}</Text>
               </View>
             </View>
 
             <View style={styles.costRow}>
               <View style={styles.costRowLeft}>
                 <Ionicons name="cash-outline" size={20} color="#2E7D32" />
-                <Text style={styles.costRowLabel}>Estimated Total Cost</Text>
+                <Text style={styles.costRowLabel}>{t('cropDetail.estimatedTotalCost')}</Text>
               </View>
               <Animated.Text style={[styles.costRowValue, { transform: [{ scale: pulseAnim }] }]}>
                 ₹{info.estimated_cost}
@@ -485,12 +487,9 @@ export default function CropDetailScreen({ navigation, route }) {
             </View>
 
             <View style={styles.instructionBox}>
-              <Text style={styles.instructionTitle}>📋 Application Tips</Text>
+              <Text style={styles.instructionTitle}>{t('cropDetail.applicationTips')}</Text>
               <Text style={styles.instructionText}>
-                • Mix pesticide thoroughly with the required water before spraying.{'\n'}
-                • Apply early morning (6–8 AM) or late evening for best absorption.{'\n'}
-                • Wear protective gloves and mask while applying.{'\n'}
-                • Avoid spraying before rain.
+                {t('cropDetail.applicationTipsText')}
               </Text>
             </View>
 
@@ -499,7 +498,7 @@ export default function CropDetailScreen({ navigation, route }) {
               onPress={() => { setSavedPesticideInfo(null); setSavedDiseaseName(null); }}
             >
               <Ionicons name="close-circle-outline" size={15} color="#aaa" />
-              <Text style={styles.dismissText}>Dismiss recommendation</Text>
+              <Text style={styles.dismissText}>{t('cropDetail.dismissRecommendation')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -524,10 +523,10 @@ export default function CropDetailScreen({ navigation, route }) {
           </View>
           <View style={styles.cropInfo}>
             <Text style={styles.cropName}>{cropData.name}</Text>
-            <Text style={styles.cropTamilName}>{cropData.tamilName}</Text>
+            <Text style={styles.cropLocalName}>{cropData.localName}</Text>
             <View style={styles.locationRow}>
               <Ionicons name="location" size={14} color="#666" />
-              <Text style={styles.locationText}>{cropData.landId?.landName || 'Unknown Land'}</Text>
+              <Text style={styles.locationText}>{cropData.landId?.landName || t('cropDetail.unknownLand')}</Text>
             </View>
           </View>
           <View style={[styles.healthBadge, { backgroundColor: getHealthColor(cropData.healthScore) }]}>
@@ -541,30 +540,30 @@ export default function CropDetailScreen({ navigation, route }) {
       <View style={styles.scanSection}>
         <TouchableOpacity style={styles.scanButton} onPress={handleScanPlant}>
           <Ionicons name="scan" size={24} color="#fff" />
-          <Text style={styles.scanButtonText}>Scan Plant Health</Text>
+          <Text style={styles.scanButtonText}>{t('cropDetail.scanButtonLabel')}</Text>
           <Ionicons name="camera" size={20} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.scanSubtext}>AI-powered disease detection</Text>
+        <Text style={styles.scanSubtext}>{t('cropDetail.aiPoweredDetection')}</Text>
       </View>
 
       {/* Growth Progress */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Growth Progress</Text>
+        <Text style={styles.sectionTitle}>{t('cropDetail.growthProgress')}</Text>
         <View style={styles.progressCard}>
           <View style={styles.progressInfo}>
             <View style={styles.progressItem}>
               <Text style={styles.progressNumber}>{daysElapsed}</Text>
-              <Text style={styles.progressLabel}>Days Elapsed</Text>
+              <Text style={styles.progressLabel}>{t('cropDetail.daysElapsed')}</Text>
             </View>
             <View style={styles.progressDivider} />
             <View style={styles.progressItem}>
               <Text style={styles.progressNumber}>{daysRemaining}</Text>
-              <Text style={styles.progressLabel}>Days Remaining</Text>
+              <Text style={styles.progressLabel}>{t('cropDetail.daysRemaining')}</Text>
             </View>
             <View style={styles.progressDivider} />
             <View style={styles.progressItem}>
               <Text style={styles.progressNumber}>{progress}%</Text>
-              <Text style={styles.progressLabel}>Complete</Text>
+              <Text style={styles.progressLabel}>{t('cropDetail.complete')}</Text>
             </View>
           </View>
           <View style={styles.progressBarContainer}>
@@ -573,14 +572,14 @@ export default function CropDetailScreen({ navigation, route }) {
             </View>
           </View>
           <Text style={styles.stageName}>
-            Stage: {cropData.currentStage.charAt(0).toUpperCase() + cropData.currentStage.slice(1)}
+            {t('cropDetail.stagePrefix')}: {cropData.currentStage.charAt(0).toUpperCase() + cropData.currentStage.slice(1)}
           </Text>
         </View>
       </View>
 
       {/* Day-by-Day Growth Tracker */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Daily Growth Tracker</Text>
+        <Text style={styles.sectionTitle}>{t('cropDetail.dailyGrowthTracker')}</Text>
         <GrowthIllustration
           cropName={cropData.name}
           category={growthCalendar?.category}
@@ -620,7 +619,7 @@ export default function CropDetailScreen({ navigation, route }) {
       {/* Weather */}
       {weather && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Today's Weather</Text>
+          <Text style={styles.sectionTitle}>{t('cropDetail.todaysWeather')}</Text>
           <View style={styles.weatherCard}>
             <View style={styles.weatherMain}>
               <Ionicons name="partly-sunny" size={40} color="#FF9800" />
@@ -632,11 +631,11 @@ export default function CropDetailScreen({ navigation, route }) {
             <View style={styles.weatherDetails}>
               <View style={styles.weatherDetail}>
                 <Ionicons name="water" size={16} color="#2196F3" />
-                <Text style={styles.weatherDetailText}>Humidity: {weather.humidity}%</Text>
+                <Text style={styles.weatherDetailText}>{t('cropDetail.humidityPrefix')}: {weather.humidity}%</Text>
               </View>
               <View style={styles.weatherDetail}>
                 <Ionicons name="speedometer" size={16} color="#666" />
-                <Text style={styles.weatherDetailText}>Wind: {weather.windSpeed} m/s</Text>
+                <Text style={styles.weatherDetailText}>{t('cropDetail.windPrefix')}: {weather.windSpeed} m/s</Text>
               </View>
             </View>
           </View>
@@ -646,7 +645,7 @@ export default function CropDetailScreen({ navigation, route }) {
       {/* Tasks */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Tasks ({tasks.length})</Text>
+          <Text style={styles.sectionTitle}>{t('cropDetail.tasksTitle')} ({tasks.length})</Text>
           <TouchableOpacity onPress={() => navigation.navigate('TaskManagement', { crop: cropData, userData })}>
             <Ionicons name="add-circle" size={28} color="#4CAF50" />
           </TouchableOpacity>
@@ -654,7 +653,7 @@ export default function CropDetailScreen({ navigation, route }) {
         {tasks.length === 0 ? (
           <View style={styles.emptyCard}>
             <Ionicons name="clipboard-outline" size={40} color="#ccc" />
-            <Text style={styles.emptyText}>No tasks yet</Text>
+            <Text style={styles.emptyText}>{t('cropDetail.noTasksYet')}</Text>
           </View>
         ) : (
           <View style={styles.tasksCard}>
@@ -673,13 +672,13 @@ export default function CropDetailScreen({ navigation, route }) {
 
       {/* Crop Details */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Crop Details</Text>
+        <Text style={styles.sectionTitle}>{t('cropDetail.cropDetailsTitle')}</Text>
         <View style={styles.detailsCard}>
           {[
-            ['Variety', cropData.variety],
-            ['Quantity', `${cropData.quantity} ${cropData.unit}`],
-            ['Planting Date', new Date(cropData.plantingDate).toLocaleDateString('en-IN')],
-            ['Expected Harvest', new Date(cropData.expectedHarvestDate).toLocaleDateString('en-IN')],
+            [t('cropDetail.variety'), cropData.variety],
+            [t('cropDetail.quantity'), `${cropData.quantity} ${cropData.unit}`],
+            [t('cropDetail.plantingDate'), new Date(cropData.plantingDate).toLocaleDateString('en-IN')],
+            [t('cropDetail.expectedHarvest'), new Date(cropData.expectedHarvestDate).toLocaleDateString('en-IN')],
           ].map(([label, value]) => (
             <View key={label} style={styles.detailRow}>
               <Text style={styles.detailLabel}>{label}:</Text>
@@ -688,7 +687,7 @@ export default function CropDetailScreen({ navigation, route }) {
           ))}
           {cropData.notes && (
             <View style={styles.notesSection}>
-              <Text style={styles.detailLabel}>Notes:</Text>
+              <Text style={styles.detailLabel}>{t('cropDetail.notes')}:</Text>
               <Text style={styles.notesText}>{cropData.notes}</Text>
             </View>
           )}
@@ -701,24 +700,24 @@ export default function CropDetailScreen({ navigation, route }) {
           <>
             <TouchableOpacity style={styles.harvestButton} onPress={openHarvestModal}>
               <Ionicons name="storefront" size={22} color="#fff" />
-              <Text style={styles.harvestButtonText}>Post Harvest to Farm Market</Text>
+              <Text style={styles.harvestButtonText}>{t('cropDetail.postHarvestButton')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.harvestOnlyLink} onPress={handleHarvestOnly}>
-              <Text style={styles.harvestOnlyText}>Crop failed? Harvest without selling</Text>
+              <Text style={styles.harvestOnlyText}>{t('cropDetail.harvestFailedLink')}</Text>
             </TouchableOpacity>
           </>
         ) : (
           <View style={styles.harvestedBanner}>
             <Ionicons name="checkmark-circle" size={18} color="#15803D" />
             <Text style={styles.harvestedBannerText}>
-              Harvested{cropData.harvestDate ? ` on ${new Date(cropData.harvestDate).toLocaleDateString('en-IN')}` : ''}
+              {t('cropDetail.harvestedBanner')}{cropData.harvestDate ? ` ${t('cropDetail.harvestedOnPrefix')} ${new Date(cropData.harvestDate).toLocaleDateString('en-IN')}` : ''}
             </Text>
           </View>
         )}
 
         <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteCrop}>
           <Ionicons name="trash" size={20} color="#fff" />
-          <Text style={styles.deleteButtonText}>Delete Crop</Text>
+          <Text style={styles.deleteButtonText}>{t('cropDetail.deleteCropButton')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -734,7 +733,7 @@ export default function CropDetailScreen({ navigation, route }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Disease Detection</Text>
+              <Text style={styles.modalTitle}>{t('cropDetail.diseaseDetectionTitle')}</Text>
               <TouchableOpacity onPress={() => { setShowDiseaseModal(false); setCapturedImage(null); setDiseaseResult(null); }}>
                 <Ionicons name="close" size={28} color="#333" />
               </TouchableOpacity>
@@ -748,57 +747,59 @@ export default function CropDetailScreen({ navigation, route }) {
               {scanningDisease ? (
                 <View style={styles.scanningContainer}>
                   <ActivityIndicator size="large" color="#4CAF50" />
-                  <Text style={styles.scanningText}>Analyzing plant health...</Text>
-                  <Text style={styles.scanningSubtext}>Using TensorFlow AI Model</Text>
-                  <Text style={styles.scanningSubtext}>This may take a few seconds</Text>
+                  <Text style={styles.scanningText}>{t('cropDetail.analyzingPlantHealth')}</Text>
+                  <Text style={styles.scanningSubtext}>{t('cropDetail.usingTensorflowModel')}</Text>
+                  <Text style={styles.scanningSubtext}>{t('cropDetail.mayTakeSeconds')}</Text>
                 </View>
               ) : diseaseResult ? (
                 <View style={styles.resultContainer}>
                   <View style={[styles.resultHeader, diseaseResult.isHealthy ? styles.resultHeaderHealthy : styles.resultHeaderUnhealthy]}>
                     <Ionicons name={diseaseResult.isHealthy ? 'checkmark-circle' : 'warning'} size={32} color="#fff" />
                     <Text style={styles.resultHeaderText}>
-                      {diseaseResult.isHealthy ? 'Plant is Healthy!' : 'Disease Detected'}
+                      {diseaseResult.isHealthy ? t('cropDetail.plantHealthyResult') : t('cropDetail.diseaseDetectedResult')}
                     </Text>
                   </View>
 
                   {!diseaseResult.isHealthy && (
                     <>
                       <View style={styles.resultSection}>
-                        <Text style={styles.resultLabel}>Disease:</Text>
+                        <Text style={styles.resultLabel}>{t('cropDetail.diseaseLabel')}</Text>
                         <Text style={styles.resultValue}>{diseaseResult.diseaseName}</Text>
                         {diseaseResult.scientificName ? <Text style={styles.resultScientific}>{diseaseResult.scientificName}</Text> : null}
                       </View>
 
                       {diseaseResult.confidence ? (
                         <View style={styles.resultSection}>
-                          <Text style={styles.resultLabel}>Confidence:</Text>
+                          <Text style={styles.resultLabel}>{t('cropDetail.confidenceLabel')}</Text>
                           <Text style={styles.resultValue}>{(diseaseResult.confidence * 100).toFixed(1)}%</Text>
                         </View>
                       ) : null}
 
                       {diseaseResult.severity ? (
                         <View style={styles.resultSection}>
-                          <Text style={styles.resultLabel}>Severity:</Text>
+                          <Text style={styles.resultLabel}>{t('cropDetail.severityLabel')}</Text>
                           <Text style={[styles.resultValue,
                             diseaseResult.severity === 'severe' && styles.severitySevere,
                             diseaseResult.severity === 'moderate' && styles.severityModerate,
                             diseaseResult.severity === 'mild' && styles.severityMild,
                           ]}>
-                            {diseaseResult.severity.toUpperCase()}
+                            {diseaseResult.severity === 'severe' ? t('cropDetail.severitySevere')
+                              : diseaseResult.severity === 'mild' ? t('cropDetail.severityMild')
+                              : t('cropDetail.severityModerate')}
                           </Text>
                         </View>
                       ) : null}
 
                       {diseaseResult.symptoms ? (
                         <View style={styles.resultSection}>
-                          <Text style={styles.resultLabel}>Symptoms:</Text>
+                          <Text style={styles.resultLabel}>{t('cropDetail.symptomsLabel')}</Text>
                           <Text style={styles.resultText}>{diseaseResult.symptoms}</Text>
                         </View>
                       ) : null}
 
                       {diseaseResult.treatment ? (
                         <View style={styles.resultSection}>
-                          <Text style={styles.resultLabel}>Treatment:</Text>
+                          <Text style={styles.resultLabel}>{t('cropDetail.treatmentLabel')}</Text>
                           <Text style={styles.resultText}>{diseaseResult.treatment}</Text>
                         </View>
                       ) : null}
@@ -807,9 +808,9 @@ export default function CropDetailScreen({ navigation, route }) {
                         <View style={styles.pesticideModalNotice}>
                           <Ionicons name="flask-outline" size={20} color="#1B5E20" />
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.pesticideModalNoticeTitle}>Pesticide Calculation Ready</Text>
+                            <Text style={styles.pesticideModalNoticeTitle}>{t('cropDetail.pesticideReadyTitle')}</Text>
                             <Text style={styles.pesticideModalNoticeText}>
-                              After saving, a full pesticide recommendation card will appear on your crop page.
+                              {t('cropDetail.pesticideReadyMsg')}
                             </Text>
                           </View>
                         </View>
@@ -817,7 +818,7 @@ export default function CropDetailScreen({ navigation, route }) {
 
                       <TouchableOpacity style={styles.saveButton} onPress={handleSaveDisease}>
                         <Ionicons name="save" size={20} color="#fff" />
-                        <Text style={styles.saveButtonText}>Save to Health History</Text>
+                        <Text style={styles.saveButtonText}>{t('cropDetail.saveToHealthHistory')}</Text>
                       </TouchableOpacity>
                     </>
                   )}
@@ -862,7 +863,7 @@ const styles = StyleSheet.create({
   cropStageIcon: { fontSize: 32 },
   cropInfo: { flex: 1 },
   cropName: { fontSize: 20, fontWeight: 'bold', color: '#333' },
-  cropTamilName: { fontSize: 14, color: '#666', marginTop: 2 },
+  cropLocalName: { fontSize: 14, color: '#666', marginTop: 2 },
   locationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4 },
   locationText: { fontSize: 12, color: '#666' },
   healthBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, gap: 4 },

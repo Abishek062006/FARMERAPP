@@ -3,3 +3,9 @@ flask==3.0.3
 flask-cors==4.0.1
 pillow==10.4.0
 numpy==1.26.4
+
+# D1 price forecast (train_price_forecast.py, price_forecast_engine.py)
+pandas==2.3.3
+scikit-learn==1.6.1
+lightgbm==4.6.0
+joblib==1.5.3

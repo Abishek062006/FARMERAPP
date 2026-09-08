@@ -52,6 +52,20 @@ export const API_ENDPOINTS = {
 
   // ✅ Orders (purchase + transport booking)
   ORDERS: `${API_URL}/api/orders`,
+  OFFERS: `${API_URL}/api/offers`,
+  DISPUTES: `${API_URL}/api/disputes`,
+  REQUIREMENTS: `${API_URL}/api/requirements`,
+  CONSIGNMENTS: `${API_URL}/api/consignments`,
+  FPOS: `${API_URL}/api/fpos`,
+  // Registry of real, already-incorporated FPOs (SFAC) — search/claim, separate
+  // from FPOS above which is the working membership+revenue-share machinery.
+  FPO_MASTER: `${API_URL}/api/fpo-master`,
+
+  // G1 — sales the farmer made OUTSIDE this app (APMC, trader, farm gate)
+  MANDI_SALES: `${API_URL}/api/mandi-sales`,
+
+  // H1 — godowns, cold stores and kanda chawls
+  WAREHOUSES: `${API_URL}/api/warehouses`,
 
   // Weather
   WEATHER: `${API_URL}/api/weather`,
@@ -65,6 +79,28 @@ export const API_ENDPOINTS = {
   // Government Schemes & Subsidies
   SCHEMES: `${API_URL}/api/schemes`,
 };
+
+// ── PHONE / SMS SIGN-IN: OFF ─────────────────────────────────────────────
+//
+// Deliberately switched off, and the code behind it is deliberately KEPT.
+//
+// Why off: SMS is the one part of sign-in that can fail in front of an
+// audience. It needs the Phone provider enabled on the Firebase project, a
+// handset that actually receives the message, and headroom in Firebase's SMS
+// quota — three things that can each go wrong on the day, for a login that
+// email already handles. All 2,183 accounts sign in by email.
+//
+// Why not deleted: it is built, tested (scripts/testPhoneAuth.js, 19
+// assertions) and INERT — the Firebase provider answers OPERATION_NOT_ALLOWED,
+// so it cannot fire even if a control were left on screen by accident.
+// Deleting working, dormant code to achieve the same result as one boolean is
+// churn, and re-deriving it later costs a day.
+//
+// To turn it back on: set this to true AND enable Firebase Console →
+// Authentication → Sign-in method → Phone. BOTH are required — the flag alone
+// only reveals the button, and the button would then fail with a clear
+// "phone sign-in is switched off" message rather than anything mysterious.
+export const PHONE_AUTH_ENABLED = false;
 
 // Export default API URL
 export default API_URL;

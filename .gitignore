@@ -55,6 +55,25 @@ __pycache__/
 # (or be swapped for Git LFS / a release asset later if they grow).
 ai-service/dataset/
 
+# OCR scratch work (page-scan PNGs + raw text) used ONCE to mine the
+# fertilizer/AGMARK figures now committed as code in data/fertilizerRules.js
+# and data/gradeSpecs.js. ~1GB, reproducible from the source PDFs (which are
+# NOT ignored — those are the citation evidence and stay small enough to
+# keep). Never needed by the running app.
+backend/data/sources_fertilizer_krishi_darshani/work/
+backend/data/sources_agmark/rice_ocr/
+
 # Uploaded user content
 backend/uploads/diseases/*
 !backend/uploads/diseases/.gitkeep
+
+# ML datasets — 4.9 GB of produce images (D3) and the collected price CSV (D0)
+ai-service/data/produce/
+ai-service/data/*.csv
+
+# Firebase service-account key — FULL ADMIN credential. Never commit.
+# Lives OUTSIDE this repo (../fb-key.json); this entry is belt-and-braces
+# in case a copy is ever dropped in here.
+fb-key.json
+*firebase-adminsdk*.json
+*-serviceAccountKey.json

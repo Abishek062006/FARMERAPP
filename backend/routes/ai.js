@@ -9,13 +9,13 @@ router.use(requireAuth);
 
 /**
  * GET /api/ai/crop-catalog
- * Full crop name list (English + Tamil) for search/autocomplete — lets a
+ * Full crop name list (English + Marathi) for search/autocomplete — lets a
  * farmer pick a crop outside the AI-ranked recommendations.
  */
 router.get('/crop-catalog', (req, res) => {
   res.json({
     success: true,
-    crops: CROPS.map((c) => ({ name: c.name, tamilName: c.tamilName })),
+    crops: CROPS.map((c) => ({ name: c.name, localName: c.localName })),
   });
 });
 
@@ -72,12 +72,19 @@ router.post('/crop-recommendations', async (req, res) => {
 
     const reasons = await explainCropRecommendations(ranked, location, resolvedSeason);
 
+    // ⚠️ `signals` and `demandReason` were computed by the engine and then
+    // DROPPED here, so the card showed a bare "High demand" adjective with
+    // nothing behind it and no way for a farmer to check it. They travel now:
+    // demand may be null (no mandi price for this crop in this district) and
+    // the screen must say so rather than rendering an empty chip.
     const recommendations = ranked.map((crop) => ({
       name: crop.name,
-      tamilName: crop.tamilName,
+      localName: crop.localName,
       duration: crop.duration,
       yield: crop.typicalYield,
       demand: crop.demand,
+      demandReason: crop.demandReason,
+      signals: crop.signals,
       reason: reasons[crop.name] || `Suited to your land's conditions for the ${resolvedSeason.toLowerCase()} season.`,
     }));
 
@@ -115,8 +122,8 @@ router.post('/ask', async (req, res) => {
     }
 
     let prompt = question;
-    if (language === 'ta') {
-      prompt = `Answer in Tamil (தமிழ் script): ${question}`;
+    if (language === 'mr') {
+      prompt = `Answer in Marathi (देवनागरी script): ${question}`;
     }
 
     const answer = await askGroq(prompt);

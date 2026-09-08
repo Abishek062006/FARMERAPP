@@ -9,12 +9,13 @@ import {
   RefreshControl,
   Dimensions,
   Alert,
-  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/config';
-import UzhavanChatbot from '../../components/UzhavanChatbot'; // 👈 ADDED LINE 1
+import KisanChatbot from '../../components/KisanChatbot';
+import LanguageToggle from '../../components/LanguageToggle';
+import { useLanguage } from '../../i18n/LanguageContext';
 import SchemesSection from '../../components/SchemesSection';
 import AutoScrollTicker from '../../components/AutoScrollTicker';
 import { getCropEmoji } from '../../components/growth-illustration/cropVisuals';
@@ -30,7 +31,7 @@ const CARD_WIDTH = width - 32;
 // styling (not price data). The ticker now shows whatever Agmarknet actually
 // reports nearby (any of ~600 commodity names, often with qualifiers like
 // "Bhindi(Ladies Finger)" or "Paddy(Common)"), so this covers the common
-// Tamil Nadu market crops with a real emoji each, matched by substring
+// Maharashtra market crops with a real emoji each, matched by substring
 // rather than requiring an exact name — a generic leaf is the last resort,
 // not the default.
 const CROP_DISPLAY_META = {
@@ -176,7 +177,12 @@ const MiniChart = ({ trend, color, points: realPoints }) => {
   // the original synthetic shape only while real data is loading.
   const points = realPoints && realPoints.length >= 2
     ? realPoints
-    : (trend === 'up' ? [30, 28, 35, 32, 38, 36, 42] : [42, 40, 36, 38, 32, 30, 28]);
+    // ⚠️ THREE SHAPES, NOT TWO. getTrendForSelection now reports 'flat' as
+    // well as up/down (a constant series was being called a rise), and a
+    // two-branch ternary would have drawn every steady price as a collapse.
+    : (trend === 'up' ? [30, 28, 35, 32, 38, 36, 42]
+      : trend === 'down' ? [42, 40, 36, 38, 32, 30, 28]
+      : [35, 36, 35, 35, 36, 35, 35]);
   const max = Math.max(...points);
   const min = Math.min(...points);
   const range = max - min || 1;
@@ -233,6 +239,9 @@ const MiniChart = ({ trend, color, points: realPoints }) => {
 // COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export default function FarmerDashboard({ navigation, route }) {
+  // Every label below comes from here. A hardcoded English string is how
+  // the language toggle quietly stops working for part of a screen.
+  const { t } = useLanguage();
   const { userData } = route.params || {};
 
   const [loading, setLoading] = useState(true);
@@ -242,7 +251,18 @@ export default function FarmerDashboard({ navigation, route }) {
   const [crops, setCrops] = useState([]);
   const [weather, setWeather] = useState(null);
   const [stats, setStats] = useState({ totalLands: 0, activeCrops: 0, harvestedCrops: 0 });
-  const [incomingOffers, setIncomingOffers] = useState([]);
+  // Phase E: "3 buyers want onion near you". Null when there is genuinely no
+  // demand nearby — the endpoint returns null rather than a fabricated count.
+  const [demandSignal, setDemandSignal] = useState(null);
+  // GAP B: runs this account has been assigned to DRIVE by its own group.
+  //
+  // There are no push notifications in this app, so a driver whose admin just
+  // named them has no way of being told. This is how they find out: their own
+  // dashboard, on the next refresh. `GET /api/consignments/driver/mine?active=1`
+  // lists ONLY runs assigned to them — there is no job pool here, no nearby
+  // search and no accept. An FPO driver is deliberately not a dispatch captain
+  // and is never offered unrelated work.
+  const [driverRuns, setDriverRuns] = useState([]);
 
   const [mandiPrices, setMandiPrices] = useState([]);
   const [mandiLoading, setMandiLoading] = useState(false);
@@ -309,6 +329,19 @@ export default function FarmerDashboard({ navigation, route }) {
     try {
       setLoading(true);
       if (!firebaseUid) { Alert.alert('Error', 'Please login again'); return; }
+
+      // Demand signal is a bonus line — a failure here must never take the
+      // dashboard down, so it is fired and forgotten rather than awaited.
+      axios.get(`${API_ENDPOINTS.REQUIREMENTS}/signal`)
+        .then((r) => setDemandSignal(r.data?.signal || null))
+        .catch(() => setDemandSignal(null));
+
+      // Same rule: a bonus line, fired and forgotten. Most farmers are not
+      // anybody's driver and this returns an empty list for them.
+      axios.get(`${API_ENDPOINTS.CONSIGNMENTS}/driver/mine?active=1`)
+        .then((r) => setDriverRuns(r.data?.consignments || []))
+        .catch(() => setDriverRuns([]));
+
       const landsResponse = await axios.get(`${API_ENDPOINTS.LANDS}/${firebaseUid}`);
       if (landsResponse.data.success) {
         const userLands = landsResponse.data.lands;
@@ -325,7 +358,6 @@ export default function FarmerDashboard({ navigation, route }) {
           setMandiPrices([]);
         }
       }
-      await fetchIncomingOffers(firebaseUid);
     } catch (error) {
       console.error('❌ Error loading dashboard:', error);
       Alert.alert('Error', 'Failed to load dashboard data');
@@ -333,55 +365,6 @@ export default function FarmerDashboard({ navigation, route }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  const fetchIncomingOffers = async (uid) => {
-    try {
-      const res = await axios.get(`${API_ENDPOINTS.LISTINGS}/farmer/${uid}`);
-      if (res.data.success) setIncomingOffers(res.data.listings);
-    } catch { console.log('No incoming offers'); }
-  };
-
-  const handleConfirmOffer = (listing) => {
-    Alert.alert(
-      '✅ Confirm Deal',
-      `Confirm sale of ${listing.quantityKg} kg of ${listing.cropName} to ${listing.vendorName} for ₹${listing.totalPrice?.toLocaleString()}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: async () => {
-            try {
-              const r = await axios.put(`${API_ENDPOINTS.LISTINGS}/${listing._id}/confirm`);
-              if (r.data.success) {
-                Alert.alert('🎉 Deal Confirmed!', `You can now contact ${listing.vendorName}${listing.vendorPhone ? ` at ${listing.vendorPhone}` : ''}.`);
-                await fetchIncomingOffers(firebaseUid);
-              }
-            } catch { Alert.alert('Error', 'Failed to confirm deal'); }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleDeclineOffer = (listing) => {
-    Alert.alert(
-      '❌ Decline Offer',
-      `Decline offer from ${listing.vendorName}? The listing will go back to the market.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Decline', style: 'destructive',
-          onPress: async () => {
-            try {
-              await axios.put(`${API_ENDPOINTS.LISTINGS}/${listing._id}/decline`);
-              Alert.alert('Done', 'Offer declined. Listing is back on the market.');
-              await fetchIncomingOffers(firebaseUid);
-            } catch { Alert.alert('Error', 'Failed to decline offer'); }
-          },
-        },
-      ]
-    );
   };
 
   const fetchCropsForLand = async (landId) => {
@@ -432,13 +415,12 @@ export default function FarmerDashboard({ navigation, route }) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#16A34A" />
-        <Text style={styles.loadingText}>Loading your farm...</Text>
+        <Text style={styles.loadingText}>{t('dash.loading')}</Text>
       </View>
     );
   }
 
   const wt = getWeatherTheme(weather?.description, weather?.temperature);
-  const pendingCount = incomingOffers.filter(o => o.status === 'pending').length;
 
   return (
     <View style={{ flex: 1 }}>
@@ -461,7 +443,7 @@ export default function FarmerDashboard({ navigation, route }) {
           <View style={[styles.weatherGlow, { backgroundColor: wt.glowColor }]} />
           <View style={styles.weatherInner}>
             <View style={styles.weatherLeft}>
-              <Text style={[styles.weatherEyebrow, { color: wt.textSecondary }]}>CURRENT WEATHER</Text>
+              <Text style={[styles.weatherEyebrow, { color: wt.textSecondary }]}>{t('dash.currentWeather')}</Text>
               <Text style={[styles.weatherTemp, { color: wt.textPrimary }]}>
                 {weather ? `${weather.temperature}°C` : '25°C'}
               </Text>
@@ -494,48 +476,108 @@ export default function FarmerDashboard({ navigation, route }) {
             <View style={[styles.quickIcon, { backgroundColor: '#DCFCE7' }]}>
               <Ionicons name="map" size={24} color="#16A34A" />
             </View>
-            <Text style={styles.quickLabel}>My Lands</Text>
+            <Text style={styles.quickLabel}>{t('dash.myLands')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.quickBtn, styles.quickBtnMid]} onPress={handleStartFarming}>
             <View style={[styles.quickIcon, { backgroundColor: '#1D4ED8' }]}>
               <Ionicons name="add" size={26} color="#fff" />
             </View>
-            <Text style={[styles.quickLabel, { color: '#1D4ED8', fontWeight: '700' }]}>Add Crop</Text>
+            <Text style={[styles.quickLabel, { color: '#1D4ED8', fontWeight: '700' }]}>{t('dash.addCrop')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('MarketPrices', { userData, land: selectedLand })}>
-            <View style={[styles.quickIcon, { backgroundColor: '#FEF3C7' }]}>
-              <Ionicons name="trending-up" size={24} color="#D97706" />
-            </View>
-            <Text style={[styles.quickLabel, { color: '#D97706' }]}>Prices</Text>
-          </TouchableOpacity>
+          {/* 🐛 THE STANDALONE "Prices" BUTTON WAS REMOVED — REPORTED AS
+              CONGESTION. It duplicated the Market Prices card's own "See all"
+              link two lines below it, and the mandi price CHECKER now also
+              opens from FarmerMarketScreen (the natural single home for
+              "market" actions), so this was a third route to the same two
+              screens crowding the very first row a farmer sees. */}
           <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('FarmerSales', { userData })}>
             <View style={[styles.quickIcon, { backgroundColor: '#DCFCE7' }]}>
               <Ionicons name="cube" size={24} color="#16A34A" />
             </View>
-            <Text style={styles.quickLabel}>My Sales</Text>
+            <Text style={styles.quickLabel}>{t('dash.mySales')}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Phase 2a — the way into the farmer's market view.
+            ⚠️ DELIBERATELY A FULL-WIDTH BANNER, NOT A FIFTH QUICK BUTTON.
+            That row is four `flex: 1` cells; a fifth narrows every label and
+            this project has already shipped two overflow defects that took a
+            whole workflow down with them (six header icons pushed "Orders"
+            off a 360dp screen and made the buyer's entire order history
+            unreachable). A banner cannot overflow.
+            ⚠️ AND IT IS SEPARATE FROM THE "Market Prices" CARD BELOW ON
+            PURPOSE. That card is Agmarknet MANDI prices; this is lots listed
+            on this app by other farmers. Folding them together would blur two
+            different questions and two different price bases — the same class
+            of error as H2 subtracting a modal from a farmer's own rate. */}
+        <TouchableOpacity
+          style={styles.marketBanner}
+          onPress={() => navigation.navigate('FarmerMarket', { userData })}
+          accessibilityLabel={t('dash.browseMarket')}
+        >
+          <View style={[styles.quickIcon, { backgroundColor: '#DCFCE7', width: 40, height: 40, borderRadius: 20, marginBottom: 0 }]}>
+            <Ionicons name="storefront-outline" size={21} color="#16A34A" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.marketBannerTitle}>{t('dash.browseMarket')}</Text>
+            <Text style={styles.marketBannerSub}>{t('dash.browseMarketSub')}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+        </TouchableOpacity>
 
         {/* ── Market Prices ── */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View>
-              <Text style={styles.cardTitle}>Market Prices</Text>
-              <Text style={styles.cardSub}>Live 7-day trend</Text>
+              <Text style={styles.cardTitle}>{t('dash.marketPrices')}</Text>
+              <Text style={styles.cardSub}>{t('dash.liveTrend')}</Text>
             </View>
-            <TouchableOpacity onPress={() => navigation.navigate('MarketPrices', { userData, land: selectedLand })}>
-              <Text style={styles.linkText}>See all →</Text>
-            </TouchableOpacity>
+            <View style={{ alignItems: 'flex-end' }}>
+              {/* ⚠️ RESTORED. I removed this along with the Quick Row "Prices"
+                  button when congestion was reported, and that was one cut too
+                  many: the ask was to move the price LOOKUP off the crowded
+                  first screenful, not to remove the way to check a SPECIFIC
+                  mandi's price from the card that is already about mandi
+                  prices. This link is contextual — it belongs to this card.
+                  The Quick Row button stays gone; that was the duplicate. */}
+              <TouchableOpacity onPress={() => navigation.navigate('MarketPrices', { userData, land: selectedLand })}>
+                <Text style={styles.linkText}>{t('dash.seeAllPrices')}</Text>
+              </TouchableOpacity>
+              {/* Phase 4 — the way into D1's day-by-day outlook. It sits here
+                  because this card is already the "what is my crop worth"
+                  block, and a registered route with no caller is not a
+                  feature. Only rendered once a crop is actually known, so it
+                  never opens a screen with nothing to forecast. */}
+              {/* ⚠️ NO COMMODITY IS FORCED HERE ANY MORE. This used to pass
+                  `mandiPrices[0].cropName` — the first row of the ticker — so
+                  the outlook always opened on one arbitrary crop and a farmer
+                  could not ask about their own. The screen now picks: it opens
+                  on one of THIS farmer's crops when the model covers it, and
+                  offers a chooser otherwise. */}
+              {!!selectedLand && (
+                <TouchableOpacity
+                  style={styles.outlookLink}
+                  accessibilityLabel={t('dash.priceOutlook')}
+                  onPress={() => navigation.navigate('PriceOutlook', {
+                    userData,
+                    district: selectedLand?.location?.district,
+                  })}
+                >
+                  <Ionicons name="analytics-outline" size={12} color="#16A34A" />
+                  <Text style={styles.outlookLinkTxt}>{t('dash.priceOutlook')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
           {!selectedLand ? (
             <View style={styles.mandiEmptyWrap}>
               <Ionicons name="pricetag-outline" size={30} color="#CBD5E1" />
-              <Text style={styles.mandiEmptyText}>Add a land to see mandi prices near you</Text>
+              <Text style={styles.mandiEmptyText}>{t('dash.addLandForPrices')}</Text>
             </View>
           ) : mandiLoading && mandiPrices.length === 0 ? (
             <View style={styles.mandiEmptyWrap}>
               <ActivityIndicator size="small" color="#16A34A" />
-              <Text style={styles.mandiEmptyText}>Fetching mandi prices near you…</Text>
+              <Text style={styles.mandiEmptyText}>{t('dash.fetchingPrices')}</Text>
             </View>
           ) : mandiPrices.length === 0 ? (
             <View style={styles.mandiEmptyWrap}>
@@ -552,11 +594,18 @@ export default function FarmerDashboard({ navigation, route }) {
                 const modalPrice = item.price?.modalPrice ?? null;
                 const pricePerKg = modalPrice != null ? Math.round(modalPrice / 100) : null;
                 const points = item.trend?.points || [];
-                const isUp = item.trend?.trend === 'up';
                 const dayChangeQuintal = points.length >= 2
                   ? points[points.length - 1] - points[points.length - 2]
                   : null;
                 const dayChangeKg = dayChangeQuintal != null ? Math.round(dayChangeQuintal / 100) : null;
+                // 🐛 `isUp` was read off the WEEK's trend and then used to
+                // colour and sign the DAY's change — so a week trending up
+                // with a down day printed a green "+₹-30". The arrow beside a
+                // number must describe THAT number. `flat` is its own case:
+                // an unchanged price is not a fall.
+                const dayDir = dayChangeKg == null || dayChangeKg === 0 ? 'flat'
+                  : dayChangeKg > 0 ? 'up' : 'down';
+                const dayColor = dayDir === 'up' ? '#16A34A' : dayDir === 'down' ? '#DC2626' : '#6B7280';
 
                 return (
                   <View key={`${item.cropName}-${idx}`} style={styles.marketCard}>
@@ -575,26 +624,28 @@ export default function FarmerDashboard({ navigation, route }) {
                               {item.price.matchLevel === 'state' ? `, ${item.price.district}` : ''}
                             </Text>
                             {item.price.matchLevel === 'state' && (
-                              <Text style={styles.marketFallbackNote}>Nearest reporting market</Text>
+                              <Text style={styles.marketFallbackNote}>{t('dash.nearestMarket')}</Text>
                             )}
                             {dayChangeKg != null && (
                               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                                <Ionicons name={isUp ? 'arrow-up' : 'arrow-down'} size={11} color={isUp ? '#16A34A' : '#DC2626'} style={styles.marketChangeIcon} />
-                                <Text style={[styles.marketChange, { color: isUp ? '#16A34A' : '#DC2626' }]}>
-                                  {isUp ? '+' : ''}{dayChangeKg}
+                                <Ionicons
+                                  name={dayDir === 'up' ? 'arrow-up' : dayDir === 'down' ? 'arrow-down' : 'remove'}
+                                  size={11} color={dayColor} style={styles.marketChangeIcon} />
+                                <Text style={[styles.marketChange, { color: dayColor }]}>
+                                  {dayDir === 'up' ? '+' : ''}{dayChangeKg}
                                 </Text>
                               </View>
                             )}
                           </>
                         ) : (
-                          <Text style={styles.marketNoData}>No mandi price data available</Text>
+                          <Text style={styles.marketNoData}>{t('dash.noPriceData')}</Text>
                         )}
                       </View>
                     </View>
                     {pricePerKg != null && (
                       <>
                         <MiniChart trend={item.trend?.trend} color={meta.color} points={points} />
-                        <Text style={styles.chartLabel}>Recent trend</Text>
+                        <Text style={styles.chartLabel}>{t('dash.recentTrend')}</Text>
                       </>
                     )}
                   </View>
@@ -608,17 +659,17 @@ export default function FarmerDashboard({ navigation, route }) {
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statNum}>{stats.totalLands}</Text>
-            <Text style={styles.statLbl}>LANDS</Text>
+            <Text style={styles.statLbl}>{t('dash.lands')}</Text>
           </View>
           <View style={styles.statDiv} />
           <View style={styles.statItem}>
             <Text style={[styles.statNum, { color: '#2563EB' }]}>{stats.activeCrops}</Text>
-            <Text style={styles.statLbl}>ACTIVE</Text>
+            <Text style={styles.statLbl}>{t('dash.active')}</Text>
           </View>
           <View style={styles.statDiv} />
           <View style={styles.statItem}>
             <Text style={[styles.statNum, { color: '#D97706' }]}>{stats.harvestedCrops}</Text>
-            <Text style={styles.statLbl}>HARVESTED</Text>
+            <Text style={styles.statLbl}>{t('dash.harvested')}</Text>
           </View>
         </View>
 
@@ -637,11 +688,11 @@ export default function FarmerDashboard({ navigation, route }) {
               <View style={styles.noCropsCircle}>
                 <Ionicons name="leaf-outline" size={34} color="#16A34A" />
               </View>
-              <Text style={styles.noCropsTitle}>No land added yet</Text>
-              <Text style={styles.noCropsSub}>Register your first land to start farming</Text>
+              <Text style={styles.noCropsTitle}>{t('dash.noLand')}</Text>
+              <Text style={styles.noCropsSub}>{t('dash.registerFirstLand')}</Text>
               <TouchableOpacity style={styles.aiBtn} onPress={handleAddLand}>
                 <Ionicons name="add-circle" size={17} color="#fff" style={styles.aiBtnIcon} />
-                <Text style={styles.aiBtnTxt}>Register First Land</Text>
+                <Text style={styles.aiBtnTxt}>{t('dash.registerFirstLandBtn')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -689,93 +740,98 @@ export default function FarmerDashboard({ navigation, route }) {
           )}
         </View>
 
-        {/* ── Incoming Vendor Offers ── */}
-        {incomingOffers.length > 0 && (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={styles.bellWrap}>
-                  <Ionicons name="notifications" size={15} color="#EA580C" />
-                  {pendingCount > 0 && (
-                    <View style={styles.bellDot}>
-                      <Text style={styles.bellDotTxt}>{pendingCount}</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.cardTitle}>Vendor Offers</Text>
-              </View>
-              <View style={styles.offerCountBadge}>
-                <Text style={styles.offerCountTxt}>{incomingOffers.length} total</Text>
-              </View>
-            </View>
-            {incomingOffers.map((offer) => {
-              const isPending = offer.status === 'pending';
-              const isConfirmed = offer.status === 'confirmed';
-              return (
-                <View key={offer._id} style={styles.offerCard}>
-                  <View style={styles.offerHeaderRow}>
-                    <View style={[styles.offerChip, { backgroundColor: isConfirmed ? '#DCFCE7' : '#FFF7ED' }]}>
-                      <View style={[styles.offerDot, { backgroundColor: isConfirmed ? '#16A34A' : '#EA580C' }]} />
-                      <Text style={[styles.offerChipTxt, { color: isConfirmed ? '#15803D' : '#C2410C' }]}>
-                        {isConfirmed ? 'Deal Confirmed' : 'Awaiting Response'}
-                      </Text>
-                    </View>
-                    <Text style={styles.offerDate}>
-                      {new Date(offer.acceptedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                    </Text>
-                  </View>
-                  <View style={styles.offerMainRow}>
-                    <View>
-                      <Text style={styles.offerCrop}>🌾 {offer.cropName}</Text>
-                      <Text style={styles.offerMeta}>{offer.quantityKg} kg · ₹{offer.pricePerKg}/kg</Text>
-                    </View>
-                    <View style={styles.offerPriceBox}>
-                      <Text style={styles.offerPriceLbl}>Total</Text>
-                      <Text style={styles.offerTotal}>₹{offer.totalPrice?.toLocaleString()}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.offerDivider} />
-                  <View style={styles.vendorRow}>
-                    <View style={styles.vendorAvatar}>
-                      <Text style={styles.vendorAvatarTxt}>{(offer.vendorName || 'V')[0].toUpperCase()}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.vendorName}>{offer.vendorName}</Text>
-                      {offer.vendorCompany && offer.vendorCompany !== offer.vendorName && (
-                        <Text style={styles.vendorCompany}>{offer.vendorCompany}</Text>
-                      )}
-                      {isConfirmed && offer.vendorPhone ? (
-                        <TouchableOpacity style={styles.callChip} onPress={() => Linking.openURL(`tel:${offer.vendorPhone}`)}>
-                          <Ionicons name="call" size={12} color="#2563EB" style={styles.callChipIcon} />
-                          <Text style={styles.callChipTxt}>{offer.vendorPhone}</Text>
-                        </TouchableOpacity>
-                      ) : isPending ? (
-                        <Text style={styles.phoneHint}>📞 Phone visible after confirming</Text>
-                      ) : null}
-                    </View>
-                  </View>
-                  {isPending && (
-                    <View style={styles.offerActions}>
-                      <TouchableOpacity style={styles.confirmBtn} onPress={() => handleConfirmOffer(offer)}>
-                        <Ionicons name="checkmark" size={15} color="#fff" style={styles.confirmIcon} />
-                        <Text style={styles.confirmTxt}>Accept</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.declineBtn} onPress={() => handleDeclineOffer(offer)}>
-                        <Ionicons name="close" size={15} color="#DC2626" style={styles.declineIcon} />
-                        <Text style={styles.declineTxt}>Decline</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                  {isConfirmed && (
-                    <View style={styles.confirmedBanner}>
-                      <Ionicons name="ribbon-outline" size={13} color="#15803D" style={styles.confirmedIcon} />
-                      <Text style={styles.confirmedTxt}>Deal locked in — contact the vendor above</Text>
-                    </View>
-                  )}
-                </View>
-              );
+        {/* ── GAP B: A RUN THIS FARMER HAS BEEN ASSIGNED TO DRIVE ──
+            Shown only when there actually is one. There are no push
+            notifications, so this banner IS how a driver learns their group's
+            admin named them — and the same screen the admin uses from the
+            office is what opens, with the recording controls now theirs. */}
+        {driverRuns.length > 0 && (
+          <TouchableOpacity
+            style={styles.driverCard}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('FpoDriverRun', {
+              consignmentId: driverRuns[0]._id,
+              userData,
             })}
+          >
+            <View style={styles.driverIcon}>
+              <Ionicons name="car-outline" size={19} color="#5B21B6" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.driverText}>{t('dash.driverRunTitle')}</Text>
+              <Text style={styles.driverSub}>
+                {driverRuns[0].stops?.length || 0} {t('dash.driverRunStops')}
+                {driverRuns.length > 1 ? ` · ${driverRuns.length}` : ''}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#6D28D9" />
+          </TouchableOpacity>
+        )}
+
+        {/* ── C4: grievances ── */}
+        <TouchableOpacity
+          style={styles.fpoRow}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('Grievances')}
+        >
+          <View style={[styles.fpoIcon, { backgroundColor: '#FEE2E2' }]}>
+            <Ionicons name="shield-checkmark-outline" size={18} color="#B91C1C" />
           </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.fpoText}>{t('dash.grievances')}</Text>
+            <Text style={styles.fpoSub}>Problems you raised, and any raised against you</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+        </TouchableOpacity>
+
+        {/* ── H1: storage ── */}
+        <TouchableOpacity
+          style={styles.fpoRow}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('Storage', { userData, land: selectedLand })}
+        >
+          <View style={[styles.fpoIcon, { backgroundColor: '#DCFCE7' }]}>
+            <Ionicons name="cube-outline" size={18} color="#15803D" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.fpoText}>Find storage nearby</Text>
+            <Text style={styles.fpoSub}>Godowns, cold stores and kanda chawls, priced for your lot</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+        </TouchableOpacity>
+
+        {/* ── F2: producer group ── */}
+        <TouchableOpacity
+          style={styles.fpoRow}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('Fpo', { userData })}
+        >
+          <View style={styles.fpoIcon}>
+            <Ionicons name="people-outline" size={18} color="#15803D" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.fpoText}>Sell together with nearby farmers</Text>
+            <Text style={styles.fpoSub}>One vehicle for several farms costs each of you far less</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+        </TouchableOpacity>
+
+        {/* ── Phase E: demand signal ── */}
+        {!!demandSignal && (
+          <TouchableOpacity
+            style={styles.demandCard}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('BuyerDemand', { userData })}
+          >
+            <View style={styles.demandIcon}>
+              <Ionicons name="megaphone-outline" size={19} color="#15803D" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.demandText}>{demandSignal.text}</Text>
+              <Text style={styles.demandSub}>Tap to see what they need and put a lot forward</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#16A34A" />
+          </TouchableOpacity>
         )}
 
         {/* ── Active Crops ── */}
@@ -784,7 +840,7 @@ export default function FarmerDashboard({ navigation, route }) {
             <Text style={styles.cardTitle}>Active Crops ({crops.length})</Text>
             <TouchableOpacity style={styles.addCropBtn} onPress={handleStartFarming}>
               <Ionicons name="add" size={16} color="#16A34A" style={styles.addCropIcon} />
-              <Text style={styles.addCropTxt}>Add Crop</Text>
+              <Text style={styles.addCropTxt}>{t('dash.addCrop')}</Text>
             </TouchableOpacity>
           </View>
           {crops.length === 0 ? (
@@ -792,11 +848,11 @@ export default function FarmerDashboard({ navigation, route }) {
               <View style={styles.noCropsCircle}>
                 <Ionicons name="leaf-outline" size={34} color="#16A34A" />
               </View>
-              <Text style={styles.noCropsTitle}>No crops planted yet</Text>
-              <Text style={styles.noCropsSub}>Let AI suggest the best crops for your land</Text>
+              <Text style={styles.noCropsTitle}>{t('dash.noCrops')}</Text>
+              <Text style={styles.noCropsSub}>{t('dash.aiSuggest')}</Text>
               <TouchableOpacity style={styles.aiBtn} onPress={handleStartFarming}>
                 <Ionicons name="sparkles" size={17} color="#fff" style={styles.aiBtnIcon} />
-                <Text style={styles.aiBtnTxt}>Get AI Recommendations</Text>
+                <Text style={styles.aiBtnTxt}>{t('dash.getAiRecs')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -809,7 +865,6 @@ export default function FarmerDashboard({ navigation, route }) {
                 const modalPrice = mandiEntry?.price?.modalPrice ?? null;
                 const pricePerKg = modalPrice != null ? Math.round(modalPrice / 100) : null;
                 const trendPoints = mandiEntry?.trend?.points || [];
-                const isUp = mandiEntry?.trend?.trend === 'up';
                 const dayChangeQuintal = trendPoints.length >= 2
                   ? trendPoints[trendPoints.length - 1] - trendPoints[trendPoints.length - 2]
                   : null;
@@ -817,6 +872,12 @@ export default function FarmerDashboard({ navigation, route }) {
                 const dayChangePct = dayChangeQuintal != null && trendPoints[trendPoints.length - 2]
                   ? ((dayChangeQuintal / trendPoints[trendPoints.length - 2]) * 100).toFixed(1)
                   : null;
+                // Same fix as the ticker above: the badge describes the DAY's
+                // move, so its arrow and sign come from the day's own number.
+                const dayDir = dayChangeKg == null || dayChangeKg === 0 ? 'flat'
+                  : dayChangeKg > 0 ? 'up' : 'down';
+                const isUp = dayDir === 'up';
+                const dayColor = dayDir === 'up' ? '#2E7D32' : dayDir === 'down' ? '#C62828' : '#6B7280';
                 return (
                   <TouchableOpacity key={crop._id} style={styles.cropCard} onPress={() => handleCropPress(crop)} activeOpacity={0.7}>
                     <View style={styles.stageBadge}>
@@ -830,7 +891,7 @@ export default function FarmerDashboard({ navigation, route }) {
                       </View>
                     </View>
                     <Text style={styles.cropName}>{crop.name}</Text>
-                    <Text style={styles.cropTamil}>{crop.tamilName}</Text>
+                    <Text style={styles.cropLocal}>{crop.localName}</Text>
                     <View style={styles.progressWrap}>
                       <View style={styles.progressBar}>
                         <View style={[styles.progressFill, { width: `${Math.min(100, progress)}%` }]} />
@@ -852,19 +913,21 @@ export default function FarmerDashboard({ navigation, route }) {
                     ) : pricePerKg != null ? (
                       <View style={styles.priceStrip}>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.priceLbl}>Mandi Price</Text>
+                          <Text style={styles.priceLbl}>{t('dash.mandiPrice')}</Text>
                           <Text style={styles.priceVal}>₹{pricePerKg.toLocaleString('en-IN')}/kg</Text>
                           <Text style={styles.priceUnit}>₹{modalPrice.toLocaleString('en-IN')}/quintal</Text>
                         </View>
                         {dayChangeKg != null && (
-                          <View style={[styles.priceBadge, isUp ? styles.priceBadgeUp : styles.priceBadgeDn]}>
-                            <Ionicons name={isUp ? 'trending-up' : 'trending-down'} size={16} color={isUp ? '#2E7D32' : '#C62828'} />
+                          <View style={[styles.priceBadge, dayDir === 'up' ? styles.priceBadgeUp : dayDir === 'down' ? styles.priceBadgeDn : null]}>
+                            <Ionicons
+                              name={dayDir === 'up' ? 'trending-up' : dayDir === 'down' ? 'trending-down' : 'remove'}
+                              size={16} color={dayColor} />
                             {dayChangePct != null && (
-                              <Text style={[styles.priceChangeTxt, isUp ? styles.priceUp : styles.priceDn]}>
+                              <Text style={[styles.priceChangeTxt, { color: dayColor }]}>
                                 {isUp ? '+' : ''}{dayChangePct}%
                               </Text>
                             )}
-                            <Text style={[styles.priceChangeAbs, isUp ? styles.priceUp : styles.priceDn]}>
+                            <Text style={[styles.priceChangeAbs, { color: dayColor }]}>
                               {isUp ? '+' : ''}₹{dayChangeKg}
                             </Text>
                             <Text style={styles.priceDayLbl}>today</Text>
@@ -873,7 +936,7 @@ export default function FarmerDashboard({ navigation, route }) {
                       </View>
                     ) : (
                       <View style={styles.priceStrip}>
-                        <Text style={styles.priceUnit}>No mandi price data available</Text>
+                        <Text style={styles.priceUnit}>{t('dash.noPriceData')}</Text>
                       </View>
                     )}
                   </TouchableOpacity>
@@ -888,7 +951,8 @@ export default function FarmerDashboard({ navigation, route }) {
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      <UzhavanChatbot />
+      <LanguageToggle />
+      <KisanChatbot />
     </View>
   );
 }
@@ -943,8 +1007,49 @@ const styles = StyleSheet.create({
   quickBtnMid: { borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#F1F5F9' },
   quickIcon:   { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   quickLabel:  { fontSize: 12, color: '#374151', fontWeight: '600' },
+  marketBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginHorizontal: 16, marginBottom: 16, padding: 14,
+    backgroundColor: '#fff', borderRadius: 18,
+    borderWidth: 1, borderColor: '#DCFCE7',
+  },
+  marketBannerTitle: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  marketBannerSub: { fontSize: 11, color: '#6B7280', marginTop: 2, lineHeight: 15 },
 
   // Shared card
+  fpoRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 11,
+    backgroundColor: '#fff', borderRadius: 16, padding: 14,
+    marginHorizontal: 16, marginBottom: 12, borderWidth: 1, borderColor: '#F1F5F9',
+  },
+  fpoIcon: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: '#DCFCE7',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  fpoText: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  fpoSub: { fontSize: 11.5, color: '#6B7280', marginTop: 2 },
+  demandCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 11,
+    backgroundColor: '#DCFCE7', borderRadius: 16, padding: 14,
+    marginHorizontal: 16, marginBottom: 14, borderWidth: 1, borderColor: '#BBF7D0',
+  },
+  demandIcon: {
+    width: 38, height: 38, borderRadius: 19, backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  demandText: { fontSize: 14.5, fontWeight: '700', color: '#14532D' },
+  demandSub: { fontSize: 11.5, color: '#15803D', marginTop: 2 },
+  driverCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 11,
+    backgroundColor: '#F5F3FF', borderRadius: 16, padding: 14,
+    marginHorizontal: 16, marginBottom: 14, borderWidth: 1, borderColor: '#DDD6FE',
+  },
+  driverIcon: {
+    width: 38, height: 38, borderRadius: 19, backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  driverText: { fontSize: 14.5, fontWeight: '700', color: '#4C1D95' },
+  driverSub: { fontSize: 11.5, color: '#6D28D9', marginTop: 2 },
   card: {
     backgroundColor: '#fff', marginHorizontal: 16, marginBottom: 16,
     borderRadius: 18, padding: 16,
@@ -954,6 +1059,8 @@ const styles = StyleSheet.create({
   cardTitle:  { fontSize: 16, fontWeight: '700', color: '#111827' },
   cardSub:    { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
   linkText:   { fontSize: 13, color: '#16A34A', fontWeight: '600' },
+  outlookLink: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  outlookLinkTxt: { fontSize: 11, color: '#16A34A', fontWeight: '600' },
 
   // Market Prices
   marketCard:  { width: 150, backgroundColor: '#F9FAFB', borderRadius: 12, padding: 12, marginRight: 10 },
@@ -1004,45 +1111,6 @@ const styles = StyleSheet.create({
   landChipTxt: { fontSize: 13, color: '#6B7280' },
   landChipTxtSel: { color: '#fff', fontWeight: '700' },
 
-  // Vendor Offers
-  bellWrap: { position: 'relative', width: 32, height: 32, borderRadius: 8, backgroundColor: '#FFF7ED', alignItems: 'center', justifyContent: 'center', marginRight: 8 },
-  bellDot:  { position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: 8, backgroundColor: '#EA580C', alignItems: 'center', justifyContent: 'center' },
-  bellDotTxt: { fontSize: 9, color: '#fff', fontWeight: '800' },
-  offerCountBadge: { backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  offerCountTxt:   { fontSize: 12, color: '#6B7280', fontWeight: '600' },
-  offerCard: { borderRadius: 14, backgroundColor: '#FAFAFA', borderWidth: 1, borderColor: '#E2E8F0', padding: 14, marginBottom: 12 },
-  offerHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  offerChip:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  offerDot:     { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
-  offerChipTxt: { fontSize: 12, fontWeight: '700' },
-  offerDate:    { fontSize: 11, color: '#9CA3AF' },
-  offerMainRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  offerCrop:    { fontSize: 16, fontWeight: '700', color: '#111827' },
-  offerMeta:    { fontSize: 13, color: '#6B7280', marginTop: 2 },
-  offerPriceBox:{ alignItems: 'flex-end' },
-  offerPriceLbl:{ fontSize: 10, color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase' },
-  offerTotal:   { fontSize: 18, fontWeight: '800', color: '#15803D' },
-  offerDivider: { height: 1, backgroundColor: '#F1F5F9', marginBottom: 10 },
-  vendorRow:    { flexDirection: 'row', alignItems: 'flex-start' },
-  vendorAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#E0E7FF', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  vendorAvatarTxt: { fontSize: 16, fontWeight: '700', color: '#4F46E5' },
-  vendorName:   { fontSize: 14, fontWeight: '700', color: '#1F2937' },
-  vendorCompany:{ fontSize: 12, color: '#6B7280', marginTop: 1 },
-  phoneHint:    { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
-  callChip:     { flexDirection: 'row', alignItems: 'center', marginTop: 5, alignSelf: 'flex-start', backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: '#BFDBFE' },
-  callChipIcon: { marginRight: 5 },
-  callChipTxt:  { fontSize: 13, color: '#2563EB', fontWeight: '600' },
-  offerActions: { flexDirection: 'row', marginTop: 10 },
-  confirmBtn:   { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#16A34A', paddingVertical: 12, borderRadius: 12, marginRight: 10 },
-  confirmIcon:  { marginRight: 6 },
-  confirmTxt:   { color: '#fff', fontWeight: '700', fontSize: 14 },
-  declineBtn:   { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEF2F2', paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#FECACA' },
-  declineIcon:  { marginRight: 6 },
-  declineTxt:   { color: '#DC2626', fontWeight: '700', fontSize: 14 },
-  confirmedBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#BBF7D0', marginTop: 10 },
-  confirmedIcon:   { marginRight: 8 },
-  confirmedTxt:    { color: '#15803D', fontWeight: '600', fontSize: 13 },
-
   // Crops
   noCropsWrap:   { alignItems: 'center', paddingVertical: 32 },
   noCropsCircle: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
@@ -1066,7 +1134,7 @@ const styles = StyleSheet.create({
   healthIcon:  { marginRight: 4 },
   healthTxt:   { color: '#fff', fontSize: 12, fontWeight: 'bold' },
   cropName:    { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 4 },
-  cropTamil:   { fontSize: 14, color: '#666', marginBottom: 16 },
+  cropLocal:   { fontSize: 14, color: '#666', marginBottom: 16 },
   progressWrap:{ marginBottom: 12 },
   progressBar: { height: 8, backgroundColor: '#e0e0e0', borderRadius: 4, overflow: 'hidden', marginBottom: 6 },
   progressFill:{ height: '100%', backgroundColor: '#4CAF50' },

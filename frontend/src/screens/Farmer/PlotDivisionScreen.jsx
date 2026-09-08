@@ -13,8 +13,10 @@ import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/config';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export default function PlotDivisionScreen({ navigation, route }) {
+  const { lang, t } = useLanguage();
   const { selectedCrops, land, userData } = route.params || {};
 
   const [loading, setLoading] = useState(false);
@@ -85,8 +87,8 @@ export default function PlotDivisionScreen({ navigation, route }) {
     // Validate total is 100%
     if (Math.abs(totalAllocated - 100) > 0.1) {
       Alert.alert(
-        'Invalid Division',
-        `Total allocation must equal 100%. Currently: ${totalAllocated.toFixed(1)}%`
+        t('plotDivision.invalidDivisionTitle'),
+        `${t('plotDivision.invalidDivisionMsg')} ${totalAllocated.toFixed(1)}%`
       );
       return;
     }
@@ -125,8 +127,8 @@ export default function PlotDivisionScreen({ navigation, route }) {
     } catch (error) {
       console.error('❌ Error creating plots:', error);
       Alert.alert(
-        'Error',
-        error.response?.data?.message || 'Failed to create plot divisions'
+        t('plotDivision.errorTitle'),
+        error.response?.data?.message || t('plotDivision.createPlotsFailed')
       );
     } finally {
       setLoading(false);
@@ -136,7 +138,7 @@ export default function PlotDivisionScreen({ navigation, route }) {
   if (!selectedCrops || selectedCrops.length === 0) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>No crops selected</Text>
+        <Text style={styles.errorText}>{t('plotDivision.noCropsSelected')}</Text>
       </View>
     );
   }
@@ -149,9 +151,9 @@ export default function PlotDivisionScreen({ navigation, route }) {
           {/* Header */}
           <View style={styles.header}>
             <Ionicons name="checkmark-circle" size={60} color="#4CAF50" />
-            <Text style={styles.headerTitle}>Single Crop Selected</Text>
+            <Text style={styles.headerTitle}>{t('plotDivision.singleCropSelected')}</Text>
             <Text style={styles.headerSubtitle}>
-              Full land will be allocated to this crop
+              {t('plotDivision.fullLandAllocated')}
             </Text>
           </View>
 
@@ -159,9 +161,9 @@ export default function PlotDivisionScreen({ navigation, route }) {
           <View style={styles.singleCropCard}>
             <Text style={styles.cropIcon}>🌾</Text>
             <Text style={styles.cropName}>{selectedCrops[0].name}</Text>
-            <Text style={styles.cropTamilName}>{selectedCrops[0].tamilName}</Text>
+            <Text style={styles.cropLocalName}>{selectedCrops[0].localName}</Text>
             <View style={styles.allocationBadge}>
-              <Text style={styles.allocationText}>100% of Land</Text>
+              <Text style={styles.allocationText}>{t('plotDivision.fullAllocation')}</Text>
             </View>
             <View style={styles.areaInfo}>
               <Ionicons name="resize" size={20} color="#4CAF50" />
@@ -181,7 +183,7 @@ export default function PlotDivisionScreen({ navigation, route }) {
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Text style={styles.continueButtonText}>Continue to Registration</Text>
+                <Text style={styles.continueButtonText}>{t('plotDivision.continueToRegistration')}</Text>
                 <Ionicons name="arrow-forward" size={24} color="#fff" />
               </>
             )}
@@ -201,22 +203,22 @@ export default function PlotDivisionScreen({ navigation, route }) {
         {/* Header */}
         <View style={styles.header}>
           <Ionicons name="grid" size={50} color="#4CAF50" />
-          <Text style={styles.headerTitle}>Divide Your Land</Text>
+          <Text style={styles.headerTitle}>{t('plotDivision.divideYourLand')}</Text>
           <Text style={styles.headerSubtitle}>
-            Allocate space for {selectedCrops.length} crops
+            {t('plotDivision.allocateSpaceFor')} {selectedCrops.length} {t('plotDivision.cropsWord')}
           </Text>
         </View>
 
         {/* Total Land Info */}
         <View style={styles.landInfoCard}>
           <View style={styles.landInfoRow}>
-            <Text style={styles.landInfoLabel}>Total Land:</Text>
+            <Text style={styles.landInfoLabel}>{t('plotDivision.totalLand')}</Text>
             <Text style={styles.landInfoValue}>
               {land.size.value} {land.size.unit}
             </Text>
           </View>
           <View style={styles.landInfoRow}>
-            <Text style={styles.landInfoLabel}>Land Name:</Text>
+            <Text style={styles.landInfoLabel}>{t('plotDivision.landNameLabel')}</Text>
             <Text style={styles.landInfoValue}>{land.landName}</Text>
           </View>
         </View>
@@ -224,7 +226,7 @@ export default function PlotDivisionScreen({ navigation, route }) {
         {/* Allocation Status */}
         <View style={[styles.statusCard, isValid ? styles.statusValid : styles.statusInvalid]}>
           <View style={styles.statusContent}>
-            <Text style={styles.statusLabel}>Total Allocated:</Text>
+            <Text style={styles.statusLabel}>{t('plotDivision.totalAllocated')}</Text>
             <Text style={[styles.statusValue, isValid ? styles.statusValueValid : styles.statusValueInvalid]}>
               {totalAllocated.toFixed(1)}%
             </Text>
@@ -238,15 +240,15 @@ export default function PlotDivisionScreen({ navigation, route }) {
               />
               <Text style={styles.remainingText}>
                 {remaining > 0
-                  ? `${remaining.toFixed(1)}% remaining`
-                  : `Over by ${Math.abs(remaining).toFixed(1)}%`}
+                  ? `${remaining.toFixed(1)}% ${t('plotDivision.remaining')}`
+                  : `${t('plotDivision.overBy')} ${Math.abs(remaining).toFixed(1)}%`}
               </Text>
             </View>
           )}
           {isValid && (
             <View style={styles.validContainer}>
               <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-              <Text style={styles.validText}>Perfect! Ready to continue</Text>
+              <Text style={styles.validText}>{t('plotDivision.perfectReady')}</Text>
             </View>
           )}
         </View>
@@ -257,11 +259,11 @@ export default function PlotDivisionScreen({ navigation, route }) {
             {/* Plot Header */}
             <View style={styles.plotHeader}>
               <View style={styles.plotNumber}>
-                <Text style={styles.plotNumberText}>Plot {index + 1}</Text>
+                <Text style={styles.plotNumberText}>{t('plotDivision.plot')} {index + 1}</Text>
               </View>
               <View style={styles.cropInfo}>
                 <Text style={styles.plotCropName}>{allocation.crop.name}</Text>
-                <Text style={styles.plotCropTamil}>{allocation.crop.tamilName}</Text>
+                <Text style={styles.plotCropLocal}>{allocation.crop.localName}</Text>
               </View>
             </View>
 
@@ -319,7 +321,7 @@ export default function PlotDivisionScreen({ navigation, route }) {
           ) : (
             <>
               <Ionicons name="checkmark-circle" size={24} color="#fff" />
-              <Text style={styles.confirmButtonText}>Confirm & Continue</Text>
+              <Text style={styles.confirmButtonText}>{t('plotDivision.confirmContinue')}</Text>
             </>
           )}
         </TouchableOpacity>
@@ -472,7 +474,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  plotCropTamil: {
+  plotCropLocal: {
     fontSize: 14,
     color: '#666',
     marginTop: 2,
@@ -534,7 +536,7 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
-  cropTamilName: {
+  cropLocalName: {
     fontSize: 18,
     color: '#666',
     marginBottom: 16,

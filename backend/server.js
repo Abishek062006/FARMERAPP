@@ -13,12 +13,27 @@ const diseaseRoutes = require('./routes/diseases');
 const weatherRoutes = require('./routes/weather');
 const listingRoutes = require('./routes/listings');
 const orderRoutes   = require('./routes/orders');
+const offerRoutes   = require('./routes/offers');
+const disputeRoutes = require('./routes/disputes');
+const requirementRoutes = require('./routes/requirements');
+const consignmentRoutes = require('./routes/consignments');
+const mandiSaleRoutes = require('./routes/mandiSales');
+const warehouseRoutes = require('./routes/warehouses');
+const fpoRoutes = require('./routes/fpos');
+const fpoMasterRoutes = require('./routes/fpoMaster');
 const mandiRoutes = require('./routes/mandi');
 const chatbotRoutes = require('./routes/chatbot');
 const schemesRoutes = require('./routes/schemes');
 
 // ✅ Import ALL models for initialization
 require('./models/User');
+require('./models/Offer');
+require('./models/Dispute');
+require('./models/Requirement');
+require('./models/Consignment');
+require('./models/Fpo');
+require('./models/FpoMaster');
+require('./models/FpoAdminClaim');
 require('./models/Land');
 require('./models/Plot');
 require('./models/Crop');
@@ -57,6 +72,14 @@ app.use('/api/diseases', diseaseRoutes);
 app.use('/api/weather',  weatherRoutes);
 app.use('/api/listings', listingRoutes);
 app.use('/api/orders',   orderRoutes);
+app.use('/api/offers',   offerRoutes);
+app.use('/api/disputes', disputeRoutes);
+app.use('/api/requirements', requirementRoutes);
+app.use('/api/consignments', consignmentRoutes);
+app.use('/api/mandi-sales', mandiSaleRoutes);
+app.use('/api/warehouses', warehouseRoutes);
+app.use('/api/fpos',      fpoRoutes);
+app.use('/api/fpo-master', fpoMasterRoutes);
 app.use('/api/mandi',    mandiRoutes);
 app.use('/api/chatbot',  chatbotRoutes);
 app.use('/api/schemes',  schemesRoutes);
@@ -66,7 +89,7 @@ app.use('/api/schemes',  schemesRoutes);
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: '🌾 TN Farming App Backend API - WEEK 1',
+    message: '🌾 Maharashtra Farming App Backend API',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
     models: ['User', 'Land', 'Plot', 'Crop', 'Task', 'Disease', 'CropListing', 'ListingImage', 'Order']
@@ -97,7 +120,7 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log('');
   console.log('🚀 ====================================');
-  console.log('🚀 TN Farming App Backend API - WEEK 1');
+  console.log('🚀 Maharashtra Farming App Backend API');
   console.log('🚀 ====================================');
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🚀 Environment: ${process.env.NODE_ENV || 'development'}`);

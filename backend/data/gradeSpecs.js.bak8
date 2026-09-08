@@ -1,0 +1,301 @@
+// Per-commodity grade specifications.
+//
+// WHAT THIS REPLACES
+//   A single free-text `gradeNote`. One farmer typed "A grade", another "good
+//   quality", another "medium". A buyer could not compare two lots, and the
+//   word "A" carried whatever the seller wanted it to carry.
+//
+// WHAT THESE SPECS ARE — AND ARE NOT
+//   These are THIS APP'S WORKING DEFINITIONS, written so that a farmer standing
+//   in a field with a lot in front of them can pick a grade without guessing:
+//   every criterion is something you can see, feel, or measure with a ruler.
+//
+//   They are NOT AGMARK grades. AGMARK is India's statutory agricultural
+//   grading standard, and claiming compliance with it would require the actual
+//   published schedule for each commodity and, for a real AGMARK mark, a
+//   certified lab. Nothing here is certified by anyone.
+//
+//   Grades are ALSO SELF-DECLARED. The farmer chooses; nobody checks. That is
+//   still a large improvement on free text — the choice is now against fixed,
+//   published criteria a buyer can read and dispute — but the UI must say
+//   "farmer-declared", and `Grade.selfDeclared` exists so it cannot quietly
+//   stop saying it. Phase D3's photo model can later corroborate FRESHNESS,
+//   which is a narrower claim than grade and must not be presented as one.
+//
+// Bump SPEC_VERSION when criteria change, so an old listing keeps meaning what
+// it meant when it was posted.
+const SPEC_VERSION = 1;
+
+// Written once so every commodity's grades read consistently.
+const GRADE_LABELS = {
+  A: 'Grade A',
+  B: 'Grade B',
+  C: 'Grade C',
+};
+
+const SPECS = {
+  onion: {
+    commodity: 'Onion',
+    // The measure a buyer actually asks about first.
+    headline: 'Bulb diameter',
+    grades: {
+      A: {
+        summary: 'Large, firm, well-cured',
+        criteria: [
+          'Bulb diameter mostly above 50 mm',
+          'Firm to squeeze, no soft necks',
+          'Skin dry and intact, well cured',
+          'No sprouting or rot',
+        ],
+      },
+      B: {
+        summary: 'Medium, sound',
+        criteria: [
+          'Bulb diameter roughly 35-50 mm',
+          'Firm, a few soft bulbs acceptable',
+          'Some skin peeling acceptable',
+          'No visible rot; occasional sprouting',
+        ],
+      },
+      C: {
+        summary: 'Small or mixed',
+        criteria: [
+          'Bulb diameter mostly below 35 mm, or sizes very mixed',
+          'Some soft or sprouted bulbs',
+          'Suitable for processing or local sale',
+        ],
+      },
+    },
+  },
+
+  tomato: {
+    commodity: 'Tomato',
+    headline: 'Size and ripeness',
+    grades: {
+      A: {
+        summary: 'Even, firm, unblemished',
+        criteria: [
+          'Even size, mostly above 50 mm',
+          'Firm, not soft to the thumb',
+          'Uniform colour, no green shoulders',
+          'No cracks, blemishes or bruising',
+        ],
+      },
+      B: {
+        summary: 'Sound, some variation',
+        criteria: [
+          'Mixed size, 35-50 mm',
+          'Firm to slightly soft',
+          'Minor blemishes or light cracking acceptable',
+        ],
+      },
+      C: {
+        summary: 'Ripe or marked — sell quickly',
+        criteria: [
+          'Small or very mixed size',
+          'Soft, fully ripe',
+          'Visible cracks or marks; best for pulp or immediate sale',
+        ],
+      },
+    },
+  },
+
+  potato: {
+    commodity: 'Potato',
+    headline: 'Tuber size',
+    grades: {
+      A: {
+        summary: 'Large, clean, unblemished',
+        criteria: [
+          'Tuber size mostly above 55 mm',
+          'No greening, cuts or sprouting',
+          'Clean, free of adhering soil clods',
+        ],
+      },
+      B: {
+        summary: 'Medium, sound',
+        criteria: ['Tuber size roughly 40-55 mm', 'Minor surface marks acceptable', 'No greening or rot'],
+      },
+      C: {
+        summary: 'Small or marked',
+        criteria: ['Below 40 mm, or very mixed', 'Some cuts, greening or sprouting', 'Best for local sale or processing'],
+      },
+    },
+  },
+
+  grapes: {
+    commodity: 'Grapes',
+    headline: 'Bunch and berry',
+    grades: {
+      A: {
+        summary: 'Well-filled bunches, even berries',
+        criteria: [
+          'Bunches well filled, not straggly',
+          'Berries even in size and colour',
+          'Firm, bloom intact, stalk green',
+          'No shatter, cracking or shrivelling',
+        ],
+      },
+      B: {
+        summary: 'Sound, some unevenness',
+        criteria: ['Bunches reasonably filled', 'Some size variation between berries', 'Minor shatter acceptable'],
+      },
+      C: {
+        summary: 'Loose or uneven',
+        criteria: ['Straggly bunches or loose berries', 'Uneven colour', 'Some shrivelling; for juice or local sale'],
+      },
+    },
+  },
+
+  pomegranate: {
+    commodity: 'Pomegranate',
+    headline: 'Fruit size and skin',
+    grades: {
+      A: {
+        summary: 'Large, deep colour, clean skin',
+        criteria: [
+          'Fruit above roughly 250 g',
+          'Deep even colour',
+          'Skin free of cracks, scars or sunburn',
+          'No signs of borer damage',
+        ],
+      },
+      B: {
+        summary: 'Medium, minor marks',
+        criteria: ['Roughly 175-250 g', 'Reasonable colour', 'Minor scarring acceptable'],
+      },
+      C: {
+        summary: 'Small or marked',
+        criteria: ['Below 175 g, or very mixed', 'Patchy colour, visible scarring', 'For local sale or processing'],
+      },
+    },
+  },
+
+  // Grains, pulses and oilseeds share a shape: what matters is moisture,
+  // foreign matter and damaged grain, not size.
+  grain: {
+    commodity: 'Grain, pulses and oilseeds',
+    headline: 'Moisture and admixture',
+    appliesTo: ['Wheat', 'Soyabean', 'Jowar (Sorghum)', 'Bajra (Pearl Millet)',
+      'Maize', 'Tur (Pigeon Pea)', 'Gram (Harbhara)', 'Green Gram (Moong)',
+      'Black Gram (Udid)', 'Rice (Paddy)', 'Groundnut', 'Sunflower',
+      'Safflower (Karadi)', 'Sesamum (Til)', 'Linseed (Jawas)'],
+    grades: {
+      A: {
+        summary: 'Dry, clean, well-filled',
+        criteria: [
+          'Properly dried — no dampness in the hand',
+          'Little or no foreign matter (stones, chaff, weed seed)',
+          'Grain well filled and even',
+          'No insect damage, no musty smell',
+        ],
+      },
+      B: {
+        summary: 'Sound, light admixture',
+        criteria: [
+          'Dry, may need a short further drying',
+          'Small amount of foreign matter',
+          'Some shrivelled or broken grain',
+        ],
+      },
+      C: {
+        summary: 'Damp, mixed or damaged',
+        criteria: [
+          'Noticeably damp, or drying incomplete',
+          'Visible foreign matter',
+          'Broken, shrivelled or insect-damaged grain present',
+        ],
+      },
+    },
+  },
+
+  cotton: {
+    commodity: 'Cotton',
+    headline: 'Staple and trash',
+    grades: {
+      A: {
+        summary: 'Clean, well-picked, bright',
+        criteria: [
+          'Bright white to creamy colour',
+          'Little trash — leaf, bract or soil',
+          'Even staple length',
+          'Dry, no damp bales',
+        ],
+      },
+      B: {
+        summary: 'Sound, some trash',
+        criteria: ['Slight discolouration acceptable', 'Some leaf and trash present', 'Reasonably even staple'],
+      },
+      C: {
+        summary: 'Stained or trashy',
+        criteria: ['Visible staining or yellowing', 'Noticeable trash content', 'Uneven staple; damp or weather-affected'],
+      },
+    },
+  },
+
+  // Anything without a specific spec. Deliberately vaguer, and honest that it
+  // is generic — a fake-precise criterion for a crop nobody wrote a spec for
+  // would be worse than admitting the gap.
+  general: {
+    commodity: 'General produce',
+    headline: 'Overall condition',
+    generic: true,
+    grades: {
+      A: {
+        summary: 'Best of the harvest',
+        criteria: ['Even size and colour', 'Firm and fresh', 'No visible damage, pest marks or disease'],
+      },
+      B: {
+        summary: 'Good, ordinary market quality',
+        criteria: ['Some variation in size or colour', 'Sound condition', 'Minor blemishes'],
+      },
+      C: {
+        summary: 'Mixed or marked',
+        criteria: ['Mixed sizes', 'Some damage or over-ripeness', 'Best sold locally or for processing'],
+      },
+    },
+  },
+};
+
+const normalise = (s) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
+
+// commodity name -> spec key, built from the specs themselves.
+const BY_COMMODITY = {};
+for (const [key, spec] of Object.entries(SPECS)) {
+  BY_COMMODITY[normalise(spec.commodity)] = key;
+  for (const c of spec.appliesTo || []) BY_COMMODITY[normalise(c)] = key;
+}
+// The crop table's own names, so "Onion" from agroZones lands on the onion spec.
+BY_COMMODITY[normalise('Okra (Bhendi)')] = 'general';
+
+/**
+ * The spec for a crop name. Never null — an unknown crop gets the general
+ * spec rather than no grading at all, and `generic: true` tells the UI to say
+ * so instead of implying a crop-specific standard.
+ */
+function specForCrop(cropName) {
+  const n = normalise(cropName);
+  // BOTH sides must be long enough to mean something. Without the n.length
+  // guard, `name.includes('')` is true for every spec, so an empty or junk
+  // crop name matched whichever spec happened to be first — silently grading
+  // an unknown crop against onion criteria.
+  if (n.length < 4) return { key: 'general', ...SPECS.general };
+  if (BY_COMMODITY[n]) return { key: BY_COMMODITY[n], ...SPECS[BY_COMMODITY[n]] };
+
+  // "Onion" inside "Onion (Red)", etc.
+  for (const [name, key] of Object.entries(BY_COMMODITY)) {
+    if (name.length >= 4 && (n.includes(name) || name.includes(n))) {
+      return { key, ...SPECS[key] };
+    }
+  }
+  return { key: 'general', ...SPECS.general };
+}
+
+/** Is this a grade the given crop's spec actually defines? */
+function isValidGrade(cropName, code) {
+  if (!code) return true;                       // grading is optional
+  const spec = specForCrop(cropName);
+  return Object.keys(spec.grades).includes(String(code).toUpperCase());
+}
+
+module.exports = { SPECS, SPEC_VERSION, GRADE_LABELS, specForCrop, isValidGrade };

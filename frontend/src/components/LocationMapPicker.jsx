@@ -9,12 +9,12 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
-import { matchTnDistrict } from '../utils/tnDistricts';
+import { matchDistrict } from '../utils/districts';
 import WebMapSurface from './map/WebMapSurface';
 
-// Rough center of Tamil Nadu — used only as a starting point when we don't
+// Rough center of Maharashtra — used only as a starting point when we don't
 // have a better guess (no GPS fix yet, or permission denied).
-const DEFAULT_CENTER = { lat: 11.1271, lng: 78.6569 };
+const DEFAULT_CENTER = { lat: 19.7515, lng: 75.7139 };
 
 /**
  * Full-screen "tap on the map to set your land's location" picker.
@@ -51,7 +51,7 @@ export default function LocationMapPicker({ visible, onClose, onConfirm }) {
         ]);
         setCenter({ lat: current.coords.latitude, lng: current.coords.longitude });
       } catch {
-        // Stay on the Tamil Nadu default — the user can still pan/tap.
+        // Stay on the Maharashtra default — the user can still pan/tap.
       } finally {
         setMapReady(true);
       }
@@ -66,18 +66,18 @@ export default function LocationMapPicker({ visible, onClose, onConfirm }) {
       // Same caveat as LandRegistrationScreen's GPS flow: the device's
       // geocoder can return a neighborhood/layout name for `district`
       // instead of the real administrative district — only keep it if it
-      // actually matches a real TN district, otherwise leave it for the
+      // actually matches a real Maharashtra district, otherwise leave it for the
       // farmer to pick manually on the following screen.
       const districtMatch =
-        matchTnDistrict(place.district) ||
-        matchTnDistrict(place.subregion) ||
-        matchTnDistrict(place.city) ||
+        matchDistrict(place.district) ||
+        matchDistrict(place.subregion) ||
+        matchDistrict(place.city) ||
         '';
       setResolvedAddress({
         coordinates: { lat, lng },
         city: place.city || place.subregion || '',
         district: districtMatch,
-        state: place.region || 'Tamil Nadu',
+        state: place.region || 'Maharashtra',
         pincode: place.postalCode || '',
         address: `${place.street || ''} ${place.name || ''}`.trim(),
       });
@@ -88,7 +88,7 @@ export default function LocationMapPicker({ visible, onClose, onConfirm }) {
         coordinates: { lat, lng },
         city: '',
         district: '',
-        state: 'Tamil Nadu',
+        state: 'Maharashtra',
         pincode: '',
         address: '',
       });

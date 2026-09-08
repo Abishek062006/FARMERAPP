@@ -12,8 +12,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/config';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export default function LandListScreen({ navigation, route }) {
+  const { lang, t } = useLanguage();
   const { userData } = route.params || {};
   const [lands, setLands] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +40,7 @@ export default function LandListScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('❌ Error fetching lands:', error);
-      Alert.alert('Error', 'Failed to load lands');
+      Alert.alert(t('landList.errorTitle'), t('landList.loadFailed'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -93,7 +95,7 @@ export default function LandListScreen({ navigation, route }) {
         <View style={styles.infoRow}>
           <Ionicons name="water" size={16} color="#666" />
           <Text style={styles.infoText}>
-            {item.waterSource.charAt(0).toUpperCase() + item.waterSource.slice(1)}
+            {t(`water.${item.waterSource}`)}
           </Text>
         </View>
 
@@ -101,7 +103,7 @@ export default function LandListScreen({ navigation, route }) {
         <View style={styles.infoRow}>
           <Ionicons name="leaf" size={16} color="#666" />
           <Text style={styles.infoText}>
-            {item.soilType.charAt(0).toUpperCase() + item.soilType.slice(1)} Soil
+            {t(`soil.${item.soilType}`)}
           </Text>
         </View>
 
@@ -109,14 +111,14 @@ export default function LandListScreen({ navigation, route }) {
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{item.totalPlots || 0}</Text>
-            <Text style={styles.statLabel}>Plots</Text>
+            <Text style={styles.statLabel}>{t('landList.plots')}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
               {new Date(item.createdAt).toLocaleDateString()}
             </Text>
-            <Text style={styles.statLabel}>Registered</Text>
+            <Text style={styles.statLabel}>{t('landList.registeredLabel')}</Text>
           </View>
         </View>
 
@@ -132,7 +134,7 @@ export default function LandListScreen({ navigation, route }) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#4CAF50" />
-        <Text style={styles.loadingText}>Loading your lands...</Text>
+        <Text style={styles.loadingText}>{t('landList.loadingLands')}</Text>
       </View>
     );
   }
@@ -141,9 +143,9 @@ export default function LandListScreen({ navigation, route }) {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Lands</Text>
+        <Text style={styles.headerTitle}>{t('dash.myLands')}</Text>
         <Text style={styles.headerSubtitle}>
-          {lands.length} land(s) registered
+          {lands.length} {t('landList.landsRegistered')}
         </Text>
       </View>
 
@@ -151,13 +153,13 @@ export default function LandListScreen({ navigation, route }) {
       {lands.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="map-outline" size={80} color="#ccc" />
-          <Text style={styles.emptyTitle}>No Lands Yet</Text>
+          <Text style={styles.emptyTitle}>{t('dash.noLand')}</Text>
           <Text style={styles.emptySubtitle}>
-            Start your farming journey by registering your first land
+            {t('dash.registerFirstLand')}
           </Text>
           <TouchableOpacity style={styles.addButton} onPress={handleAddLand}>
             <Ionicons name="add-circle" size={24} color="#fff" />
-            <Text style={styles.addButtonText}>Register First Land</Text>
+            <Text style={styles.addButtonText}>{t('dash.registerFirstLandBtn')}</Text>
           </TouchableOpacity>
         </View>
       ) : (

@@ -12,11 +12,13 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/config';
 import SearchSelectSheet from '../../components/SearchSelectSheet';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export default function CropRecommendationScreen({ navigation, route }) {
+  const { lang, t } = useLanguage();
   // ✅ Updated to receive land object from route params
   const { land, userData } = route.params || {};
-  
+
   const [loading, setLoading] = useState(true);
   const [recommendations, setRecommendations] = useState([]);
   const [selectedCrops, setSelectedCrops] = useState([]);
@@ -55,11 +57,11 @@ export default function CropRecommendationScreen({ navigation, route }) {
 
     const cropEntry = existing || {
       name,
-      tamilName: option?.isCustom ? '' : option?.subtitle || '',
+      localName: option?.isCustom ? '' : option?.subtitle || '',
       duration: null,
       yield: null,
       demand: null,
-      reason: 'Added by you — not part of the AI-ranked list for this land.',
+      reason: t('cropRecommendation.addedByYouReason'),
       isCustom: true,
     };
 
@@ -126,8 +128,8 @@ export default function CropRecommendationScreen({ navigation, route }) {
 
         if (crops.length === 0) {
           Alert.alert(
-            'No Suitable Crops',
-            'Could not find suitable crops for your location. Please try again.',
+            t('cropRecommendation.noSuitableTitle'),
+            t('cropRecommendation.noSuitableMsg'),
             [{ text: 'OK' }]
           );
         } else {
@@ -136,7 +138,7 @@ export default function CropRecommendationScreen({ navigation, route }) {
         }
       } else {
         console.error('❌ Invalid response format:', response.data);
-        Alert.alert('Error', 'Failed to get AI recommendations. Invalid response format.');
+        Alert.alert(t('cropRecommendation.errorTitle'), t('cropRecommendation.invalidResponse'));
       }
     } catch (error) {
       console.error('❌ Error fetching recommendations:', error);
@@ -147,22 +149,22 @@ export default function CropRecommendationScreen({ navigation, route }) {
         code: error.code,
       });
       
-      let errorMessage = 'Failed to connect to AI service.';
-      
+      let errorMessage = t('cropRecommendation.connectionErrorGeneric');
+
       if (error.code === 'ECONNABORTED') {
-        errorMessage = 'Request timeout. Please check your internet connection.';
+        errorMessage = t('cropRecommendation.timeoutError');
       } else if (error.response) {
         errorMessage = error.response.data?.error || `Server error: ${error.response.status}`;
       } else if (error.request) {
-        errorMessage = `Cannot connect to server. Please check if backend is running on ${API_ENDPOINTS.AI.replace('/api/ai', '')}`;
+        errorMessage = `${t('cropRecommendation.cannotConnect')} ${API_ENDPOINTS.AI.replace('/api/ai', '')}`;
       }
-      
+
       Alert.alert(
-        'AI Connection Error',
+        t('cropRecommendation.aiConnectionErrorTitle'),
         errorMessage,
         [
-          { text: 'Retry', onPress: () => fetchRecommendations() },
-          { text: 'Go Back', onPress: () => navigation.goBack() },
+          { text: t('cropRecommendation.retry'), onPress: () => fetchRecommendations() },
+          { text: t('cropRecommendation.goBack'), onPress: () => navigation.goBack() },
         ]
       );
     } finally {
@@ -179,14 +181,17 @@ export default function CropRecommendationScreen({ navigation, route }) {
       if (selectedCrops.length < maxCrops) {
         setSelectedCrops([...selectedCrops, crop]);
       } else {
-        Alert.alert('Limit Reached', `You can select a maximum of ${maxCrops} crops`);
+        Alert.alert(
+          t('cropRecommendation.limitReachedTitle'),
+          `${t('cropRecommendation.limitReachedMsgPrefix')} ${maxCrops} ${t('cropRecommendation.cropsWord')}`
+        );
       }
     }
   };
 
   const handleContinue = () => {
     if (selectedCrops.length === 0) {
-      Alert.alert('Required', 'Please select at least one crop');
+      Alert.alert(t('cropRecommendation.requiredTitle'), t('cropRecommendation.selectAtLeastOne'));
       return;
     }
 
@@ -202,11 +207,11 @@ export default function CropRecommendationScreen({ navigation, route }) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4CAF50" />
-        <Text style={styles.loadingText}>Getting AI recommendations...</Text>
+        <Text style={styles.loadingText}>{t('cropRecommendation.gettingRecommendations')}</Text>
         <Text style={styles.loadingSubtext}>
-          Analyzing {land?.location.city}
+          {t('cropRecommendation.analyzing')} {land?.location.city}
         </Text>
-        <Text style={styles.loadingNote}>This may take 10-15 seconds...</Text>
+        <Text style={styles.loadingNote}>{t('cropRecommendation.mayTakeTime')}</Text>
       </View>
     );
   }
@@ -217,7 +222,7 @@ export default function CropRecommendationScreen({ navigation, route }) {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View>
-            <Text style={styles.headerTitle}>🌱 AI Crop Recommendations</Text>
+            <Text style={styles.headerTitle}>{t('cropRecommendation.headerTitle')}</Text>
             <Text style={styles.headerSubtitle}>
               {land?.location.city}, {land?.location.district}
             </Text>
@@ -229,31 +234,31 @@ export default function CropRecommendationScreen({ navigation, route }) {
           <View style={styles.selectionCounter}>
             <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
             <Text style={styles.selectionCounterText}>
-              {selectedCrops.length} / {maxCrops} selected
+              {selectedCrops.length} / {maxCrops} {t('cropRecommendation.selected')}
             </Text>
           </View>
           <Text style={styles.limitText}>
-            Max {maxCrops} crop{maxCrops > 1 ? 's' : ''} allowed
+            {t('cropRecommendation.maxPrefix')} {maxCrops} {t('cropRecommendation.cropsAllowedSuffix')}
           </Text>
         </View>
 
         {/* Search for a crop not in the AI-ranked list below */}
         <SearchSelectSheet
-          title="Search Crops"
+          title={t('cropRecommendation.searchCropsTitle')}
           options={cropCatalog.map((c) => ({
             label: c.name,
             value: c.name,
-            subtitle: c.tamilName,
+            subtitle: c.localName,
           }))}
           onChange={addCropFromSearch}
-          placeholder="Search crop name..."
+          placeholder={t('cropRecommendation.searchPlaceholder')}
           allowCustom
-          customHint="Grow this even though it's not commonly recommended"
+          customHint={t('cropRecommendation.customHint')}
           renderTrigger={({ onPress }) => (
             <TouchableOpacity style={styles.searchTrigger} onPress={onPress} activeOpacity={0.7}>
               <Ionicons name="search" size={18} color="#4CAF50" />
               <Text style={styles.searchTriggerText}>
-                Don't see your crop? Search all Tamil Nadu crops
+                {t('cropRecommendation.searchTrigger')}
               </Text>
             </TouchableOpacity>
           )}
@@ -268,18 +273,16 @@ export default function CropRecommendationScreen({ navigation, route }) {
         {recommendations.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="leaf-outline" size={80} color="#ccc" />
-            <Text style={styles.emptyText}>No matching crops found</Text>
+            <Text style={styles.emptyText}>{t('cropRecommendation.noMatchingCrops')}</Text>
             <Text style={styles.emptySubtext}>
-              We couldn't find a crop in our reference data suited to this land's
-              exact soil type, water source, and current season. Try updating the
-              land's details or check back next season.
+              {t('cropRecommendation.noMatchingSubtext')}
             </Text>
             <TouchableOpacity
               style={styles.retryButton}
               onPress={fetchRecommendations}
             >
               <Ionicons name="refresh" size={20} color="#4CAF50" />
-              <Text style={styles.retryText}>Retry</Text>
+              <Text style={styles.retryText}>{t('cropRecommendation.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -314,14 +317,14 @@ export default function CropRecommendationScreen({ navigation, route }) {
                 {/* Crop Info */}
                 <View style={styles.cropInfo}>
                   <Text style={styles.cropName}>{crop.name}</Text>
-                  <Text style={styles.cropTamilName}>{crop.tamilName}</Text>
+                  <Text style={styles.cropLocalName}>{crop.localName}</Text>
                   
                   {/* Stats */}
                   <View style={styles.statsRow}>
                     {crop.duration && (
                       <View style={styles.statItem}>
                         <Ionicons name="time-outline" size={16} color="#666" />
-                        <Text style={styles.statText}>{crop.duration} days</Text>
+                        <Text style={styles.statText}>{crop.duration} {t('cropRecommendation.days')}</Text>
                       </View>
                     )}
                     {crop.yield && (
@@ -332,21 +335,51 @@ export default function CropRecommendationScreen({ navigation, route }) {
                     )}
                   </View>
 
-                  {/* Demand Badge (or "Added by you" for a searched/custom crop) */}
+                  {/* Demand Badge (or "Added by you" for a searched/custom crop).
+                      ⚠️ `crop.demand` CAN BE NULL and the null case must SAY SO.
+                      This used to be `crop.demand && (...)`, which rendered
+                      nothing at all — so a crop the backend deliberately refused
+                      to label looked identical to one that simply had no badge,
+                      and the refusal never reached the farmer. A missing chip
+                      reads as "fine"; the whole point of the refusal is that it
+                      is not. */}
                   {crop.isCustom ? (
                     <View style={[styles.demandBadge, styles.customBadge]}>
-                      <Text style={styles.demandText}>Added by you</Text>
+                      <Text style={styles.demandText}>{t('cropRecommendation.addedByYou')}</Text>
+                    </View>
+                  ) : crop.demand ? (
+                    <View style={[
+                      styles.demandBadge,
+                      crop.demand === 'High' && styles.demandHigh,
+                      crop.demand === 'Medium' && styles.demandMedium,
+                    ]}>
+                      <Text style={styles.demandText}>{crop.demand} {t('cropRecommendation.demand')}</Text>
                     </View>
                   ) : (
-                    crop.demand && (
-                      <View style={[
-                        styles.demandBadge,
-                        crop.demand === 'High' && styles.demandHigh,
-                        crop.demand === 'Medium' && styles.demandMedium,
-                      ]}>
-                        <Text style={styles.demandText}>{crop.demand} Demand</Text>
-                      </View>
-                    )
+                    <View style={[styles.demandBadge, styles.demandUnknown]}>
+                      <Text style={styles.demandUnknownText}>
+                        {t(`cropRecommendation.noDemand.${crop.demandReason || 'no_mandi_data'}`)
+                          .replace('{district}', land?.location?.district || '')}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* What the label rests on. A one-word verdict a farmer cannot
+                      check is exactly how "High demand" and "no mandi price"
+                      ended up on two screens of the same app. */}
+                  {crop.signals?.priceAvailable && (
+                    <Text style={styles.signalLine}>
+                      <Text style={{
+                        color: crop.signals.priceTrend === 'up' ? '#2E7D32'
+                          : crop.signals.priceTrend === 'down' ? '#C62828' : '#6B7280',
+                        fontWeight: '700',
+                      }}>
+                        {crop.signals.priceTrend === 'up' ? '▲' : crop.signals.priceTrend === 'down' ? '▼' : '●'}
+                        {' '}{Math.abs(crop.signals.priceChangePct ?? 0).toFixed(1)}%
+                      </Text>
+                      {' '}{t('cropRecommendation.signalAt')} {crop.signals.priceMarket}
+                      {' · '}{crop.signals.growersNearby} {t('cropRecommendation.growersNearby')}
+                    </Text>
                   )}
 
                   {/* Reason */}
@@ -372,7 +405,7 @@ export default function CropRecommendationScreen({ navigation, route }) {
             disabled={selectedCrops.length === 0}
           >
             <Text style={styles.continueButtonText}>
-              Continue with {selectedCrops.length} crop(s)
+              {t('cropRecommendation.continuePrefix')} {selectedCrops.length} {t('cropRecommendation.cropsParenWord')}
             </Text>
             <Ionicons name="arrow-forward" size={20} color="#fff" />
           </TouchableOpacity>
@@ -568,7 +601,7 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 4,
   },
-  cropTamilName: {
+  cropLocalName: {
     fontSize: 16,
     color: '#666',
     marginBottom: 12,
@@ -599,6 +632,21 @@ const styles = StyleSheet.create({
   },
   demandMedium: {
     backgroundColor: '#FF9800',
+  },
+  demandUnknown: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  demandUnknownText: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  signalLine: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 6,
   },
   demandText: {
     fontSize: 12,

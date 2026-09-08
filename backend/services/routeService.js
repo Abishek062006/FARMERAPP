@@ -10,11 +10,24 @@ const { haversineKm } = require('./geoService');
 //   2. a hard 6s timeout — a vendor's fare screen must never hang on it
 //   3. a haversine fallback that is always used rather than failing
 // Point OSRM_URL at a self-hosted instance (docker osrm/osrm-backend with the
-// Tamil Nadu extract) and nothing else changes.
+// Maharashtra extract) and nothing else changes.
 const OSRM_URL = process.env.OSRM_URL || 'https://router.project-osrm.org';
 
-// Measured Thanjavur → Trichy: 64.9 km by road vs 47.3 km straight-line.
-const ROAD_FACTOR = 1.35;
+// Re-measured against live OSRM for Maharashtra (the old value, 1.35, was
+// calibrated on a single Thanjavur → Trichy leg in Tamil Nadu and over-states
+// Maharashtra road distance by ~15%):
+//
+//   Nashik → Lasalgaon    59.0 km road / 49.8 straight  = 1.184
+//   Nashik → Pune        212.9 km road / 164.4 straight = 1.295
+//   Pune → Solapur       253.3 km road / 236.8 straight = 1.070
+//   Nagpur → Amravati    152.5 km road / 137.8 straight = 1.107
+//   Kolhapur → Sangli     48.6 km road /  39.6 straight = 1.229
+//                                                  mean = 1.177
+//
+// Set just above the mean: this factor only runs on the fallback path when
+// OSRM is unavailable, and under-stating distance under-pays the agent on a
+// leg that is already thin (see the return-leg risk in the build plan).
+const ROAD_FACTOR = 1.20;
 // Deliberately below OSRM's car profile (which returned ~63 km/h): these are
 // loaded goods vehicles on district roads.
 const FALLBACK_KMPH = 40;
@@ -46,6 +59,73 @@ function fallback(from, to) {
     polyline: [[from.lat, from.lng], [to.lat, to.lng]],
     source: 'haversine',
   };
+}
+
+/**
+ * A route through several stops, in the order given.
+ *
+ * Same OSRM endpoint as getRoute — the API takes any number of semicolon
+ * separated waypoints, so a three-farm pickup run is the same call with more
+ * coordinates, not a different service. `legs` comes back per hop, which is
+ * what lets the agent's screen say "12 km to the next farm" rather than only
+ * knowing the total.
+ *
+ * Never throws. On failure it chains haversine fallbacks leg by leg, so a
+ * consignment can still be priced and dispatched with OSRM down.
+ */
+async function getMultiStopRoute(points) {
+  const pts = (points || []).filter((p) => p && Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  if (pts.length < 2) return null;
+
+  // Two points is the ordinary case — reuse getRoute so it shares the cache.
+  if (pts.length === 2) {
+    const r = await getRoute(pts[0], pts[1]);
+    return r && { ...r, legs: [{ distanceKm: r.distanceKm, durationMin: r.durationMin }] };
+  }
+
+  const key = 'multi:' + pts.map((p) => `${p.lat.toFixed(4)},${p.lng.toFixed(4)}`).join('|');
+  const hit = CACHE.get(key);
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
+
+  let result;
+  try {
+    const coords = pts.map((p) => `${p.lng},${p.lat}`).join(';');
+    const url = `${OSRM_URL}/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+    const { data } = await axios.get(url, { timeout: 8000 });
+    if (data.code !== 'Ok' || !data.routes?.length) throw new Error(data.code || 'no route');
+
+    const r = data.routes[0];
+    result = {
+      distanceKm: Math.round((r.distance / 1000) * 10) / 10,
+      durationMin: Math.max(1, Math.round(r.duration / 60)),
+      polyline: decimate(r.geometry.coordinates.map(([lng, lat]) => [lat, lng])),
+      legs: (r.legs || []).map((l) => ({
+        distanceKm: Math.round((l.distance / 1000) * 10) / 10,
+        durationMin: Math.max(1, Math.round(l.duration / 60)),
+      })),
+      source: 'osrm',
+    };
+  } catch (err) {
+    console.log('🗺️  OSRM multi-stop unavailable, chaining straight lines:', err.message);
+    const legs = [];
+    let distanceKm = 0, durationMin = 0;
+    const polyline = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const f = fallback(pts[i], pts[i + 1]);
+      legs.push({ distanceKm: f.distanceKm, durationMin: f.durationMin });
+      distanceKm += f.distanceKm;
+      durationMin += f.durationMin;
+      polyline.push(...f.polyline);
+    }
+    result = {
+      distanceKm: Math.round(distanceKm * 10) / 10,
+      durationMin, polyline, legs, source: 'haversine',
+    };
+  }
+
+  if (CACHE.size >= MAX_ENTRIES) CACHE.delete(CACHE.keys().next().value);
+  CACHE.set(key, { at: Date.now(), value: result });
+  return result;
 }
 
 /**
@@ -85,4 +165,4 @@ async function getRoute(from, to) {
   return result;
 }
 
-module.exports = { getRoute, decimate, ROAD_FACTOR, OSRM_URL };
+module.exports = { getRoute, getMultiStopRoute, decimate, ROAD_FACTOR, OSRM_URL };

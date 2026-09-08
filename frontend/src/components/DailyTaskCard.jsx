@@ -35,7 +35,7 @@ function TaskRow({ task, onCompleted }) {
       </View>
       <View style={styles.taskContent}>
         <Text style={[styles.taskTitle, task.isCompleted && styles.taskTitleDone]}>{task.title}</Text>
-        {task.titleTamil ? <Text style={styles.taskTitleTamil}>{task.titleTamil}</Text> : null}
+        {task.titleLocal ? <Text style={styles.taskTitleLocal}>{task.titleLocal}</Text> : null}
         <Text style={styles.taskDescription}>{task.description}</Text>
         {task.weatherConsiderations ? (
           <View style={styles.weatherNote}>
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   taskTitleDone: {
     textDecorationLine: 'line-through',
   },
-  taskTitleTamil: {
+  taskTitleLocal: {
     fontSize: 13,
     color: '#666',
     marginTop: 1,

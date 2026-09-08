@@ -19,9 +19,23 @@ const TRACK_CSS = `
          box-shadow: 0 0 0 2px rgba(0,0,0,.35); }
   .pin-pickup { background: #16A34A; }
   .pin-drop   { background: #EA580C; border-radius: 3px; }
-  .veh { width: 48px; height: 30px; transition: opacity .3s;
+  .veh { width: 48px; height: 30px; transition: opacity .3s, filter .3s;
          filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); }
   .veh svg { width: 100%; height: 100%; display: block; }
+
+  /* A MULTI-FARM RUN'S STOPS. One numbered dot per farm, coloured by what
+     actually happened there — the same four states utils/stopOutcome.js
+     derives, so the map and the stop list can never disagree. */
+  .stop {
+    width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff;
+    color: #fff; text-align: center; font-weight: 700; font-size: 11px;
+    line-height: 18px; font-family: -apple-system, Roboto, "Segoe UI", sans-serif;
+    box-shadow: 0 0 0 2px rgba(0,0,0,.28);
+  }
+  .stop-pending { background: #94A3B8; }
+  .stop-next    { background: #EA580C; box-shadow: 0 0 0 4px rgba(234,88,12,.4); }
+  .stop-done    { background: #16A34A; }
+  .stop-failed  { background: #B91C1C; }
 `;
 
 // The SAME art the React Native vehicle picker renders — react-native-svg
@@ -30,7 +44,7 @@ const TRACK_CSS = `
 const trackingJs = `
   var ART = ${JSON.stringify(VEHICLE_ART)};
   var pickupPin = null, dropPin = null, routeLine = null, approachLine = null;
-  var vehicle = null, raf = null, following = true, layers = [];
+  var vehicle = null, raf = null, following = true, layers = [], stopPins = [];
 
   function icon(cls) {
     return L.divIcon({ className: '', html: '<div class="pin ' + cls + '"></div>',
@@ -65,10 +79,40 @@ const trackingJs = `
 
     clearRoute: function (which) { window.__map.setRoute(null, which); },
 
-    // Smooth motion is done HERE, in the page, not in React Native. One update
-    // per poll interval is lerped to 60fps by requestAnimationFrame, so the
-    // marker glides instead of teleporting — and no per-frame traffic crosses
-    // the RN bridge.
+    // EVERY FARM ON A MULTI-FARM RUN, as a numbered dot.
+    //
+    // st.state is one of pending | next | done | failed and is computed by the
+    // caller from utils/stopOutcome.js — the same derivation the stop LIST
+    // uses, so a farm shown green on the map is green in the list. Rebuilt
+    // wholesale on each call because a run has at most five stops (MAX_STOPS)
+    // and diffing five markers would be more code than redrawing them.
+    setStops: function (stops) {
+      stopPins.forEach(function (m) { map.removeLayer(m); });
+      layers = layers.filter(function (l) { return stopPins.indexOf(l) === -1; });
+      stopPins = [];
+      (stops || []).forEach(function (st, i) {
+        if (st.lat == null || st.lng == null) return;
+        var cls = st.state === 'done' ? 'stop-done'
+          : st.state === 'failed' ? 'stop-failed'
+            : st.state === 'next' ? 'stop-next' : 'stop-pending';
+        var m = L.marker([st.lat, st.lng], {
+          icon: L.divIcon({
+            className: '', iconSize: [22, 22], iconAnchor: [11, 11],
+            html: '<div class="stop ' + cls + '">' + (st.n != null ? st.n : (i + 1)) + '</div>',
+          }),
+        }).addTo(map);
+        stopPins.push(m); layers.push(m);
+      });
+    },
+
+    // ⚠️ ms <= 0 SNAPS. It does not glide, and that is the point.
+    //
+    // A glide between two fixes draws the vehicle at coordinates nobody ever
+    // reported. Over a 5-second gap that is cosmetic; over the multi-hour gaps
+    // foreground-only tracking actually produces it is an invented position,
+    // which is the one thing this feature refuses to do. Callers that want an
+    // honest marker pass 0; the lerp below is kept only for callers driving
+    // their OWN device's fixes (the driver watching themselves move).
     setVehicle: function (lat, lng, heading, type, ms) {
       if (!vehicle) {
         vehicle = L.marker([lat, lng], {
@@ -80,8 +124,15 @@ const trackingJs = `
         if (following) map.panTo([lat, lng], { animate: false });
         return;
       }
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+      var el0 = document.getElementById('veh');
+      if (!(ms > 0)) {
+        vehicle.setLatLng([lat, lng]);
+        if (following) map.panTo([lat, lng], { animate: false });
+        if (el0 && typeof heading === 'number') el0.style.transform = 'rotate(' + (heading - 90) + 'deg)';
+        return;
+      }
       var from = vehicle.getLatLng(), t0 = performance.now();
-      if (raf) cancelAnimationFrame(raf);
       function step(now) {
         var k = Math.min(1, (now - t0) / (ms || 5000));
         var la = from.lat + (lat - from.lat) * k;
@@ -99,6 +150,22 @@ const trackingJs = `
     setStale: function (on) {
       var el = document.getElementById('veh');
       if (el) el.style.opacity = on ? 0.35 : 1;
+    },
+
+    // HOW OLD THE LAST FIX IS, DRAWN RATHER THAN IMPLIED.
+    //
+    // A boolean "stale" is true almost always on a multi-hour run, so it
+    // cannot carry the difference between "they glanced at their phone two
+    // minutes ago" and "this is where the truck was 40 minutes ago". The five
+    // bands are the backend's own (GET /:id/track, field staleness); a cold
+    // fix is greyed out entirely so it cannot read as a moving vehicle.
+    setStaleness: function (band) {
+      var el = document.getElementById('veh');
+      if (!el) return;
+      var shadow = 'drop-shadow(0 2px 4px rgba(0,0,0,.35))';
+      var o = band === 'live' ? 1 : band === 'recent' ? 0.8 : band === 'stale' ? 0.42 : 0.24;
+      el.style.opacity = o;
+      el.style.filter = (band === 'live' || band === 'recent') ? shadow : 'grayscale(1) ' + shadow;
     },
 
     follow: function (on) { following = !!on; },
@@ -152,9 +219,13 @@ export default function TrackingMapSurface({ initialCenter, initialZoom = 13, on
     setPins:     (p, d)   => call(`window.__map.setPins(${JSON.stringify(p)},${JSON.stringify(d)});`),
     setRoute:    (c, w)   => call(`window.__map.setRoute(${JSON.stringify(c || null)},${JSON.stringify(w || 'main')});`),
     clearRoute:  (w)      => call(`window.__map.clearRoute(${JSON.stringify(w || 'main')});`),
-    setVehicle:  (lat, lng, heading, type, ms = 5000) =>
+    setStops:    (stops)  => call(`window.__map.setStops(${JSON.stringify(stops || [])});`),
+    // ms defaults to 0 — SNAP. A caller that wants the glide has to ask for it
+    // by name, so the honest behaviour is the one you get by forgetting.
+    setVehicle:  (lat, lng, heading, type, ms = 0) =>
                              call(`window.__map.setVehicle(${lat},${lng},${heading || 0},${JSON.stringify(type)},${ms});`),
     setStale:    (on)     => call(`window.__map.setStale(${!!on});`),
+    setStaleness:(band)   => call(`window.__map.setStaleness(${JSON.stringify(band || 'never')});`),
     follow:      (on)     => call(`window.__map.follow(${!!on});`),
     fitAll:      ()       => call(`window.__map.fitAll();`),
   }), [call]);
