@@ -86,9 +86,26 @@ const check = (c, m, x='') => { c ? (pass++, console.log('  ✅', m, x)) : (fail
     r = await call('GET', '/api/orders/agent/available', A_TEMPO, null);
     let ids = r.body.orders.map(o => o._id);
     check(ids.includes(String(o1._id)), 'tempo agent is offered a tempo job');
+    // ⚠️ PHASE 6, B5b — A BIGGER VEHICLE CAN ALWAYS DO A SMALLER JOB.
+    // This assertion used to require an EXACT vehicleType match, which is the
+    // bug services/dispatchReach.js's vehicleTypesServableBy() was built to
+    // fix (reported directly: Nashik truck captains were not seeing jobs their
+    // vehicle could plainly carry). A truck SHOULD see a tempo job — the fare
+    // stays frozen at the tempo rate; taking it is the captain's own call.
+    // What must still hold is the other direction: a SMALLER vehicle must
+    // never see a job too big for it.
     r = await call('GET', '/api/orders/agent/available', C_TRUCK);
+    check(r.body.orders.map(o => o._id).includes(String(o1._id)),
+      'a truck agent IS offered a tempo job — a bigger vehicle can do a smaller job');
+
+    // The other direction still must hold: an auto cannot carry a tempo-sized
+    // load, so it must never be offered one.
+    const E_AUTO = TAG + 'agentAuto';
+    await User.create({ firebaseUid: E_AUTO, name: 'Auto Captain', email: TAG + 'a6@t.com',
+      phone: '9000000015', role: 'agent', vehicle: { type: 'auto', number: 'MH 15 IJ 7890' }, isOnline: true });
+    r = await call('GET', '/api/orders/agent/available', E_AUTO);
     check(!r.body.orders.map(o => o._id).includes(String(o1._id)),
-      'truck agent is NOT offered a tempo job');
+      'an auto agent is NOT offered a tempo job — a smaller vehicle cannot do a bigger job');
 
     r = await fetch(`${URL}/api/orders/agent/available?lat=20.06&lng=73.85`, { headers: { 'x-test-uid': A_TEMPO } });
     const feed = (await r.json()).orders.find(o => o._id === String(o1._id));

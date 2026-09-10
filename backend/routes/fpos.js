@@ -38,6 +38,12 @@ const {
   canonicalCropName,
 } = require('../services/focusCropService');
 const { matchRequirementsForPoints } = require('./requirements');
+// Shared vocabulary for what a real person at a gate (or a godown counter)
+// can attest to — weight provenance, condition, and who may grade what.
+const {
+  POSTABLE_WEIGHT_METHODS, describeWeight, parseCondition, describeCondition,
+  compareGrades, describeGradeCheck,
+} = require('../data/gateRecord');
 
 // ── WHO MAY ACT AS AN FPO's ADMIN ─────────────────────────────────────────
 //
@@ -87,6 +93,9 @@ const {
   splitFare, buildTransportArrangement,
   COST_SOURCE_BY_MODE, COST_NOTE_BY_MODE,
   otp,
+  // F1 — the one place a listing moves into FPO custody, shared with the
+  // (retired but kept) run-based collection path.
+  moveListingToFpoCustody,
 } = require('./consignments');
 // ⚠️ The dispatch window comes from the SERVICE, not through consignments.js.
 // Phase D writes its own Orders and its own Consignment, so it has to land on
@@ -2234,8 +2243,33 @@ router.put('/:id/premises', requireAuth, requireRole(...FPO_ADMIN_ROLES), async 
  * from routes/consignments.js. `priceLotRun()` is reused wholesale — it is
  * pure geometry and fare keyed on listingId, which is exactly the shape a
  * collection run has too.
+ *
+ * ═══ ⚠️ F0 — RETIRED, REFUSED AT THE ROUTE ════════════════════════════════
+ *
+ * Farm→FPO is a 1–5 km hop a member covers themselves; it is not what the
+ * problem statement's aggregation clause asks for (that clause is about
+ * buyers aggregating volume, and its own demo routes a vehicle TO THE BUYER).
+ * The frontend entry point (FpoDashboardScreen's "Collection" tab) is gone.
+ *
+ * ⚠️ UNLIKE THE PHONE-AUTH SCREENS, THIS ROUTE HAS NO INDEPENDENT SAFETY NET.
+ * Firebase itself blocks a stray phone sign-in attempt even if a button leaked
+ * onto a screen; nothing external stops a stray call here from creating a real
+ * run with a real fare and real freight owed. So the refusal lives IN the
+ * route, not just in the UI. Everything below this line — the exact route
+ * solver, the by-weight fare split, custody transfer — stays untouched and
+ * would work today if this were ever re-enabled for a premium case (export
+ * grapes, a group with its own tempo): delete the block below, nothing else.
  */
 router.post('/:id/collection-runs', requireAuth, requireRole(...FPO_ADMIN_ROLES), async (req, res) => {
+  return res.status(410).json({
+    success: false,
+    code: 'COLLECTION_RETIRED',
+    error: 'Farm-to-FPO pickup runs are no longer offered. A member brings produce to the group\'s '
+      + 'own collection point; the group then sells it on to a buyer, and that leg is arranged in the '
+      + 'usual way.',
+  });
+
+  // eslint-disable-next-line no-unreachable
   try {
     const fpo = await loadAsAdmin(req.params.id, req.firebaseUid, res, 'arrange a collection');
     if (!fpo) return;
@@ -2442,6 +2476,155 @@ router.post('/:id/collection-runs', requireAuth, requireRole(...FPO_ADMIN_ROLES)
   } catch (err) {
     console.error('POST /fpos/:id/collection-runs', err);
     res.status(500).json({ success: false, error: 'Could not arrange that collection' });
+  }
+});
+
+/**
+ * POST /api/fpos/:id/intake — F1: A MEMBER BRINGS PRODUCE TO THE GODOWN.
+ * body: { listingId, quantityKg, weightMethod, weightRef?,
+ *         gradeObserved?, conditionChecked?, conditionFlags?, conditionNote? }
+ *
+ * ═══ WHAT THIS REPLACES ════════════════════════════════════════════════
+ *
+ * F0 retired farm→FPO transport: nothing in the problem statement's
+ * aggregation clause asks for it, and a 1–5 km hop is a member's own
+ * arrangement, not a routing problem. But produce still has to physically
+ * arrive at the group's premises somehow — this is that "somehow": the member
+ * walks in, the FPO's own person weighs and (optionally) grades it at the
+ * counter, and custody moves. NO VEHICLE, NO ROUTE, NO FARE — which is why
+ * `freightOwedPerKg` below is always 0, unconditionally.
+ *
+ * ⚠️ IT DOES NOT CREATE A NEW LISTING. It requires the member to already have
+ * one (from the ordinary `POST /api/crops/:id/harvest-and-list` pipeline —
+ * "posting reuses the existing flow, never a second form" is the same rule
+ * `FarmerMarketScreen`'s harvest posting already follows). Intake is the FPO
+ * confirming that a KNOWN, already-declared listing has now physically
+ * arrived — not a second place a lot's identity could be invented.
+ *
+ * ⚠️ THE FPO'S OWN PERSON MAY GRADE HERE. `data/gateRecord.js`'s
+ * GRADING_ROLES already includes 'fpo_admin' for exactly this reason: this is
+ * the group's own person, handling this crop every season, whose name is on
+ * the sale — not a hired captain from the public pool being asked to certify
+ * something they are not qualified to judge.
+ *
+ * ⚠️ REUSES `moveListingToFpoCustody()` from routes/consignments.js — the
+ * SAME custody transfer the run-based path used, so there are not two
+ * definitions of what "this lot is now in the FPO's custody" means.
+ */
+router.post('/:id/intake', requireAuth, requireRole(...FPO_ADMIN_ROLES), async (req, res) => {
+  try {
+    const fpo = await loadAsAdmin(req.params.id, req.firebaseUid, res, 'record produce arriving at the godown');
+    if (!fpo) return;
+
+    // ── 1. the group must have somewhere to receive it ──────────────────
+    if (!fpo.premises?.declared) {
+      return res.status(400).json({
+        success: false, code: 'NO_PREMISES',
+        error: 'Set the group\'s collection point before recording produce arriving.',
+      });
+    }
+
+    // ── 2. a real listing, belonging to an active member ────────────────
+    const listing = await CropListing.findOne({
+      _id: req.body?.listingId, status: 'available', quantityAvailableKg: { $gt: 0 },
+    }).lean();
+    if (!listing) {
+      return res.status(409).json({
+        success: false, code: 'LISTING_UNAVAILABLE',
+        error: 'That listing is not available to bring in.',
+      });
+    }
+    // Same "active-or-legacy-null status" rule as the (retired) collection
+    // route and every other member check in this file — rows written before
+    // the approval gate carry no status and .lean() applies no defaults.
+    const memberUids = new Set(
+      (fpo.members || []).filter((m) => m.status === 'active' || m.status == null).map((m) => m.farmerUid)
+    );
+    if (!memberUids.has(listing.farmerUid)) {
+      return res.status(403).json({
+        success: false, code: 'NOT_A_MEMBER',
+        error: 'This produce does not belong to one of this group\'s own members.',
+      });
+    }
+
+    // ── 3. how much actually walked in ───────────────────────────────────
+    // ⚠️ Can be LESS than the listing's available quantity — a member who
+    // said 500 kg and brought 480 is the honest, common case, the same
+    // "short pickup" shape already used everywhere else in this app. It can
+    // never be MORE: that would be inventing stock the listing never had.
+    const arrivedKg = Number(req.body?.quantityKg);
+    if (!Number.isFinite(arrivedKg) || arrivedKg <= 0) {
+      return res.status(400).json({ success: false, code: 'BAD_QUANTITY', error: 'Enter how much arrived, in kg.' });
+    }
+    if (arrivedKg > listing.quantityAvailableKg) {
+      return res.status(400).json({
+        success: false, code: 'EXCEEDS_LISTING',
+        error: `Only ${listing.quantityAvailableKg} kg is on this listing.`,
+      });
+    }
+
+    // ── 4. how it was weighed — REQUIRED, same discipline as a pickup ────
+    if (!POSTABLE_WEIGHT_METHODS.includes(req.body?.weightMethod)) {
+      return res.status(400).json({
+        success: false, code: 'WEIGHT_METHOD_REQUIRED',
+        error: 'Say how this was weighed before recording it.',
+      });
+    }
+
+    // ── 5. condition — optional, same parser as a gate outcome ───────────
+    const cond = parseCondition(req.body);
+    if (!cond.ok) {
+      return res.status(400).json({
+        success: false, code: 'BAD_CONDITION_FLAGS', error: 'Unknown condition flag.', unknown: cond.unknown,
+      });
+    }
+
+    // ── 6. grade — the FPO's own person may observe one ──────────────────
+    // `mayGradeAtGate('fpo_admin')` is always true; this route has no captain
+    // to refuse it to. Still validated against the spec's own letters.
+    const observedRaw = req.body?.gradeObserved;
+    const observed = ['A', 'B', 'C'].includes(observedRaw) ? observedRaw : null;
+    if (observedRaw && !observed) {
+      return res.status(400).json({ success: false, code: 'BAD_GRADE', error: 'Grade must be A, B or C.' });
+    }
+    const declared = listing.grade?.code || null;
+    const discrepancy = compareGrades(declared, observed);
+
+    const now = new Date();
+    const intake = {
+      recordedAt: now,
+      recordedBy: req.firebaseUid,
+      weight: { method: req.body.weightMethod, ref: String(req.body.weightRef || '').slice(0, 60) },
+      grade: { declared, observed, discrepancy, farmerResponse: null },
+      condition: { checked: cond.checked, flags: cond.flags, note: String(req.body?.conditionNote || '').slice(0, 300) },
+    };
+
+    // ── 7. move it — NO FARE, NOTHING OWED, NO RUN TO POINT AT ──────────
+    const result = await moveListingToFpoCustody(listing, fpo, {
+      kg: arrivedKg, freightOwedPerKg: 0, collectionRunId: null, intake,
+    });
+    if (!result.ok) {
+      return res.status(409).json({
+        success: false, code: 'STOCK_MOVED', error: 'That listing changed while this was being recorded. Reload and try again.',
+      });
+    }
+
+    res.json({
+      success: true,
+      receipt: {
+        farmerName: listing.farmerName,
+        cropName: listing.cropName,
+        kg: arrivedKg,
+        weight: describeWeight(intake.weight.method, intake.weight.ref, arrivedKg),
+        grade: describeGradeCheck(intake.grade),
+        condition: describeCondition(intake.condition),
+        heldListingId: result.heldListingId,
+        recordedAt: now,
+      },
+    });
+  } catch (err) {
+    console.error('POST /fpos/:id/intake', err);
+    res.status(500).json({ success: false, error: 'Could not record that arrival' });
   }
 });
 
@@ -2770,6 +2953,7 @@ router.get('/:id/settlement', requireAuth, async (req, res) => {
     const fpo = await Fpo.findById(req.params.id).lean();
     if (!fpo) return res.status(404).json({ success: false, error: 'Not found' });
 
+    const isAdmin = fpo.adminUid === req.firebaseUid;
     const isMember = fpo.members.some((m) => m.farmerUid === req.firebaseUid && m.status === 'active');
     const ids = String(req.query.orderIds || '').split(',').filter(mongoose.isValidObjectId);
     if (!ids.length) return res.status(400).json({ success: false, error: 'orderIds are required' });
@@ -2779,9 +2963,9 @@ router.get('/:id/settlement', requireAuth, async (req, res) => {
       .lean();
     if (!orders.length) return res.status(404).json({ success: false, error: 'No such orders' });
 
-    // Members and the buyer may look; nobody else.
+    // The group's admin, the buyer, and a member may all look; nobody else.
     const isBuyer = orders.every((o) => o.vendorUid === req.firebaseUid);
-    if (!isMember && !isBuyer)
+    if (!isAdmin && !isMember && !isBuyer)
       return res.status(403).json({ success: false, error: 'Not your group or your purchase' });
 
     // A pending applicant is not yet a supplying member of this group — their
@@ -2799,16 +2983,189 @@ router.get('/:id/settlement', requireAuth, async (req, res) => {
     // facilitation group never reads them.
     const grades = fpo.paymentMode === 'procurement' ? await gradesForOrders(groupOrders) : null;
 
+    const full = computeSettlement(fpo, activeFpoMembers, groupOrders, grades);
+
+    // ⚠️ F2 — AN ORDINARY MEMBER SEES ONLY THEIR OWN ROW, NEVER THE WHOLE
+    // GROUP'S. `computeSettlement()`'s `byLot` carries EVERY active member of
+    // the FPO by name and figure, whether or not they had anything to do with
+    // these particular orders — it was built for the admin's and the buyer's
+    // view, both of whom are legitimately entitled to see how a purchase
+    // split across every contributing seller. A member is not: "A member is
+    // not entitled to another member's payout, price or payment record just
+    // by belonging to the same company" is the rule this app already states
+    // for GET /:id/orders, and this endpoint was quietly not following it —
+    // any member who could supply a valid orderIds string got everyone's
+    // name and amount back, not just their own.
+    const settlement = (isAdmin || isBuyer)
+      ? full
+      : {
+        ...full,
+        byLot: (full.byLot || []).filter((r) => r.farmerUid === req.firebaseUid),
+        byShare: (full.byShare || null) && full.byShare.filter((r) => r.farmerUid === req.firebaseUid),
+        difference: (full.difference || null) && full.difference.filter((r) => r.farmerUid === req.firebaseUid),
+        // The group's own procurement gaps still name the crop and quantity
+        // but never another member's identity.
+        procurement: full.procurement ? {
+          ...full.procurement,
+          gaps: (full.procurement.gaps || []).filter((g) => g.farmerUid === req.firebaseUid),
+        } : null,
+        scope: 'own',
+      };
+
     res.json({
       success: true,
       settlement: {
         fpoId: fpo._id, fpoName: fpo.name,
-        ...computeSettlement(fpo, activeFpoMembers, groupOrders, grades),
+        ...settlement,
       },
     });
   } catch (err) {
     console.error('❌ FPO settlement error:', err);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/fpos/:id/my-settlement — F2: WHAT I AM OWED, WITHOUT NEEDING TO
+ * ALREADY KNOW WHICH orderIds TO ASK FOR.
+ *
+ * ═══ THE PROBLEM THIS ANSWERS ═════════════════════════════════════════════
+ *
+ * `computeSettlement()` has existed since Phase B and `GET /:id/settlement`
+ * exposes it — but that route REQUIRES `orderIds` as a query parameter, which
+ * a member opening "what am I owed" has no way to already know. It was built
+ * for a specific purchase's reconciliation (a buyer or the admin already
+ * holding a batch's order ids), not for "show me my own history." This route
+ * resolves that batch FOR the member, from their own trade record alone.
+ *
+ * ═══ ⚠️ NOT EVERY SALE A MEMBER MAKES IS FPO-FACILITATED ══════════════════
+ *
+ * Measured against live Atlas: of 13,309 delivered orders belonging to active
+ * FPO members, only 24 carry a `consignmentId` (a pooled lot sale) — the rest
+ * are farmers selling their OWN listings independently, which happen to
+ * belong to someone who is also, separately, a member of a group. The group
+ * had no part in those trades, and reporting a facilitation fee on them would
+ * be charging for a service that was never rendered.
+ *
+ * Two independent, real signals of actual facilitation, either is enough:
+ *   • `order.consignmentId` set        — a pooled lot sale (Phase D)
+ *   • the SOLD LISTING was ever HELD by this FPO (F1 walk-in intake) —
+ *     `CropListing.custody.heldAt === 'fpo'` on `order.listingId`. A listing
+ *     the FPO weighed, graded and held can be sold on as a perfectly normal
+ *     single-farmer order with no Consignment at all, and that is STILL a
+ *     facilitated sale — `consignmentId` alone would miss it.
+ * Everything else is excluded, honestly, with a note saying why.
+ *
+ * ═══ ⚠️ THE FEE MATH RUNS ON THE WHOLE BATCH, NEVER A LONE MEMBER'S SLICE ══
+ *
+ * A pooled batch's percentage or per-kg fee is apportioned via `apportion()`,
+ * which rounds the group TOTAL first and then splits it — NOT the same
+ * arithmetic as rounding each member's own share alone (double-rounding can
+ * differ by a rupee). So this fetches every order in the batch, runs the
+ * SAME `computeSettlement()` the admin's dashboard uses, and only THEN
+ * extracts this member's own row — guaranteeing the number a member sees can
+ * never disagree with what the group's own official total says. Never a
+ * second, cheaper computation over a partial order set.
+ */
+router.get('/:id/my-settlement', requireAuth, async (req, res) => {
+  try {
+    const fpo = await Fpo.findById(req.params.id).lean();
+    if (!fpo) return res.status(404).json({ success: false, error: 'Not found' });
+
+    const uid = req.firebaseUid;
+    // Same "active-or-legacy-null status" rule as every other member check in
+    // this file — rows written before the approval gate carry no status.
+    const isMember = fpo.members.some(
+      (m) => m.farmerUid === uid && (m.status === 'active' || m.status == null)
+    );
+    if (!isMember) {
+      return res.status(403).json({
+        success: false, code: 'NOT_A_MEMBER', error: 'You are not an active member of this group.',
+      });
+    }
+
+    const myOrders = await Order.find({
+      farmerUid: uid, status: { $in: ['delivered', 'stranded'] },
+    }).select('farmerUid farmerName cropName quantityKg cropTotal farmerPayout fare settlement '
+             + 'listingId consignmentId deliveredAt status')
+      .sort({ deliveredAt: -1 })
+      .lean();
+
+    if (!myOrders.length) {
+      return res.json({
+        success: true, settlements: [], note: 'You have no delivered sales through this group yet.',
+      });
+    }
+
+    const listingIds = myOrders.map((o) => o.listingId).filter(Boolean);
+    const heldListingIds = new Set(
+      (await CropListing.find({ _id: { $in: listingIds }, 'custody.heldAt': 'fpo' })
+        .select('_id').lean())
+        .map((l) => String(l._id))
+    );
+    const facilitated = myOrders.filter(
+      (o) => o.consignmentId || heldListingIds.has(String(o.listingId))
+    );
+
+    if (!facilitated.length) {
+      return res.json({
+        success: true, settlements: [],
+        note: 'Nothing you have sold has gone through this group\'s own facilitation yet. An '
+          + 'independent sale through your own listing carries no group fee, because the group had '
+          + 'no part in it.',
+      });
+    }
+
+    // A pooled sale's batch is every order under that Consignment. A
+    // walk-in-intake sale with no Consignment is its own batch of one.
+    const batchKeyOf = (o) => (o.consignmentId ? String(o.consignmentId) : String(o._id));
+    const batchKeys = [...new Set(facilitated.map(batchKeyOf))];
+    const activeFpoMembers = fpo.members.filter((m) => m.status === 'active' || m.status == null);
+
+    const settlements = [];
+    for (const key of batchKeys) {
+      const anchor = facilitated.find((o) => batchKeyOf(o) === key);
+      const batchOrders = anchor.consignmentId
+        ? await Order.find({ consignmentId: anchor.consignmentId })
+            .select('farmerUid farmerName cropName quantityKg cropTotal farmerPayout fare settlement listingId')
+            .lean()
+        : [anchor];
+
+      const grades = fpo.paymentMode === 'procurement' ? await gradesForOrders(batchOrders) : null;
+      const full = computeSettlement(fpo, activeFpoMembers, batchOrders, grades);
+      const mineRow = (full.byLot || []).find((r) => r.farmerUid === uid);
+      if (!mineRow) continue;   // cannot happen — this member had an order in this exact batch
+
+      const myBatchOrders = batchOrders.filter((o) => o.farmerUid === uid);
+      const crops = [...new Set(myBatchOrders.map((o) => o.cropName))];
+      const paidOrders = myBatchOrders.filter((o) => o.settlement?.farmerPaid);
+      const latestPaid = paidOrders.sort((a, b) => new Date(b.settlement.paidAt) - new Date(a.settlement.paidAt))[0];
+
+      settlements.push({
+        batchId: key,
+        type: anchor.consignmentId ? 'pooled' : 'fpo_held',
+        paymentMode: full.paymentMode,
+        cropName: crops.join(' + '),
+        deliveredAt: myBatchOrders.reduce((max, o) => (o.deliveredAt > max ? o.deliveredAt : max), myBatchOrders[0]?.deliveredAt),
+        ...mineRow,
+        paidAt: latestPaid?.settlement?.paidAt || null,
+        method: latestPaid?.settlement?.method || null,
+        txnRef: latestPaid?.settlement?.txn?.ref || null,
+        simulated: latestPaid?.settlement?.txn?.simulated === true,
+        // Names ONLY whether THIS member's own lot was one of the unpriced
+        // ones — never another member's crop, grade or quantity.
+        gap: full.procurement?.gaps?.find((g) => g.farmerUid === uid) || null,
+      });
+    }
+
+    // Newest first — a member opening this screen wants to know about their
+    // most recent sale, not one from months ago.
+    settlements.sort((a, b) => new Date(b.deliveredAt) - new Date(a.deliveredAt));
+
+    res.json({ success: true, settlements, note: null });
+  } catch (err) {
+    console.error('GET /fpos/:id/my-settlement', err);
+    res.status(500).json({ success: false, error: 'Could not load your settlement' });
   }
 });
 
@@ -4982,11 +5339,13 @@ router.get('/:id/dashboard', requireAuth, async (req, res) => {
         focusDeclared: (fpo.focusCrops || []).length > 0,
         pendingMemberCount: fpo.members.filter((m) => m.status === 'pending').length,
         pendingLotRequestCount,
-        // Where the group's produce is collected TO. `declared` is what a
-        // screen branches on — absent coordinates must never read as "this
-        // group has no premises", the same rule as focusDeclared beside
-        // focusCrops. FpoCollectionScreen refuses to arrange a run without it,
-        // because the server does too.
+        // Where the group's own godown is. `declared` is what a screen
+        // branches on — absent coordinates must never read as "this group has
+        // no premises", the same rule as focusDeclared beside focusCrops.
+        // ⚠️ F0: no longer gates arranging a collection run (that capability is
+        // retired — see POST /:id/collection-runs). The field itself stays: it
+        // is still real, still settable via PUT /:id/premises, and still
+        // worth a group stating for its own record even with no run to gate.
         premises: fpo.premises?.declared ? fpo.premises : { declared: false },
         producesAggregation,
         memberCards,

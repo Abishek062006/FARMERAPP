@@ -270,23 +270,46 @@ const oid = () => new mongoose.Types.ObjectId();
     await mongoose2.disconnect();
   }
 
-  // ── 8. Phase 3c — the routes have callers ─────────────────────────────
-  console.log('\n8. ⚠️ Phase 3 backend is REACHABLE from the app');
+  // ── 8. ⚠️ F0 — FARM→FPO COLLECTION IS RETIRED, ON PURPOSE ──────────────
+  //
+  // §8 used to assert the opposite of what it asserts now, and that is a
+  // DECISION reversal, not a fixture bug of the kind already recorded
+  // elsewhere in this suite (testFarmMarket, testDispatch). The problem
+  // statement's aggregation clause is defined from the BUYER side — "buyers
+  // may struggle to aggregate consistent volumes" — and its own demo routes a
+  // vehicle TO THE BUYER, never to a group's own members. Farm→FPO is a 1–5 km
+  // hop a member covers themselves; there is no fare, route or pooling problem
+  // in that distance worth an app solving, and it was making the FPO section
+  // more confusing than it needed to be.
+  //
+  // The rule this suite already follows for phone auth applies identically:
+  // the SCREEN and its NAVIGATOR REGISTRATIONS stay (fully built, fully
+  // tested, harmless while unreachable — cheap to bring back for a premium
+  // case like export grapes or a group with its own tempo). What must be gone
+  // is the ENTRY POINT and, because this route has no independent safety net
+  // the way Firebase gates phone auth, the ROUTE ITSELF must refuse.
+  console.log('\n8. ⚠️ Farm→FPO collection is retired — the entry point is gone, the route refuses');
   const Fr = (p2) => path.join(__dirname, '..', '..', 'frontend', p2);
   const rd = (p2) => { try { return fs2.readFileSync(Fr(p2), 'utf8'); } catch { return ''; } };
 
   const collectScreen = rd('src/screens/Fpo/FpoCollectionScreen.jsx');
-  check(collectScreen.length > 0, 'FpoCollectionScreen exists');
-  check(/collection-runs/.test(collectScreen),
-    'and it CALLS POST /:id/collection-runs — a route with no caller is not a feature');
+  check(collectScreen.length > 0,
+    'FpoCollectionScreen still exists on disk — retired, not deleted');
+  // ⚠️ NOT RETIRED: PUT /:id/premises is a separate endpoint (the group
+  // stating where its own godown is) and stays live and useful with no
+  // collection run to gate — restored here after being dropped by mistake
+  // when this block was first rewritten for F0.
   check(/\/premises/.test(collectScreen),
-    'and PUT /:id/premises, so the group can state its godown');
-  check(/navigate\('FpoCollection'/.test(rd('src/screens/Farmer/FpoDashboardScreen.jsx')),
-    'the FPO dashboard routes into it');
+    'and the screen still calls PUT /:id/premises — a separate, still-live capability');
+  check(!/navigate\('FpoCollection'/.test(rd('src/screens/Farmer/FpoDashboardScreen.jsx')),
+    '⚠️ the FPO dashboard no longer routes into it — the tab was removed');
   for (const nav of ['FarmerNavigator', 'FpoNavigator']) {
     check(/name="FpoCollection"/.test(rd(`src/navigation/${nav}.jsx`)),
-      `FpoCollection is registered in ${nav}`);
+      `FpoCollection stays REGISTERED in ${nav} (unreachable, not undone)`);
   }
+  check(/COLLECTION_RETIRED/.test(fposSrc) && /status\(410\)/.test(fposSrc.slice(fposSrc.indexOf('COLLECTION_RETIRED') - 400, fposSrc.indexOf('COLLECTION_RETIRED') + 100)),
+    '⚠️ the BACKEND ROUTE refuses with 410 COLLECTION_RETIRED — unlike phone auth, '
+    + 'nothing external stops a stray call here, so the refusal has to live in the route itself');
   check(/premises: fpo\.premises\?\.declared/.test(fposSrc),
     '⚠️ the dashboard RETURNS premises — the screen branches on it, and an absent '
     + 'field would make every group look like it had never set one');

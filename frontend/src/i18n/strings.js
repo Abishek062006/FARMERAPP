@@ -704,6 +704,73 @@ const STRINGS = {
     'fpoCollect.tryAgain': 'Please try again.',
     'fpoCollect.loadFailed': 'Could not load the group.',
     'fpoCollect.retry': 'Retry',
+
+    // ── F1 — walk-in intake, replacing the vehicle-based collection above ──
+    'fpoIntake.loadFailed': 'Could not load. Pull down to retry.',
+    'fpoIntake.noPremisesTitle': 'Set your collection point first',
+    'fpoIntake.noPremisesMsg': 'This group has not said where its godown is. Set it before recording produce arriving.',
+    'fpoIntake.setPremises': 'Set collection point',
+    'fpoIntake.pickListing': 'Which member\'s produce is this',
+    'fpoIntake.pickSub': 'Pick the listing this member brought in. This confirms a listing has arrived — it does not create a new one.',
+    'fpoIntake.noLots': 'No member listings are available right now.',
+    'fpoIntake.available': 'available',
+    'fpoIntake.gradeNotDeclared': 'Grade not declared',
+    'fpoIntake.grade': 'Grade',
+    'fpoIntake.howMuchArrived': 'How much actually arrived',
+    'fpoIntake.kgPlaceholder': 'Weight in kg',
+    'fpoIntake.arrivedSub': 'Up to {n} kg is on this listing. Less than that is fine — a member who said 500 kg and brought 480 is the honest, common case.',
+    'fpoIntake.howWeighed': 'How it was weighed',
+    'fpoIntake.weightMethod.collection_centre_scale': 'On our own scale',
+    'fpoIntake.weightMethod.public_weighbridge': 'Public weighbridge',
+    'fpoIntake.weightMethod.farm_scale': 'On the member\'s scale',
+    'fpoIntake.weightMethod.estimated': 'Estimated — not weighed',
+    'fpoIntake.ticketRefPlaceholder': 'Weighbridge ticket number (optional)',
+    'fpoIntake.gradeAtIntake': 'Grade at intake',
+    'fpoIntake.gradeSub': 'Optional. This is the group\'s own judgement, not a rule — the member\'s own declared grade is unaffected either way.',
+    'fpoIntake.gradeSkip': 'Skip',
+    'fpoIntake.condition': 'Condition',
+    'fpoIntake.conditionSub': 'What you can see, not a grade. Tap anything that applies — leave blank if nothing looked wrong.',
+    'fpoIntake.condFlag.wrong_crop': 'Not the crop ordered',
+    'fpoIntake.condFlag.visibly_spoiled': 'Visibly rotten or mouldy',
+    'fpoIntake.condFlag.sprouting': 'Sprouting',
+    'fpoIntake.condFlag.wet': 'Wet or damp',
+    'fpoIntake.condFlag.damaged': 'Crushed or bruised',
+    'fpoIntake.condFlag.packaging_damaged': 'Bags or crates damaged',
+    'fpoIntake.record': 'Record arrival',
+    'fpoIntake.badQtyTitle': 'Enter a weight',
+    'fpoIntake.badQtyMsg': 'How many kilograms actually arrived?',
+    'fpoIntake.tooMuchTitle': 'That\'s more than the listing has',
+    'fpoIntake.tooMuchMsg': 'Only {n} kg is on this listing.',
+    'fpoIntake.noWeightTitle': 'Say how this was weighed',
+    'fpoIntake.noWeightMsg': 'Pick a weighing method before recording this.',
+    'fpoIntake.failedTitle': 'Could not record this',
+    'fpoIntake.failedGeneric': 'Please try again.',
+    'fpoIntake.recorded': 'Arrival recorded',
+    'fpoIntake.farmer': 'Farmer',
+    'fpoIntake.crop': 'Crop',
+    'fpoIntake.qtyArrived': 'Quantity arrived',
+    'fpoIntake.weight': 'Weight',
+    'fpoIntake.recordAnother': 'Record another arrival',
+
+    // ── F2 — member settlement view ─────────────────────────────────────
+    'fpo.mySettlementTitle': 'My settlement',
+    'fpo.mySettlementSub': 'What the group sold for you, and what you\'re owed',
+    'fpoSettle.loadFailed': 'Could not load. Pull down to retry.',
+    'fpoSettle.nothingYet': 'Nothing settled through the group yet',
+    'fpoSettle.nothingYetSub': 'Selling your own listing independently carries no group fee — this only shows a pooled sale or one the group weighed and held.',
+    'fpoSettle.kg': 'kg',
+    'fpoSettle.pooledSale': 'Pooled sale',
+    'fpoSettle.fpoHeldSale': 'Sold from the godown',
+    'fpoSettle.paid': 'Paid',
+    'fpoSettle.duePill': 'Not yet paid',
+    'fpoSettle.grossAmount': 'Sale value',
+    'fpoSettle.groupFee': 'Group\'s fee',
+    'fpoSettle.agreedRate': 'Agreed rate',
+    'fpoSettle.freightOwed': 'Collection freight',
+    'fpoSettle.youGet': 'You get',
+    'fpoSettle.paidOn': 'Paid',
+    'fpoSettle.viaApp': 'via the app',
+    'fpoSettle.simulatedNote': 'Demonstration payment — no funds were transferred.',
     'fpoOrders.title': 'Group orders',
     'fpoOrders.kg': 'kg',
     'fpoOrders.ordered': 'Ordered',
@@ -1060,6 +1127,8 @@ const STRINGS = {
 
     // ── FPO members (approve / reject, with the crop match) ──────────
     'fpoMembers.title': 'Members',
+    'fpoMembers.tabPending': 'Requests',
+    'fpoMembers.tabMembers': 'Members',
     'fpoMembers.pendingTitle': 'Waiting to join',
     'fpoMembers.noPending': 'Nobody is waiting. Farmers find your group in the registry and request to join.',
     'fpoMembers.activeTitle': 'Members',
@@ -1107,6 +1176,7 @@ const STRINGS = {
     // running totals.
     'fpoDashboard.tabToday': 'Today',
     'fpoDashboard.tabStock': 'Stock',
+    'fpoDashboard.tabIntake': 'Receive',
     'fpoDashboard.tabMoney': 'Money',
     'fpoDashboard.tabCollection': 'Collection',
     'fpoDashboard.tabMembers': 'Members',
@@ -2444,6 +2514,73 @@ const STRINGS = {
     'fpoCollect.tryAgain': 'कृपया पुन्हा प्रयत्न करा.', // mr-checked
     'fpoCollect.loadFailed': 'गट लोड होऊ शकला नाही.', // mr-checked
     'fpoCollect.retry': 'पुन्हा प्रयत्न करा', // mr-checked
+
+    // ── F1 — walk-in intake, replacing the vehicle-based collection above ──
+    'fpoIntake.loadFailed': 'लोड होऊ शकले नाही. पुन्हा प्रयत्न करण्यासाठी खाली ओढा.', // mr-checked
+    'fpoIntake.noPremisesTitle': 'आधी तुमचा संकलन बिंदू सेट करा', // mr-checked
+    'fpoIntake.noPremisesMsg': 'या गटाने आपले गोदाम कुठे आहे हे सांगितलेले नाही. माल आल्याची नोंद करण्यापूर्वी ते सेट करा.', // mr-checked
+    'fpoIntake.setPremises': 'संकलन बिंदू सेट करा', // mr-checked
+    'fpoIntake.pickListing': 'हा माल कोणत्या सदस्याचा आहे', // mr-checked
+    'fpoIntake.pickSub': 'या सदस्याने आणलेला लॉट निवडा. यामुळे लॉट पोहोचल्याची नोंद होते — नवीन लॉट तयार होत नाही.', // mr-checked
+    'fpoIntake.noLots': 'सध्या कोणत्याही सदस्याचे लॉट उपलब्ध नाहीत.', // mr-checked
+    'fpoIntake.available': 'उपलब्ध', // mr-checked
+    'fpoIntake.gradeNotDeclared': 'प्रत जाहीर केलेली नाही', // mr-checked
+    'fpoIntake.grade': 'प्रत', // mr-checked
+    'fpoIntake.howMuchArrived': 'प्रत्यक्षात किती आले', // mr-checked
+    'fpoIntake.kgPlaceholder': 'वजन किलोमध्ये', // mr-checked
+    'fpoIntake.arrivedSub': 'या लॉटवर जास्तीत जास्त {n} किलो आहे. त्यापेक्षा कमी चालेल — सदस्याने ५०० किलो सांगून ४८० किलो आणणे हे प्रामाणिक, सामान्य आहे.', // mr-checked
+    'fpoIntake.howWeighed': 'कसे वजन केले', // mr-checked
+    'fpoIntake.weightMethod.collection_centre_scale': 'आमच्याच काट्यावर', // mr-checked
+    'fpoIntake.weightMethod.public_weighbridge': 'सार्वजनिक वजन काटा', // mr-checked
+    'fpoIntake.weightMethod.farm_scale': 'सदस्याच्या काट्यावर', // mr-checked
+    'fpoIntake.weightMethod.estimated': 'अंदाजे — वजन केलेले नाही', // mr-checked
+    'fpoIntake.ticketRefPlaceholder': 'वजन काटा पावती क्रमांक (ऐच्छिक)', // mr-checked
+    'fpoIntake.gradeAtIntake': 'स्वीकारताना प्रत', // mr-checked
+    'fpoIntake.gradeSub': 'ऐच्छिक. हा गटाचा स्वतःचा अंदाज आहे, नियम नाही — सदस्याने जाहीर केलेल्या प्रतीवर याचा परिणाम होत नाही.', // mr-checked
+    'fpoIntake.gradeSkip': 'वगळा', // mr-checked
+    'fpoIntake.condition': 'स्थिती', // mr-checked
+    'fpoIntake.conditionSub': 'तुम्हाला जे दिसते ते — प्रत नाही. लागू होणारे टॅप करा, काही चूक दिसली नाही तर रिकामे सोडा.', // mr-checked
+    'fpoIntake.condFlag.wrong_crop': 'मागवलेले पीक नाही', // mr-checked
+    'fpoIntake.condFlag.visibly_spoiled': 'स्पष्टपणे सडलेले किंवा बुरशी आलेले', // mr-checked
+    'fpoIntake.condFlag.sprouting': 'कोंब आलेला', // mr-checked
+    'fpoIntake.condFlag.wet': 'ओले किंवा दमट', // mr-checked
+    'fpoIntake.condFlag.damaged': 'चेंगटलेले किंवा जखमी', // mr-checked
+    'fpoIntake.condFlag.packaging_damaged': 'पोती किंवा टोपल्या खराब', // mr-checked
+    'fpoIntake.record': 'आगमन नोंदवा', // mr-checked
+    'fpoIntake.badQtyTitle': 'वजन टाका', // mr-checked
+    'fpoIntake.badQtyMsg': 'प्रत्यक्षात किती किलो आले?', // mr-checked
+    'fpoIntake.tooMuchTitle': 'हे लॉटपेक्षा जास्त आहे', // mr-checked
+    'fpoIntake.tooMuchMsg': 'या लॉटवर फक्त {n} किलो आहे.', // mr-checked
+    'fpoIntake.noWeightTitle': 'हे कसे वजन केले ते सांगा', // mr-checked
+    'fpoIntake.noWeightMsg': 'हे नोंदवण्यापूर्वी वजन करण्याची पद्धत निवडा.', // mr-checked
+    'fpoIntake.failedTitle': 'हे नोंदवता आले नाही', // mr-checked
+    'fpoIntake.failedGeneric': 'कृपया पुन्हा प्रयत्न करा.', // mr-checked
+    'fpoIntake.recorded': 'आगमन नोंदवले', // mr-checked
+    'fpoIntake.farmer': 'शेतकरी', // mr-checked
+    'fpoIntake.crop': 'पीक', // mr-checked
+    'fpoIntake.qtyArrived': 'आलेले प्रमाण', // mr-checked
+    'fpoIntake.weight': 'वजन', // mr-checked
+    'fpoIntake.recordAnother': 'आणखी एक आगमन नोंदवा', // mr-checked
+
+    // ── F2 — member settlement view ─────────────────────────────────────
+    'fpo.mySettlementTitle': 'माझा हिशोब', // mr-checked
+    'fpo.mySettlementSub': 'गटाने तुमच्यासाठी काय विकले आणि तुम्हाला किती मिळणार', // mr-checked
+    'fpoSettle.loadFailed': 'लोड होऊ शकले नाही. पुन्हा प्रयत्न करण्यासाठी खाली ओढा.', // mr-checked
+    'fpoSettle.nothingYet': 'अजून गटामार्फत काहीही विकले गेलेले नाही', // mr-checked
+    'fpoSettle.nothingYetSub': 'तुमचा स्वतःचा लॉट स्वतंत्रपणे विकल्यास गटाचे शुल्क लागत नाही — इथे फक्त एकत्रित विक्री किंवा गटाने वजन करून ठेवलेला माल दिसतो.', // mr-checked
+    'fpoSettle.kg': 'किलो', // mr-checked
+    'fpoSettle.pooledSale': 'एकत्रित विक्री', // mr-checked
+    'fpoSettle.fpoHeldSale': 'गोदामातून विकले', // mr-checked
+    'fpoSettle.paid': 'दिले', // mr-checked
+    'fpoSettle.duePill': 'अजून दिलेले नाही', // mr-checked
+    'fpoSettle.grossAmount': 'विक्री रक्कम', // mr-checked
+    'fpoSettle.groupFee': 'गटाचे शुल्क', // mr-checked
+    'fpoSettle.agreedRate': 'ठरलेला दर', // mr-checked
+    'fpoSettle.freightOwed': 'संकलन भाडे', // mr-checked
+    'fpoSettle.youGet': 'तुम्हाला मिळणार', // mr-checked
+    'fpoSettle.paidOn': 'दिले', // mr-checked
+    'fpoSettle.viaApp': 'अ‍ॅपद्वारे', // mr-checked
+    'fpoSettle.simulatedNote': 'प्रात्यक्षिक पेमेंट — प्रत्यक्षात पैसे हस्तांतरित झालेले नाहीत.', // mr-checked
     'fpoOrders.title': 'गटाच्या ऑर्डर', // mr-checked
     'fpoOrders.kg': 'किलो', // mr-checked
     'fpoOrders.ordered': 'ऑर्डर', // mr-checked
@@ -2796,6 +2933,8 @@ const STRINGS = {
 
     // ── एफपीओ सदस्य ────────────────────────────────────────────────
     'fpoMembers.title': 'सदस्य',
+    'fpoMembers.tabPending': 'विनंत्या', // mr-checked
+    'fpoMembers.tabMembers': 'सदस्य', // mr-checked
     'fpoMembers.pendingTitle': 'प्रवेशाच्या प्रतीक्षेत',
     'fpoMembers.noPending': 'कोणीही प्रतीक्षेत नाही. शेतकरी नोंदणीत तुमचा गट शोधून प्रवेशाची विनंती करतात.', // mr-checked
     'fpoMembers.activeTitle': 'सदस्य',
@@ -2839,6 +2978,7 @@ const STRINGS = {
     'fpoLot.rangeWas': 'भावाची मर्यादा', // mr-checked
     'fpoDashboard.tabToday': 'आज', // mr-checked
     'fpoDashboard.tabStock': 'माल', // mr-checked
+    'fpoDashboard.tabIntake': 'स्वीकारा', // mr-checked
     'fpoDashboard.tabMoney': 'पैसे', // mr-checked
     'fpoDashboard.tabCollection': 'संकलन', // mr-checked
     'fpoDashboard.tabMembers': 'सदस्य',

@@ -2689,6 +2689,95 @@ router.post('/:id/abandon', requireAuth, requireRole('agent', 'farmer', 'vendor'
  * Rewriting the owner here would silently turn every collection into a
  * procurement sale.
  */
+/**
+ * Move `kg` of one listing into `fpo`'s custody: decrement the source,
+ * create a held listing at the group's premises. This is the ONE place a
+ * CropListing physically moves from a farm to a godown, whatever brought it
+ * there — extracted out of the run-based `transferCollectedStock()` below so
+ * F1's walk-in intake (no vehicle, no run, no fareShare) can do the exact
+ * same custody transfer rather than a second copy of it.
+ *
+ * @param source            lean CropListing doc, already fetched
+ * @param fpo               lean Fpo doc with `premises.declared`
+ * @param kg                how much actually moved
+ * @param freightOwedPerKg  0 for a walk-in (nothing was hired to move it) or
+ *                          procurement mode; a run's by-weight fareShare
+ *                          otherwise — see the caller for the reasoning
+ * @param collectionRunId   the Consignment this came from, or null for a
+ *                          walk-in — `custody.collectionRunId` stays honestly
+ *                          null rather than pointing at a run that never ran
+ * @param intake            optional { recordedBy, weight, grade, condition } —
+ *                          set only by a walk-in; a run's OWN per-stop record
+ *                          already lives on the Consignment and the Order
+ * @returns { ok: true, heldListingId } or { ok: false, reason }
+ */
+async function moveListingToFpoCustody(source, fpo, { kg, freightOwedPerKg, collectionRunId, intake }) {
+  // Guarded in the FILTER on there being enough left, so two callers can
+  // never both draw the same stock down.
+  const decremented = await CropListing.findOneAndUpdate(
+    { _id: source._id, quantityAvailableKg: { $gte: kg } },
+    { $inc: { quantityAvailableKg: -kg } },
+    { new: true }
+  ).lean();
+  if (!decremented) return { ok: false, reason: 'stock_moved' };
+
+  const held = await CropListing.create({
+    // ⚠️ `cropId` IS REQUIRED AND IS CARRIED OVER, NOT MINTED. It ties the
+    // lot back to the Crop the farmer actually grew — the agronomic record,
+    // the harvest, the yield. Carrying produce to a shed does not make it a
+    // different crop, and a fresh id here would orphan the held stock from
+    // the farmer's own history. (`location.city` is required too, which is
+    // why the godown label falls back to the FPO's name rather than '' —
+    // caught by running this, not by reading it.)
+    cropId: source.cropId,
+    landId: source.landId,
+    plotId: source.plotId,
+    farmerUid: source.farmerUid,
+    farmerName: source.farmerName,
+    farmerPhone: source.farmerPhone,
+    cropName: source.cropName,
+    cropLocalName: source.cropLocalName,
+    grade: source.grade,
+    gradeNote: source.gradeNote,
+    quantityKg: kg,
+    quantityAvailableKg: kg,
+    minOrderKg: Math.min(source.minOrderKg || 0, kg),
+    // The member's own asking price rides across untouched. The group is
+    // holding the produce, not repricing it.
+    pricePerKg: source.pricePerKg,
+    proofImageId: source.proofImageId,
+    status: 'available',
+    dataSource: source.dataSource,
+    location: {
+      lat: fpo.premises.lat,
+      lng: fpo.premises.lng,
+      // Required field — never allowed to fall through to ''.
+      city: fpo.premises.label || fpo.name || 'FPO collection point',
+      district: fpo.premises.district || fpo.district || '',
+    },
+    // [lng, lat]. GeoJSON demands longitude first; getting it backwards puts
+    // the lot off the coast of Somalia, silently, with no error.
+    geo: { type: 'Point', coordinates: [fpo.premises.lng, fpo.premises.lat] },
+    custody: {
+      heldAt: 'fpo',
+      fpoId: fpo._id,
+      collectionRunId: collectionRunId || null,
+      collectedAt: new Date(),
+      originLabel: source.location?.city || '',
+      originDistrict: source.location?.district || '',
+      freightOwedPerKg,
+      ...(intake ? { intake } : {}),
+    },
+  });
+
+  // A source listing drawn down to nothing leaves the market, exactly as a
+  // sold-out one does.
+  if (decremented.quantityAvailableKg === 0) {
+    await CropListing.updateOne({ _id: decremented._id, quantityAvailableKg: 0 }, { $set: { status: 'sold_out' } });
+  }
+  return { ok: true, heldListingId: String(held._id) };
+}
+
 async function transferCollectedStock(run) {
   const moved = [];
   const Fpo = require('../models/Fpo');
@@ -2699,13 +2788,7 @@ async function transferCollectedStock(run) {
     const kg = stop.collectedKg ?? (stop.collected ? stop.quantityKg : 0);
     if (!kg || !stop.listingId) continue;
 
-    // Guarded in the FILTER on there being enough left, so two deliveries of
-    // the same run cannot both draw the stock down.
-    const source = await CropListing.findOneAndUpdate(
-      { _id: stop.listingId, quantityAvailableKg: { $gte: kg } },
-      { $inc: { quantityAvailableKg: -kg } },
-      { new: true }
-    ).lean();
+    const source = await CropListing.findById(stop.listingId).lean();
     if (!source) { moved.push({ listingId: stop.listingId, ok: false, reason: 'stock_moved' }); continue; }
 
     // ── PHASE 3, L1: WHO OWES THE FREIGHT THAT JUST GOT THIS LOT HERE ────
@@ -2727,60 +2810,12 @@ async function transferCollectedStock(run) {
       ? 0
       : Math.round((stop.fareShare / kg) * 100) / 100;
 
-    const held = await CropListing.create({
-      // ⚠️ `cropId` IS REQUIRED AND IS CARRIED OVER, NOT MINTED. It ties the
-      // lot back to the Crop the farmer actually grew — the agronomic record,
-      // the harvest, the yield. Carrying produce to a shed does not make it a
-      // different crop, and a fresh id here would orphan the held stock from
-      // the farmer's own history. (`location.city` is required too, which is
-      // why the godown label falls back to the FPO's name rather than '' —
-      // caught by running this, not by reading it.)
-      cropId: source.cropId,
-      landId: source.landId,
-      plotId: source.plotId,
-      farmerUid: source.farmerUid,
-      farmerName: source.farmerName,
-      farmerPhone: source.farmerPhone,
-      cropName: source.cropName,
-      cropLocalName: source.cropLocalName,
-      grade: source.grade,
-      gradeNote: source.gradeNote,
-      quantityKg: kg,
-      quantityAvailableKg: kg,
-      minOrderKg: Math.min(source.minOrderKg || 0, kg),
-      // The member's own asking price rides across untouched. The group is
-      // holding the produce, not repricing it.
-      pricePerKg: source.pricePerKg,
-      proofImageId: source.proofImageId,
-      status: 'available',
-      dataSource: source.dataSource,
-      location: {
-        lat: fpo.premises.lat,
-        lng: fpo.premises.lng,
-        // Required field — never allowed to fall through to ''.
-        city: fpo.premises.label || fpo.name || 'FPO collection point',
-        district: fpo.premises.district || fpo.district || '',
-      },
-      // [lng, lat]. GeoJSON demands longitude first; getting it backwards puts
-      // the lot off the coast of Somalia, silently, with no error.
-      geo: { type: 'Point', coordinates: [fpo.premises.lng, fpo.premises.lat] },
-      custody: {
-        heldAt: 'fpo',
-        fpoId: fpo._id,
-        collectionRunId: run._id,
-        collectedAt: new Date(),
-        originLabel: source.location?.city || '',
-        originDistrict: source.location?.district || '',
-        freightOwedPerKg,
-      },
+    const result = await moveListingToFpoCustody(source, fpo, {
+      kg, freightOwedPerKg, collectionRunId: run._id,
     });
-
-    // A source listing drawn down to nothing leaves the market, exactly as a
-    // sold-out one does.
-    if (source.quantityAvailableKg === 0) {
-      await CropListing.updateOne({ _id: source._id, quantityAvailableKg: 0 }, { $set: { status: 'sold_out' } });
-    }
-    moved.push({ listingId: String(source._id), heldListingId: String(held._id), kg, ok: true });
+    moved.push(result.ok
+      ? { listingId: String(source._id), heldListingId: result.heldListingId, kg, ok: true }
+      : { listingId: stop.listingId, ok: false, reason: result.reason });
   }
   return { moved, error: null };
 }
@@ -3496,3 +3531,6 @@ module.exports.FPO_DRIVER_ROLES = FPO_DRIVER_ROLES;
 // the route drifting into asserting different enums.
 module.exports.POSTABLE_WEIGHT_METHODS = POSTABLE_WEIGHT_METHODS;
 module.exports.WEIGHT_NOT_RECORDED = WEIGHT_NOT_RECORDED;
+// F1 — the one place a listing moves into FPO custody, shared with the
+// (retired but kept) run-based collection path. See its own header comment.
+module.exports.moveListingToFpoCustody = moveListingToFpoCustody;

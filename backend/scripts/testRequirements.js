@@ -69,10 +69,16 @@ const check = (cond, m, extra = '') => {
     status: 'available', ...over,
   });
 
+  // ⚠️ priceMin/priceMax default to a real range, not null. A requirement
+  // with NEITHER set is deliberately excluded from a farmer's matched feed
+  // (routes/requirements.js matchRequirementsForPoints — "I want Onion" with
+  // no rate offered is a real want but not one a farmer can act on). Every
+  // OTHER assertion in this file assumes a normal, matchable requirement, so
+  // that has to be the default; §2b below tests the exclusion itself.
   const mkReq = (uid, over = {}) => call('POST', '/api/requirements', uid, {
     commodity: TAG + 'Onion', quantityKg: 2000,
     deliveryPoint: { ...LASALGAON, label: 'Lasalgaon mandi', district: 'Nashik' },
-    radiusKm: 80, ...over,
+    radiusKm: 80, priceMin: 18, priceMax: 26, ...over,
   });
 
   console.log('\n📣 The demand side (E)\n');
@@ -123,6 +129,18 @@ const check = (cond, m, extra = '') => {
       'and which of their own lots could fill it', `→ ${mine[0].matchingListings.length}`);
     check(mine[0].responses === undefined,
       'a farmer never sees who ELSE responded');
+
+    // 🐛 REPORTED DIRECTLY — a want with no price mentioned at all read as
+    // broken to a farmer opening this screen. Posting one with neither
+    // priceMin nor priceMax set is still a valid requirement (VENDOR2 can
+    // post it); it must simply never reach a farmer's matched feed, because
+    // there is nothing in it to compare against their own asking price.
+    r = await mkReq(VENDOR2, { priceMin: null, priceMax: null });
+    check(r.status === 201, 'a requirement with NEITHER price bound is still accepted as posted');
+    r = await call('GET', '/api/requirements/for-farmer', FARMER);
+    mine = r.body.requirements.filter((x) => x.commodity.startsWith(TAG));
+    check(mine.length === 1,
+      'but it never reaches the farmer\'s feed — nothing in it to act on', `→ ${mine.length}`);
 
     // Out of the buyer's own radius.
     await mkReq(VENDOR2, {

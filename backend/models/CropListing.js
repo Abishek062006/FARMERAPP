@@ -168,6 +168,52 @@ const CropListingSchema = new mongoose.Schema({
     //                  rail that charges a farmer directly — this is deducted
     //                  from what they are paid when the crop is later sold.
     freightOwedPerKg: { type: Number, default: 0, min: 0 },
+
+    // ── F1 — WHAT WAS RECORDED WHEN THIS ARRIVED AT THE GODOWN ──────────
+    //
+    // Mirrors Order.pickupOutcome's weight/grade/condition blocks EXACTLY —
+    // same field names, same enums — so data/gateRecord.js's describeWeight(),
+    // describeGradeCheck() and describeCondition() apply to a walk-in intake
+    // with no adaptation. Two different moments (a captain at a farm gate; an
+    // FPO's own person at the godown counter) recorded in one shared
+    // vocabulary, not two.
+    //
+    // ⚠️ THE FPO'S OWN PERSON MAY GRADE HERE, ALWAYS. data/gateRecord.js's
+    // GRADING_ROLES already includes 'fpo_admin' — this is exactly the case
+    // that rule was written for: the group's own person, handling this crop
+    // every season, whose group's name is on the sale. There is no captain at
+    // a walk-in intake to refuse grading to.
+    intake: {
+      recordedAt: { type: Date, default: null },
+      recordedBy: { type: String, default: null },
+      weight: {
+        method: {
+          type: String,
+          enum: ['collection_centre_scale', 'public_weighbridge', 'farm_scale', 'estimated', null],
+          default: null,
+        },
+        ref: { type: String, default: '', maxlength: 60 },
+      },
+      grade: {
+        declared: { type: String, enum: ['A', 'B', 'C', null], default: null },
+        observed: { type: String, enum: ['A', 'B', 'C', null], default: null },
+        discrepancy: {
+          type: String,
+          enum: ['match', 'downgrade', 'upgrade', 'observed_only', null],
+          default: null,
+        },
+        // Same split of authority as an Order's grade block: only the farmer
+        // may turn a recorded downgrade into a concession.
+        farmerResponse: { type: String, enum: ['accepted', 'contested', null], default: null },
+        farmerResponseNote: { type: String, default: '', maxlength: 300 },
+        farmerRespondedAt: { type: Date, default: null },
+      },
+      condition: {
+        checked: { type: Boolean, default: false },
+        flags: { type: [String], default: [] },
+        note: { type: String, default: '', maxlength: 300 },
+      },
+    },
   },
 
   geo: {

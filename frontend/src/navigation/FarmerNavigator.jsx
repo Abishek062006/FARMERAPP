@@ -36,10 +36,11 @@ import FpoRunScreen from '../screens/Farmer/FpoRunScreen';
 import FpoMembersScreen from '../screens/Fpo/FpoMembersScreen';
 import FpoOrdersScreen from '../screens/Fpo/FpoOrdersScreen';
 import FpoCollectionScreen from '../screens/Fpo/FpoCollectionScreen';
+import FpoIntakeScreen from '../screens/Fpo/FpoIntakeScreen';
+import FpoMySettlementScreen from '../screens/Fpo/FpoMySettlementScreen';
 import FpoFocusCropsScreen from '../screens/Fpo/FpoFocusCropsScreen';
 import FpoTermsScreen from '../screens/Fpo/FpoTermsScreen';
 import FpoLotScreen from '../screens/Fpo/FpoLotScreen';
-import FpoAllMembersScreen from '../screens/Fpo/FpoAllMembersScreen';
 import FpoMemberDetailScreen from '../screens/Fpo/FpoMemberDetailScreen';
 import RecordSaleScreen from '../screens/Farmer/RecordSaleScreen';
 import HoldDecisionScreen from '../screens/Farmer/HoldDecisionScreen';
@@ -294,14 +295,32 @@ const FarmerNavigator = ({ userData }) => {
           declaration. Reached from the shared FpoDashboardScreen, so both
           stacks must register them. FpoScreen's own inline approval list stays
           — a farmer-admin has both paths and they read the same routes. */}
-      {/* Phase 2b. Registered in BOTH navigators because the shared
-          FpoDashboardScreen links to it from the legacy farmer-account
-          admin stack AND from the fpo-role stack. Same rule already
-          followed by FpoMembers and FpoFocusCrops. */}
+      {/* ⚠️ F0 — UNREACHABLE ON PURPOSE, KEPT ON PURPOSE. FpoDashboardScreen's
+          "Collection" tab (the only caller) was removed: farm→FPO transport is
+          a 1–5 km hop a member covers themselves and is not what the problem
+          statement's aggregation clause asks for. The screen and its backend
+          route are fully built and tested, so the registration stays — same
+          treatment as the phone-auth screens behind PHONE_AUTH_ENABLED. */}
       <Stack.Screen
         name="FpoCollection"
         component={FpoCollectionScreen}
         options={{ title: 'Collect from members' }}
+      />
+
+      {/* F1 — replaces the collection run above as the way produce actually
+          arrives at the godown: no vehicle, weighed and graded at the counter. */}
+      <Stack.Screen
+        name="FpoIntake"
+        component={FpoIntakeScreen}
+        options={{ title: 'Receive produce' }}
+      />
+
+      {/* F2 — every member's own view of what the group owes them, deduction
+          by deduction, whether the sale was pooled or an F1-held walk-in. */}
+      <Stack.Screen
+        name="FpoMySettlement"
+        component={FpoMySettlementScreen}
+        options={{ title: 'My settlement' }}
       />
 
       <Stack.Screen
@@ -342,16 +361,11 @@ const FarmerNavigator = ({ userData }) => {
         options={{ title: 'Lot' }}
       />
 
-      {/* "See all" farmer performance + search, and one farmer's full detail
-          and trade history — both reached from the shared FpoDashboardScreen
-          (the Today tab's carousel/"See all" link and the Members tab), so
-          BOTH stacks must register them, same rule as everything above. */}
-      <Stack.Screen
-        name="FpoAllMembers"
-        component={FpoAllMembersScreen}
-        initialParams={{ userData }}
-        options={{ title: 'Members' }}
-      />
+      {/* F3 — one farmer's full detail and trade history, reached from the
+          Members tab of FpoMembersScreen (the "See all"/FpoAllMembers screen
+          it used to be reached from was merged into FpoMembersScreen as a
+          second tab; both stacks still register this detail screen, same
+          rule as everything above). */}
       <Stack.Screen
         name="FpoMemberDetail"
         component={FpoMemberDetailScreen}

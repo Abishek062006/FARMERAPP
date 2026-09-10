@@ -330,6 +330,17 @@ const check = (c,m,x='') => { c ? (pass++, console.log('  ✅',m,x)) : (fail++, 
     // ── 10. the FPO's own driver posts the position ────────────────────
     // On an own/contracted run agentUid is null, so before a driver could be
     // assigned NO position could ever be captured on such a run at all.
+    //
+    // ⚠️ NOT BUILT VIA mkPooledRun. `POST /api/consignments` is a BUYER route
+    // (requireRole('vendor')) and is correctly HIRED_ONLY — a prior security
+    // fix closed the hole where a buyer could name an arbitrary FPO's own
+    // vehicle and state its cost with nobody from that FPO consenting (see
+    // CLAUDE.md and the identical fix already applied in testConsignments.js
+    // §998). What this section actually tests — an FPO driver may post a
+    // position on an own-mode run, the office may not — does not depend on
+    // HOW the run was created, only on it existing with real Orders and
+    // `agentUid: null`. So it is constructed directly, exactly as
+    // testConsignments.js's g3Orders/G3doc scaffolding already does.
     console.log('\n10. An FPO driver posts a position; the office cannot');
     const fpo = await Fpo.create({
       name: TAG+'Niphad Growers', district:'Nashik', adminUid: FPO_ADMIN, adminName:'Group Office',
@@ -338,11 +349,37 @@ const check = (c,m,x='') => { c ? (pass++, console.log('  ✅',m,x)) : (fail++, 
         { farmerUid: F3, farmerName:'Farmer Three', status:'active' },
       ],
     });
-    const { run: OWN } = await mkPooledRun({
-      transportMode:'own', fpoId: String(fpo._id),
-      transport:{ driverName:'Sakharam', driverPhone:'9000000008', vehicleNumber:'MH 15 ZZ 9090', cost: 1800 },
+    const l2 = await mkListing(F2, 'Farmer Two', NIPHAD);
+    const l3 = await mkListing(F3, 'Farmer Three', YEOLA);
+    const oa = (await call('POST','/api/orders',VENDOR,
+      { listingId:l2._id, quantityKg:400, vehicleType:'tempo', dropoff:LASALGAON })).body.order;
+    const ob = (await call('POST','/api/orders',VENDOR,
+      { listingId:l3._id, quantityKg:500, vehicleType:'tempo', dropoff:LASALGAON })).body.order;
+    const OWN = await Consignment.create({
+      vendorUid: VENDOR, vendorName: 'Test Vendor', vendorPhone: '9000000002',
+      orderIds: [oa._id, ob._id],
+      stops: [oa, ob].map((o, i) => ({
+        orderId: o._id, farmerUid: o.farmerUid, farmerName: o.farmerName, farmerPhone: o.farmerPhone,
+        cropName: o.cropName, quantityKg: o.quantityKg,
+        lat: [NIPHAD, YEOLA][i].lat, lng: [NIPHAD, YEOLA][i].lng, label: `Farm ${i}`,
+        sequence: i, legKm: 10, fareShare: 900, fareShareBasisKg: o.quantityKg,
+      })),
+      dropoff: { ...LASALGAON },
+      vehicleType: 'tempo', totalQuantityKg: 900, distanceKm: 25, durationMin: 50,
+      routeSource: 'haversine',
+      fare: { base: null, perKm: null, distanceCharge: null, returnCharge: 0, returnKm: 0,
+        returnThresholdKm: null, total: 1800, agentPayout: null },
+      soloFareTotal: null,
+      transportMode: 'own', fpoId: fpo._id,
+      transport: {
+        driverName: 'Sakharam', driverPhone: '9000000008', vehicleNumber: 'MH 15 ZZ 9090',
+        cost: 1800, costSource: 'fpo_stated', costNote: 'Not computed by this app — the FPO stated it.',
+        arrangedBy: FPO_ADMIN,
+      },
+      status: 'accepted', agentUid: null, dropOtp: '5566',
     });
-    check(OWN.status === 'accepted' && OWN.agentUid === null,
+    await Order.updateMany({ _id: { $in: [oa._id, ob._id] } }, { $set: { consignmentId: OWN._id } });
+    check(OWN && OWN.status === 'accepted' && OWN.agentUid === null,
       'a run the FPO drives itself starts accepted with no captain', `→ ${OWN.status}`);
 
     r = await call('POST',`/api/consignments/${OWN._id}/location`,FPO_ADMIN,{ lat:20.02, lng:73.9, seq:1 });
@@ -393,11 +430,38 @@ const check = (c,m,x='') => { c ? (pass++, console.log('  ✅',m,x)) : (fail++, 
         { farmerUid: F3, farmerName:'Farmer Three', status:'active' },
       ],
     });
-    const { run: OWN2 } = await mkPooledRun({
-      transportMode:'contracted', fpoId: String(fpo2._id),
-      transport:{ driverName:'Bharat Transport', driverPhone:'9822003344',
-        vehicleNumber:'MH 15 QQ 4242', cost: 1900, costSource:'negotiated_rate' },
+    // ⚠️ Same reason as §10: built directly, not through the buyer-facing
+    // HIRED_ONLY route.
+    const l2b = await mkListing(F2, 'Farmer Two', NIPHAD);
+    const l3b = await mkListing(F3, 'Farmer Three', YEOLA);
+    const oc = (await call('POST','/api/orders',VENDOR,
+      { listingId:l2b._id, quantityKg:300, vehicleType:'tempo', dropoff:LASALGAON })).body.order;
+    const od = (await call('POST','/api/orders',VENDOR,
+      { listingId:l3b._id, quantityKg:450, vehicleType:'tempo', dropoff:LASALGAON })).body.order;
+    const OWN2 = await Consignment.create({
+      vendorUid: VENDOR, vendorName: 'Test Vendor', vendorPhone: '9000000002',
+      orderIds: [oc._id, od._id],
+      stops: [oc, od].map((o, i) => ({
+        orderId: o._id, farmerUid: o.farmerUid, farmerName: o.farmerName, farmerPhone: o.farmerPhone,
+        cropName: o.cropName, quantityKg: o.quantityKg,
+        lat: [NIPHAD, YEOLA][i].lat, lng: [NIPHAD, YEOLA][i].lng, label: `Farm ${i}`,
+        sequence: i, legKm: 10, fareShare: 950, fareShareBasisKg: o.quantityKg,
+      })),
+      dropoff: { ...LASALGAON },
+      vehicleType: 'tempo', totalQuantityKg: 750, distanceKm: 25, durationMin: 50,
+      routeSource: 'haversine',
+      fare: { base: null, perKm: null, distanceCharge: null, returnCharge: 0, returnKm: 0,
+        returnThresholdKm: null, total: 1900, agentPayout: null },
+      soloFareTotal: null,
+      transportMode: 'contracted', fpoId: fpo2._id,
+      transport: {
+        driverName: 'Bharat Transport', driverPhone: '9822003344', vehicleNumber: 'MH 15 QQ 4242',
+        cost: 1900, costSource: 'negotiated_rate', costNote: 'A rate the FPO negotiated directly, not computed by this app.',
+        arrangedBy: FPO_OFFICE,
+      },
+      status: 'accepted', agentUid: null, dropOtp: '7788',
     });
+    await Order.updateMany({ _id: { $in: [oc._id, od._id] } }, { $set: { consignmentId: OWN2._id } });
     check(OWN2.status === 'accepted' && OWN2.agentUid === null,
       'a contracted run for an `fpo`-admin group starts accepted with no captain', `→ ${OWN2.status}`);
 

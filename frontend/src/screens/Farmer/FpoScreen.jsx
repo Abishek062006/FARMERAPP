@@ -405,6 +405,26 @@ export default function FpoScreen({ route, navigation }) {
           </TouchableOpacity>
         )}
 
+        {/* F2 — EVERY member, admin or not, may see their own settlement. This
+            is deliberately separate from the procurement card below: that one
+            reads FpoProcurement's own dedicated harvest-time flow, this one
+            covers a pooled lot sale AND an F1 walk-in-intake sale, under
+            EITHER payment mode. */}
+        <TouchableOpacity
+          style={[s.dashboardCard, { marginTop: 10 }]}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('FpoMySettlement', { userData, fpoId: fpo._id })}
+        >
+          <View style={s.dashboardIcon}>
+            <Ionicons name="receipt-outline" size={20} color="#15803D" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.dashboardTitle}>{t('fpo.mySettlementTitle')}</Text>
+            <Text style={s.dashboardSub}>{t('fpo.mySettlementSub')}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+        </TouchableOpacity>
+
         {/* ── ORDERS & EARNINGS WITH THIS FPO — read-only. Selling itself
             happens once, at harvest time (HarvestPostModal's "Open Market"
             vs "Sell to my FPO" fork). This card only ever reports what has

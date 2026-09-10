@@ -299,12 +299,32 @@ export default function FpoDashboardScreen({ route, navigation }) {
   // into an inline tab would mean rewriting two already-working screens for
   // no gain. Tapping one navigates and leaves `tab` exactly where it was, so
   // the bar never shows a tab "selected" with nothing under it.
+  // ⚠️ F0 — FARM-TO-FPO COLLECTION RUNS ARE RETIRED, ON PURPOSE.
+  //
+  // The problem statement's aggregation clause ("buyers may struggle to
+  // aggregate consistent volumes") is defined from the BUYER side, and its own
+  // demo narrative routes a vehicle to the buyer, never to the group's own
+  // members. Farm→FPO is a 1–5 km hop a member covers themselves — a cart, a
+  // bike, a neighbour's tractor — and there is no fare, route or pooling
+  // problem in that distance worth an app solving.
+  //
+  // The old screen and its backend route are NOT deleted — same reasoning as
+  // the phone-auth screens: fully built, fully tested, harmless while
+  // unreachable. If a premium case ever needs farm pickup (export grapes, a
+  // group with its own tempo), it returns by adding a tab pointing at
+  // `FpoCollection` alongside the one below.
+  //
+  // ⚠️ F1 — WHAT REPLACES IT: produce still has to arrive somehow, and this is
+  // that "somehow" — a member walks in, the group's own person weighs and
+  // (optionally) grades it at the counter. No vehicle, no route, no fare. This
+  // tab took back the slot Collection used to occupy, pointing at the correct
+  // capability rather than leaving it empty.
   const TABS = [
     { key: 'today', label: t('fpoDashboard.tabToday'), icon: 'today-outline' },
     { key: 'stock', label: t('fpoDashboard.tabStock'), icon: 'cube-outline' },
+    { key: 'intake', label: t('fpoDashboard.tabIntake'), icon: 'download-outline',
+      onPress: () => navigation?.navigate('FpoIntake', { fpoId, userData }) },
     { key: 'money', label: t('fpoDashboard.tabMoney'), icon: 'cash-outline' },
-    { key: 'collection', label: t('fpoDashboard.tabCollection'), icon: 'download-outline',
-      onPress: () => navigation?.navigate('FpoCollection', { fpoId, userData }) },
     { key: 'terms', label: t('fpoTerms.linkLabel'), icon: 'document-text-outline',
       onPress: () => navigation?.navigate('FpoTerms', { fpoId, userData }) },
     { key: 'members', label: t('fpoDashboard.tabMembers'), icon: 'people-outline',
@@ -455,7 +475,7 @@ export default function FpoDashboardScreen({ route, navigation }) {
           <Text style={s.sectionTitle}>{t('fpoDashboard.farmerPerformanceTitle')}</Text>
           {members.length > 0 && (
             <TouchableOpacity
-              onPress={() => navigation?.navigate('FpoAllMembers', { fpoId, userData, members })}
+              onPress={() => navigation?.navigate('FpoMembers', { fpoId, userData, members, initialTab: 'members' })}
             >
               <Text style={s.seeAll}>{t('fpoDashboard.seeAll')}</Text>
             </TouchableOpacity>
@@ -809,7 +829,7 @@ export default function FpoDashboardScreen({ route, navigation }) {
 
         <TouchableOpacity
           style={s.membersBtn}
-          onPress={() => navigation?.navigate('FpoAllMembers', { fpoId, userData, members })}
+          onPress={() => navigation?.navigate('FpoMembers', { fpoId, userData, members, initialTab: 'members' })}
         >
           <Ionicons name="stats-chart-outline" size={15} color="#15803D" />
           <Text style={s.membersBtnText}>{t('fpoDashboard.viewPerformance')}</Text>

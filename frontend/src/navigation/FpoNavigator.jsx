@@ -9,10 +9,10 @@ import FpoHomeScreen from '../screens/Fpo/FpoHomeScreen';
 import FpoMembersScreen from '../screens/Fpo/FpoMembersScreen';
 import FpoOrdersScreen from '../screens/Fpo/FpoOrdersScreen';
 import FpoCollectionScreen from '../screens/Fpo/FpoCollectionScreen';
+import FpoIntakeScreen from '../screens/Fpo/FpoIntakeScreen';
 import FpoFocusCropsScreen from '../screens/Fpo/FpoFocusCropsScreen';
 import FpoTermsScreen from '../screens/Fpo/FpoTermsScreen';
 import FpoLotScreen from '../screens/Fpo/FpoLotScreen';
-import FpoAllMembersScreen from '../screens/Fpo/FpoAllMembersScreen';
 import FpoMemberDetailScreen from '../screens/Fpo/FpoMemberDetailScreen';
 // These four live under screens/Farmer/ and are NOT moved. They are reached
 // from BOTH stacks: this one, and the farmer stack for a legacy farmer-account
@@ -158,14 +158,21 @@ const FpoNavigator = ({ userData }) => {
           the group deals in. Before this existed the `fpo` account could not
           admit a member at all from the UI — the routes were there and nothing
           called them. */}
-      {/* Phase 2b. Registered in BOTH navigators because the shared
-          FpoDashboardScreen links to it from the legacy farmer-account
-          admin stack AND from the fpo-role stack. Same rule already
-          followed by FpoMembers and FpoFocusCrops. */}
+      {/* ⚠️ F0 — UNREACHABLE ON PURPOSE, KEPT ON PURPOSE. See the matching
+          note in FarmerNavigator.jsx — farm→FPO collection is retired, the
+          screen is not deleted. */}
       <Stack.Screen
         name="FpoCollection"
         component={FpoCollectionScreen}
         options={{ title: 'Collect from members' }}
+      />
+
+      {/* F1 — replaces the collection run above as the way produce actually
+          arrives at the godown: no vehicle, weighed and graded at the counter. */}
+      <Stack.Screen
+        name="FpoIntake"
+        component={FpoIntakeScreen}
+        options={{ title: 'Receive produce' }}
       />
 
       <Stack.Screen
@@ -208,15 +215,9 @@ const FpoNavigator = ({ userData }) => {
         options={{ title: 'Lot' }}
       />
 
-      {/* "See all" farmer performance + search, and one farmer's full detail
-          and trade history — both reached from the shared FpoDashboardScreen,
-          so BOTH stacks must register them, same rule as above. */}
-      <Stack.Screen
-        name="FpoAllMembers"
-        component={FpoAllMembersScreen}
-        initialParams={{ userData }}
-        options={{ title: 'Members' }}
-      />
+      {/* F3 — one farmer's full detail and trade history, reached from the
+          Members tab of FpoMembersScreen. Same rule as above: both stacks
+          register it. */}
       <Stack.Screen
         name="FpoMemberDetail"
         component={FpoMemberDetailScreen}

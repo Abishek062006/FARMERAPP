@@ -55,7 +55,8 @@ cd backend && for t in testFarmMarket testOrders testDispatch testTracking testM
                       testOffers testDisputes testRequirements testConsignments \
                       testFpos testMandiSales testStorage testFpoDashboard testFpoRegistry \
                       testFertilizer testPhoneAuth testPayment testCropDemand \
-                      testReachability testCollection testPriceOutlook; do node scripts/$t.js; done
+                      testReachability testCollection testFpoIntake testFpoSettlement \
+                      testPriceOutlook; do node scripts/$t.js; done
 
 # pull mandi price history for the ML models (no API key, ~6 min, resumable)
 # 39 commodities, ~1 hour, resumable — re-run any time to top up newer months.
@@ -112,7 +113,8 @@ Per-suite, as measured on this sweep (all 21, summing to 1651):
 testFpos **376 → 352**, testConsignments **214**, testOrders **134**, testTracking **80**,
 testMandiSales **78**, testFpoRegistry **72**, testFpoDashboard **65**, testFarmMarket **62**,
 testStorage **62**, testMarketIntel **59**, testDisputes **59**, testOffers **56**,
-testCollection **48 → 54**, testDispatch **48**, testRequirements **42**, testReachability **40 → 62**,
+testCollection **48 → 54**, testDispatch **48 → 49**, testRequirements **42 → 44**, testReachability **40 → 62**,
+testFpoIntake **36** (new — F1, in its own file, not testCollection.js — see the decision log),
 testPriceOutlook **71**, testCropDemand **26**, testFertilizer **19** (pure data, no Atlas),
 testPhoneAuth **19**, testPayment **17**.
 (testDispatch 29 → **48** with the four-hour window, the working-day cutoff and the
@@ -128,6 +130,16 @@ sale loop, Phase D, and 325 → 337 with the pending-membership fix. `testFpoDas
 `testConsignments` 79 → 137 with run release/abandon and the cross-collection one-job rule,
 `testOrders` 80 → 88 with that same rule from the other side, and `testStorage` 43 → 62 with
 the approximated-coordinate honesty.)
+
+**FPO Rebuild sweep (F0–F2), a real re-run of all 21 suites minus `testPriceOutlook`
+(environmental — the AI Flask service was not running in this session): 1639 passed, 0
+failed.** `testFpoIntake` **36** (F1, new) and `testFpoSettlement` **22** (F2, new) both in
+their own files for the auth-stub reason recorded below. Individual suite counts move release
+to release because these tests run against live Atlas — `testFpos` **373**, `testDispatch`
+**49**, `testRequirements` **44**, `testStorage` **51**, `testMarketIntel` **49** on this pass;
+none of that drift is a regression, it is what the "against real data" discipline this file
+insists on actually looks like. **Per the file's own rule: if you cannot run every suite, say
+which ones you ran** — this sweep ran 21 of 22, `testPriceOutlook` excluded by name, not by sum.
 
 ## Conventions
 
@@ -186,6 +198,215 @@ the approximated-coordinate honesty.)
   Maharashtra. Reasons are recorded beside the citations.
 
 ### Fixed — do not "re-fix" these
+- **F3 — THE MEMBER SCREENS ARE MERGED: ONE SCREEN, TWO TABS, NOT TWO SCREENS.**
+  `Fpo/FpoMembersScreen.jsx` used to be a "Pending" approval queue plus a bare
+  name+join-date "Active" list; `Fpo/FpoAllMembersScreen.jsx` was a SEPARATE screen
+  showing the same active members with trust bands, crops supplied and a search box.
+  `FpoDashboardScreen` linked to BOTH from two different buttons ("Members" →
+  the bare list, "See all" → the real one) — an admin managing members had two
+  doors into the same room, one of them nearly useless. Verified this was real
+  before touching anything, per the standing rule to surface problem + criticality
+  before fixing: confirmed live in the code that the "Active" section rendered only
+  an icon, a name and a join date, while the separate screen it duplicated carried
+  full performance data.
+- **`FpoAllMembersScreen.jsx` IS DELETED, NOT KEPT-BUT-UNREACHABLE.** Unlike the
+  phone-auth screens or `FpoCollectionScreen` (kept dormant because each is a
+  complete, independently working capability that might be restored), this screen's
+  entire behaviour now lives inside `FpoMembersScreen`'s second tab — after the
+  merge it has zero callers and describing it as "dormant" would be dishonest.
+  "If you are certain something is unused, you can delete it completely" (this
+  file's own conventions section).
+- **THE TWO TABS ARE "Requests" (pending approval) AND "Members" (the real
+  searchable/trust-scored list, ported from the deleted screen almost verbatim,
+  including its `MemberCard` grid and search-by-name/village/crop).** No
+  functionality lost: the approval flow, the crop-match chips, the advisory line,
+  the focus-crops context card, the search box, and the drill-through to
+  `FpoMemberDetailScreen` are all still there, just under one roof.
+- **⚠️ THE MEMBERS TAB HAS TWO DATA PATHS, AND BOTH ARE DELIBERATE.** When opened
+  from `FpoDashboardScreen` (which already holds `memberCards` from its own
+  `GET /:id/dashboard` fetch), the array is passed via route params and the screen
+  reads it directly — no second fetch, same reasoning `FpoAllMembersScreen`'s own
+  header comment gave: "two independent fetches are two places for a trust band...
+  to read differently." When opened from `FpoHomeScreen`'s "Members" shortcut
+  (which has no `memberCards` to hand over), the screen fetches the SAME
+  `GET /:id/dashboard` endpoint itself — same computation, not a forked one, just a
+  second read of one truth for the one entry point that has no other way to get it.
+- **⚠️ THE PILL AND THE "MANAGE MEMBERS" BUTTON WERE LEFT BYTE-FOR-BYTE UNCHANGED
+  ON PURPOSE.** `testReachability.js` §7 asserts the exact text
+  `navigate('FpoMembers', { fpoId })` for the dashboard's pending-members pill (a
+  previously-fixed dead-control bug — see below). Adding `initialTab` there would
+  have broken a real regression guard for no gain: with no `initialTab`, the merged
+  screen already defaults to the "Requests" tab, which is exactly what that pill and
+  button are for. Only the two "See all"/"View performance" buttons — which used to
+  point at the now-deleted `FpoAllMembers` route — were changed, to
+  `navigate('FpoMembers', { fpoId, userData, members, initialTab: 'members' })`.
+- **`FpoHomeScreen`'s three landing-page shortcuts (Members / Focus Crops / Terms)
+  were NOT folded in, on purpose.** The original plan also named `FpoHome` +
+  `FpoDashboard` as a merge target, but on inspection `FpoHome` is a legitimate
+  state-router (none / claim_pending / claim_rejected / active) that only then shows
+  a few shortcut links, explicitly commented as intentional ("reachable from the
+  dashboard too — this is the shorter path from the landing screen"). That is a
+  different, lower-confidence claim than the member-screens duplication, which was
+  a plain bare-list-vs-real-list defect — merging it was not confirmed as a real bug
+  and was left alone rather than guessed at.
+- **EVERY MEMBER CAN NOW SEE WHAT THE GROUP OWES THEM, DEDUCTION BY DEDUCTION —
+  `GET /api/fpos/:id/my-settlement`, `Fpo/FpoMySettlementScreen.jsx` (F2).** `computeSettlement()`
+  has always been able to answer "where did the rest of my money go" — it was only ever rendered
+  to the ADMIN. The number one reason a real FPO loses a member's trust is being told ₹16/kg when
+  the group sold at ₹20 and never seeing the fee itemised; this is the first screen that answers
+  that question to the person it is about.
+- **⚠️ NOT EVERY SALE A MEMBER MAKES IS FPO-FACILITATED, AND THE FEED SAYS SO RATHER THAN GOING
+  QUIET.** Selling your own listing independently carries no fee and correctly does not appear
+  here — measured against real Atlas data before building this: only 24 of 13,309 delivered member
+  orders are pooled (`consignmentId` set), and zero of the remaining 13,285 trace back to
+  `custody.heldAt === 'fpo'`. **The correct behaviour today is "show almost nothing," and that is
+  honest, not a bug** — F1 walk-in intake only just shipped with no real usage yet. A member with
+  nothing facilitated gets an empty state with the reason in words, never a blank screen.
+- **A BATCH IS ALWAYS PRICED AS THE FULL GROUP, NEVER AS ONE MEMBER'S SLICE — because
+  `apportion()` rounds the TOTAL first and splits after.** Computing settlement on a
+  member-filtered order list would round a different number and could disagree with the admin's
+  own figure by a rupee. `GET /:id/my-settlement` always calls `computeSettlement()` on every
+  order in the member's own batch (the whole consignment, or the standalone order) and filters the
+  RESPONSE afterward, never the input. Verified live: a pooled two-member batch (400 kg / ₹12,000
+  and 600 kg / ₹18,000 at a 5% facilitation fee) gives the querying member `amount: 11400` and the
+  admin's own full-batch view the SAME `11400` for that row, byte for byte.
+- **🐛 FOUND WHILE BUILDING THIS: `GET /:id/settlement` LEAKED EVERY MEMBER'S NAME AND FIGURES TO
+  ANY MEMBER WHO SUPPLIED A VALID `orderIds` STRING.** The route computed the full group breakdown
+  and returned it to WHOEVER called it — an ordinary member, not just the admin or the buyer who
+  placed the order, could see every other member's name, quantity and payout. Fixed with the same
+  scope split as the new route: `isAdmin` (the officer's job — see everyone) or `isBuyer` (entitled
+  to know how their own purchase was divided) get the full `byLot`/`byShare`/`difference`/
+  `procurement.gaps`; anyone else gets their OWN rows only, filtered by `farmerUid`, and the
+  response carries `scope: 'own'` so a screen cannot mistake a narrowed view for the whole group.
+  Verified live with real member accounts: an ordinary member now sees `byLot.length === 1` with no
+  trace of the other contributor's name; the buyer who placed the order still sees the full
+  breakdown, unchanged.
+- **A BATCH IS KEYED ON THE CONSIGNMENT WHEN ONE EXISTS, ELSE ON THE ORDER ITSELF** — a pooled lot
+  sale and an F1-held single sale are the same shape to this route (one settlement row per trade
+  event), not two code paths.
+- **`GRADES BY ORDER` STAYS EXACTLY WHAT `computeSettlement()` ALREADY EXPECTED** — the route
+  builds `gradeByOrderId` via the existing `gradesForOrders()` helper rather than a second lookup,
+  so a procurement-mode gap can never be computed from a grade the settlement function itself
+  would not have used.
+- **THE SCREEN IS REACHABLE FROM `FpoScreen.jsx` FOR EVERY ACTIVE MEMBER**, not gated behind
+  `isAdmin` or a particular `paymentMode` — a card below the existing admin-only dashboard card,
+  navigating to `FpoMySettlement`. **A pre-existing, separate procurement-only card on the same
+  screen (reading `/procurement/mine`, a distinct model, `FpoProcurement`) was deliberately left
+  untouched** — it answers a narrower, already-working question and merging it in without a full
+  audit was out of scope for this pass.
+- **`FpoMySettlementScreen` IS FARMER-STACK ONLY, AND THAT WAS CONFIRMED, NOT ASSUMED.**
+  `FpoNavigator.jsx` (the `fpo`-role officer's own stack) never registers `FpoScreen` at all — its
+  own header comment says why: "My Group" is a farmer's question, and an `fpo`-role account is the
+  office, not a member-farmer, per the F2 (the earlier org-as-actor phase) decision log above. With
+  no entry point in that stack, `FpoMySettlementScreen` correctly needs no registration there
+  either — checked by grepping `FpoNavigator.jsx` for both names, not inferred from doctrine alone.
+- **`scripts/testFpoSettlement.js` IS NEW (22 assertions), IN ITS OWN FILE** — same reason as
+  `testFpoIntake.js`: `testCollection.js` requires `routes/fpos.js` before any auth stub can apply.
+  Covers: a non-member refused, a no-orders member told why in words, an independent sale correctly
+  excluded, an F1-held sale's fee math verified exactly, a pooled two-member batch where a member
+  sees only their own row with the group-total figure intact, and the `GET /:id/settlement`
+  privacy fix from both the member's and the buyer's side.
+- **AN FPO CAN NOW RECEIVE ITS MEMBERS' PRODUCE — `POST /api/fpos/:id/intake`,
+  `Fpo/FpoIntakeScreen.jsx` (F1).** Produce still has to arrive at the godown somehow after F0
+  retired the vehicle-based collection run. This is that "somehow": a member walks in, the group's
+  own person weighs and (optionally) grades it at the counter, and custody moves. **NO VEHICLE, NO
+  ROUTE, NO FARE.**
+- **IT REQUIRES AN EXISTING LISTING, DELIBERATELY.** Intake does not create a lot — it confirms
+  that a member's ALREADY-DECLARED listing (from the ordinary harvest-and-list pipeline) has now
+  physically arrived. A second place a lot's identity could be invented is exactly the kind of
+  fabrication this app refuses everywhere else.
+- **CUSTODY MOVES THROUGH THE SAME SHARED FUNCTION THE RUN-BASED PATH USED — not a fork.**
+  `transferCollectedStock()`'s per-listing `CropListing.create()` logic was extracted into
+  `moveListingToFpoCustody()`, exported from `routes/consignments.js` and imported by `fpos.js`.
+  The (retired but kept) run-based path now calls the SAME function in its loop, so there are not
+  two definitions of what "this lot is now in the FPO's custody" means.
+- **⚠️ FREIGHT OWED IS UNCONDITIONALLY ZERO.** Nothing was hired to move it, so
+  `custody.freightOwedPerKg` is always `0` on an intake — never derived from `paymentMode` the way
+  a collection run's stop was. `collectionRunId` is honestly `null` rather than pointing at a run
+  that never existed.
+- **THE FPO'S OWN PERSON MAY GRADE HERE, ALWAYS.** `data/gateRecord.js`'s `GRADING_ROLES` already
+  includes `'fpo_admin'` for exactly this case — the group's own person, handling this crop every
+  season, whose name is on the sale. There is no hired captain at a walk-in intake to refuse
+  grading to, unlike a run collected by the public pool.
+- **`CropListing.custody.intake` MIRRORS `Order.pickupOutcome`'S WEIGHT/GRADE/CONDITION BLOCKS
+  EXACTLY — same field names, same enums.** So `data/gateRecord.js`'s `describeWeight()`,
+  `describeGradeCheck()` and `describeCondition()` apply to a walk-in with no adaptation. Two
+  different moments (a captain at a farm gate; an FPO's own person at a godown counter) share one
+  vocabulary, not two. Verified: `Schema.path()` checked for every new field before anything was
+  written to it — the silent-drop bug class has shipped four times in this project.
+- **A PARTIAL ARRIVAL IS THE HONEST COMMON CASE; AN EXCESS ONE IS REFUSED.** A member who said
+  500 kg and brought 480 is normal and accepted; a claimed arrival of MORE than the listing ever
+  had is refused (`EXCEEDS_LISTING`) — that would be inventing stock.
+- **A GRADE CHECK AT INTAKE NEVER REPRICES ANYTHING**, same rule as a captain's gate check — a
+  downgrade is a claim (`farmerResponse: null` until the farmer answers it), an upgrade costs
+  nobody anything, and an ungraded listing observed for the first time is `observed_only`, not a
+  discrepancy — there was nothing to fall short of.
+- **THE DASHBOARD TAB THAT F0 REMOVED IS BACK, POINTING AT THE CORRECT CAPABILITY.** Rather than
+  leave the slot empty or add a sixth tab, "Collection" became "Receive" (`fpoDashboard.tabIntake`)
+  — same position, right feature. `FpoCollectionScreen` stays registered and reachable only by a
+  developer restoring its own tab, exactly like the phone-auth precedent.
+- **`scripts/testFpoIntake.js` IS NEW (36 assertions), IN ITS OWN FILE.** `testCollection.js`
+  already requires `routes/fpos.js` at its own top before any auth stub could apply, so an
+  HTTP-level test of the new route could not be retrofitted into that file without fighting its
+  require order — a dedicated file, matching testPayment.js/testPhoneAuth.js's own pattern, was
+  the correct call, not a compromise.
+- **🐛 CAUGHT MID-EDIT: A STILL-LIVE ASSERTION WAS DROPPED AS COLLATERAL DAMAGE.** F0's rewrite of
+  `testCollection.js` §8 removed the `/collection-runs`-specific checks and, by editing the same
+  block, also removed the unrelated `PUT /:id/premises` check sitting next to them — a completely
+  separate, still-fully-live endpoint (the group stating where its own godown is), still called by
+  the unchanged screen, still read independently by the dashboard's `producesAggregation` payload.
+  Restored, and the dashboard's own comment (which had justified the field by "FpoCollectionScreen
+  refuses to arrange a run without it" — no longer true after F0) corrected to say why the field
+  exists on its own terms now.
+- **F0 — FARM→FPO COLLECTION IS RETIRED.** The problem statement's aggregation clause
+  ("buyers may struggle to aggregate consistent volumes") is defined from the BUYER side, and its
+  own demo narrative routes a vehicle TO THE BUYER, never to a group's own members. Farm→FPO is a
+  1–5 km hop a member covers themselves — no fare, route or pooling problem in that distance worth
+  an app solving, and it was making the FPO section more confusing than it needed to be.
+  `FpoDashboardScreen`'s "Collection" tab (the sole caller) is removed.
+- **THE SCREEN AND ITS NAVIGATOR REGISTRATIONS STAY — same rule as phone auth.**
+  `FpoCollectionScreen.jsx` is fully built and fully tested; deleting working, dormant code to
+  reach the same result as removing one entry point is churn.
+- **⚠️ UNLIKE PHONE AUTH, THIS ROUTE HAD NO INDEPENDENT SAFETY NET, SO THE REFUSAL LIVES IN THE
+  ROUTE ITSELF.** Firebase blocks a stray phone sign-in attempt even if a button leaked onto a
+  screen; nothing external would have stopped a stray call to `POST /:id/collection-runs` from
+  creating a real run with a real fare and real freight owed. It now returns `410
+  COLLECTION_RETIRED` before touching the database — verified live against a real FPO admin.
+- **`PUT /:id/premises` IS NOT PART OF THE RETIREMENT AND STAYS FULLY LIVE.** It is a separate
+  endpoint (the group stating where its own godown is) with its own callers outside the retired
+  handler — `producesAggregation`'s dashboard payload still reads `fpo.premises` independently.
+  🐛 **Caught mid-edit:** the first rewrite of `testCollection.js` §8 dropped this endpoint's own
+  assertion as collateral damage from removing the collection-specific ones sitting next to it.
+  Restored, and the dashboard's own comment (which justified the field by "FpoCollectionScreen
+  refuses to arrange a run without it" — no longer true) corrected to say why the field still
+  exists on its own terms.
+- **FREIGHT DEBT COULD NEVER HAVE BEEN CHARGED SILENTLY, AND IT WAS CHECKED, NOT ASSUMED.**
+  `custody.freightOwedPerKg` is set in exactly one place — `transferCollectedStock()`, itself
+  reachable only from a `Consignment.purpose: 'fpo_collection'` delivery, itself only ever created
+  by the now-410'd route. Confirmed live: zero listings carried a non-zero rate before this
+  change. The chain is provably closed, not merely believed to be.
+- **🐛 THREE PRE-EXISTING TEST/CODE MISMATCHES SURFACED BY RUNNING THE FULL SUITE, NONE CAUSED BY
+  F0 — real, deliberate features from earlier work that no test had caught up with.**
+  **(a)** `testDispatch`: "truck agent is NOT offered a tempo job" contradicted **Phase 6, B5b**
+  ("a bigger vehicle can always do a smaller vehicle's job", reported directly from Nashik
+  captains not seeing jobs their truck could carry — fare stays frozen at the job's own rate,
+  direction is one-way). Fixed to assert the true rule both ways, adding the missing auto-vehicle
+  fixture for "smaller cannot do bigger."
+  **(b)** `testTracking` §10/§11: built an own/contracted run via `POST /api/consignments`, which
+  is correctly `HIRED_ONLY` — a prior security fix closed exactly that path (a buyer must never
+  name an arbitrary FPO's own vehicle and state its cost). `testConsignments.js` had already hit
+  and fixed this identical issue (§998, "g3Orders/G3doc"); `testTracking` just hadn't been updated
+  to match. Fixed the same way: construct the Consignment directly via the model.
+  **(c)** `testRequirements` §2: `mkReq()`'s fixture never set a price, so its own requirement was
+  being correctly excluded by a real rule — a want with neither `priceMin` nor `priceMax` set is
+  deliberately kept off a farmer's matched feed ("REPORTED DIRECTLY — a want with no price read as
+  broken"). Gave the fixture a real price range, and added the missing dedicated test for the
+  exclusion rule itself.
+- **`testDisputes` and `testMandiSales` showed blank in one batch run and were clean on two
+  isolated re-runs — transient Atlas drops**, exactly the pattern already documented above.
+  `testPriceOutlook` needs the AI Flask service running (`ai-service && venv/bin/python app.py`)
+  to fully pass — without it, 57 of 62 pass and the other 5 correctly degrade to refusals rather
+  than wrong answers, which is the additive-layer design working as intended, not a fault.
 - **🐛 A BUYER COULD COMMIT AN FPO'S OWN VEHICLE AND STATE ITS PRICE — FOUND IN REVIEW,
   FIXED.** `buildTransportArrangement(body, uid)` took `uid` and never checked it — only
   stamped it as `arrangedBy`. On a lot sale (`POST /lots/confirm`) and a pooled buyer run
