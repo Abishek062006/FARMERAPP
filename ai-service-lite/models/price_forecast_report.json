@@ -1,0 +1,393 @@
+{
+  "trained_at": "2026-08-24T04:20:20.658052Z",
+  "rows_raw": 1924281,
+  "rows_dropped": {
+    "unmapped_market": 113,
+    "modal_zero": 358,
+    "modal_outside_min_max": 5,
+    "unit_scale_outlier": 134
+  },
+  "series": 590,
+  "train_rows": 8656994,
+  "test_rows": 648280,
+  "test_cutoff": "2026-02-22",
+  "test_months": 6,
+  "naive_mape": 17.45,
+  "model_mape": 15.51,
+  "improvement_pct": 11.14,
+  "beats_baseline": true,
+  "by_horizon": [
+    {
+      "horizon": 1,
+      "n": 48141,
+      "naive_mape": 15.02,
+      "model_mape": 13.37
+    },
+    {
+      "horizon": 2,
+      "n": 47232,
+      "naive_mape": 15.8,
+      "model_mape": 13.93
+    },
+    {
+      "horizon": 3,
+      "n": 46272,
+      "naive_mape": 16.58,
+      "model_mape": 14.78
+    },
+    {
+      "horizon": 4,
+      "n": 45850,
+      "naive_mape": 17.3,
+      "model_mape": 14.97
+    },
+    {
+      "horizon": 5,
+      "n": 46117,
+      "naive_mape": 18.37,
+      "model_mape": 15.24
+    },
+    {
+      "horizon": 6,
+      "n": 45951,
+      "naive_mape": 17.76,
+      "model_mape": 15.15
+    },
+    {
+      "horizon": 7,
+      "n": 51055,
+      "naive_mape": 13.93,
+      "model_mape": 14.5
+    },
+    {
+      "horizon": 8,
+      "n": 45699,
+      "naive_mape": 18.03,
+      "model_mape": 15.75
+    },
+    {
+      "horizon": 9,
+      "n": 45127,
+      "naive_mape": 18.31,
+      "model_mape": 16.22
+    },
+    {
+      "horizon": 10,
+      "n": 44522,
+      "naive_mape": 19.03,
+      "model_mape": 16.87
+    },
+    {
+      "horizon": 11,
+      "n": 44330,
+      "naive_mape": 19.16,
+      "model_mape": 16.79
+    },
+    {
+      "horizon": 12,
+      "n": 44484,
+      "naive_mape": 20.27,
+      "model_mape": 16.87
+    },
+    {
+      "horizon": 13,
+      "n": 44343,
+      "naive_mape": 19.8,
+      "model_mape": 16.95
+    },
+    {
+      "horizon": 14,
+      "n": 49157,
+      "naive_mape": 15.95,
+      "model_mape": 16.18
+    }
+  ],
+  "by_commodity": [
+    {
+      "commodity": "Bajra(Pearl Millet/Cumbu)",
+      "n": 18614,
+      "naive_mape": 6.2,
+      "model_mape": 4.95
+    },
+    {
+      "commodity": "Banana",
+      "n": 6582,
+      "naive_mape": 22.63,
+      "model_mape": 20.39
+    },
+    {
+      "commodity": "Bengal Gram(Gram)(Whole)",
+      "n": 40202,
+      "naive_mape": 4.24,
+      "model_mape": 3.45
+    },
+    {
+      "commodity": "Bhindi(Ladies Finger)",
+      "n": 28940,
+      "naive_mape": 20.02,
+      "model_mape": 16.33
+    },
+    {
+      "commodity": "Black Gram(Urd Beans)(Whole)",
+      "n": 11263,
+      "naive_mape": 12.08,
+      "model_mape": 10.1
+    },
+    {
+      "commodity": "Brinjal",
+      "n": 28622,
+      "naive_mape": 23.99,
+      "model_mape": 20.44
+    },
+    {
+      "commodity": "Cabbage",
+      "n": 25995,
+      "naive_mape": 21.56,
+      "model_mape": 17.36
+    },
+    {
+      "commodity": "Carrot",
+      "n": 21436,
+      "naive_mape": 17.85,
+      "model_mape": 14.48
+    },
+    {
+      "commodity": "Cauliflower",
+      "n": 26896,
+      "naive_mape": 24.65,
+      "model_mape": 19.77
+    },
+    {
+      "commodity": "Cotton",
+      "n": 8290,
+      "naive_mape": 2.98,
+      "model_mape": 2.78
+    },
+    {
+      "commodity": "Garlic",
+      "n": 14053,
+      "naive_mape": 16.1,
+      "model_mape": 13.75
+    },
+    {
+      "commodity": "Ginger(Green)",
+      "n": 22703,
+      "naive_mape": 16.41,
+      "model_mape": 15.05
+    },
+    {
+      "commodity": "Grapes",
+      "n": 5519,
+      "naive_mape": 14.59,
+      "model_mape": 12.67
+    },
+    {
+      "commodity": "Green Chilli",
+      "n": 27932,
+      "naive_mape": 19.16,
+      "model_mape": 15.92
+    },
+    {
+      "commodity": "Green Gram(Moong)(Whole)",
+      "n": 13577,
+      "naive_mape": 6.27,
+      "model_mape": 5.55
+    },
+    {
+      "commodity": "Groundnut",
+      "n": 7394,
+      "naive_mape": 9.28,
+      "model_mape": 7.91
+    },
+    {
+      "commodity": "Jowar(Sorghum)",
+      "n": 30113,
+      "naive_mape": 11.66,
+      "model_mape": 9.3
+    },
+    {
+      "commodity": "Maize",
+      "n": 23363,
+      "naive_mape": 6.02,
+      "model_mape": 4.95
+    },
+    {
+      "commodity": "Mango",
+      "n": 13275,
+      "naive_mape": 29.32,
+      "model_mape": 23.46
+    },
+    {
+      "commodity": "Methi(Leaves)",
+      "n": 17463,
+      "naive_mape": 159.31,
+      "model_mape": 168.07
+    },
+    {
+      "commodity": "Mousambi(Sweet Lime)",
+      "n": 6390,
+      "naive_mape": 19.39,
+      "model_mape": 17.23
+    },
+    {
+      "commodity": "Onion",
+      "n": 32475,
+      "naive_mape": 14.02,
+      "model_mape": 11.77
+    },
+    {
+      "commodity": "Orange",
+      "n": 5266,
+      "naive_mape": 16.61,
+      "model_mape": 13.82
+    },
+    {
+      "commodity": "Paddy(Common)",
+      "n": 7447,
+      "naive_mape": 5.96,
+      "model_mape": 4.71
+    },
+    {
+      "commodity": "Papaya",
+      "n": 11208,
+      "naive_mape": 18.81,
+      "model_mape": 15.79
+    },
+    {
+      "commodity": "Pomegranate",
+      "n": 14347,
+      "naive_mape": 17.34,
+      "model_mape": 13.61
+    },
+    {
+      "commodity": "Potato",
+      "n": 25465,
+      "naive_mape": 12.36,
+      "model_mape": 10.0
+    },
+    {
+      "commodity": "Red gram/Arhar/Tur(whole)",
+      "n": 34821,
+      "naive_mape": 4.41,
+      "model_mape": 3.68
+    },
+    {
+      "commodity": "Safflower",
+      "n": 2021,
+      "naive_mape": 6.94,
+      "model_mape": 5.95
+    },
+    {
+      "commodity": "Soyabean",
+      "n": 31064,
+      "naive_mape": 5.37,
+      "model_mape": 5.07
+    },
+    {
+      "commodity": "Sunflower/Sunflower Seed",
+      "n": 1385,
+      "naive_mape": 5.49,
+      "model_mape": 5.55
+    },
+    {
+      "commodity": "Tomato",
+      "n": 29107,
+      "naive_mape": 20.46,
+      "model_mape": 17.61
+    },
+    {
+      "commodity": "Turmeric",
+      "n": 5822,
+      "naive_mape": 6.22,
+      "model_mape": 5.57
+    },
+    {
+      "commodity": "Water Melon",
+      "n": 7710,
+      "naive_mape": 19.85,
+      "model_mape": 17.35
+    },
+    {
+      "commodity": "Wheat",
+      "n": 41520,
+      "naive_mape": 4.91,
+      "model_mape": 3.99
+    }
+  ],
+  "top_features": [
+    {
+      "feature": "district",
+      "gain": 15147
+    },
+    {
+      "feature": "commodity",
+      "gain": 14001
+    },
+    {
+      "feature": "weekofyear",
+      "gain": 11359
+    },
+    {
+      "feature": "roll_mean_30",
+      "gain": 6182
+    },
+    {
+      "feature": "arr_roll_30",
+      "gain": 5853
+    },
+    {
+      "feature": "cv_30",
+      "gain": 5608
+    },
+    {
+      "feature": "roll_std_30",
+      "gain": 5362
+    },
+    {
+      "feature": "roll_mean_7",
+      "gain": 4831
+    },
+    {
+      "feature": "arr_roll_7",
+      "gain": 3993
+    },
+    {
+      "feature": "roll_std_7",
+      "gain": 3789
+    },
+    {
+      "feature": "modal_price",
+      "gain": 3777
+    },
+    {
+      "feature": "horizon",
+      "gain": 3655
+    },
+    {
+      "feature": "price_vs_mean_30",
+      "gain": 3650
+    },
+    {
+      "feature": "lag_30",
+      "gain": 3260
+    },
+    {
+      "feature": "month",
+      "gain": 3006
+    }
+  ],
+  "params": {
+    "objective": "regression_l1",
+    "n_estimators": 1200,
+    "learning_rate": 0.06,
+    "num_leaves": 96,
+    "min_child_samples": 40,
+    "subsample": 0.85,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.85,
+    "reg_lambda": 1.0,
+    "random_state": 42,
+    "verbose": -1
+  },
+  "best_iteration": 1200
+}

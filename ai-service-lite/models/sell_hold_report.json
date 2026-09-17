@@ -1,0 +1,461 @@
+{
+  "trained_at": "2026-08-24T04:24:13.916350Z",
+  "rows_dropped": {
+    "unmapped_market": 113,
+    "modal_zero": 358,
+    "modal_outside_min_max": 5,
+    "unit_scale_outlier": 134
+  },
+  "train_rows": 1962618,
+  "test_rows": 146969,
+  "test_cutoff": "2026-02-21",
+  "test_months": 6,
+  "threshold": 0.4000000000000001,
+  "hold_rate_pct": 43.62,
+  "auc": 0.733,
+  "accuracy": 66.74,
+  "precision_hold": 60.79,
+  "recall_hold": 66.86,
+  "f1_hold": 63.68,
+  "returns": {
+    "always_sell": 0.0,
+    "always_hold": 3.82,
+    "majority_class": 0.0,
+    "model": 6.57,
+    "perfect_foresight": 9.839,
+    "captured_pct_of_ceiling": 66.8
+  },
+  "beats_naive": true,
+  "by_horizon": [
+    {
+      "horizon": 3,
+      "n": 46446,
+      "auc": 0.755,
+      "precision_hold": 61.94,
+      "model_return": 8.027,
+      "always_hold_return": 5.218
+    },
+    {
+      "horizon": 7,
+      "n": 51212,
+      "auc": 0.722,
+      "precision_hold": 59.86,
+      "model_return": 5.32,
+      "always_hold_return": 2.884
+    },
+    {
+      "horizon": 14,
+      "n": 49311,
+      "auc": 0.723,
+      "precision_hold": 60.63,
+      "model_return": 6.497,
+      "always_hold_return": 3.474
+    }
+  ],
+  "by_commodity": [
+    {
+      "commodity": "Bajra(Pearl Millet/Cumbu)",
+      "n": 4242,
+      "hold_rate": 38.31,
+      "auc": 0.772,
+      "precision_hold": 62.51,
+      "model_return": 1.569,
+      "always_hold_return": -0.677
+    },
+    {
+      "commodity": "Banana",
+      "n": 1453,
+      "hold_rate": 31.31,
+      "auc": 0.812,
+      "precision_hold": 63.95,
+      "model_return": 8.814,
+      "always_hold_return": 5.917
+    },
+    {
+      "commodity": "Bengal Gram(Gram)(Whole)",
+      "n": 9087,
+      "hold_rate": 40.39,
+      "auc": 0.712,
+      "precision_hold": 62.79,
+      "model_return": 0.859,
+      "always_hold_return": -0.366
+    },
+    {
+      "commodity": "Bhindi(Ladies Finger)",
+      "n": 6476,
+      "hold_rate": 42.96,
+      "auc": 0.765,
+      "precision_hold": 61.28,
+      "model_return": 5.918,
+      "always_hold_return": 0.655
+    },
+    {
+      "commodity": "Black Gram(Urd Beans)(Whole)",
+      "n": 2639,
+      "hold_rate": 36.57,
+      "auc": 0.774,
+      "precision_hold": 68.06,
+      "model_return": 4.207,
+      "always_hold_return": 0.912
+    },
+    {
+      "commodity": "Brinjal",
+      "n": 6379,
+      "hold_rate": 47.19,
+      "auc": 0.723,
+      "precision_hold": 57.46,
+      "model_return": 8.39,
+      "always_hold_return": 5.18
+    },
+    {
+      "commodity": "Cabbage",
+      "n": 5820,
+      "hold_rate": 48.52,
+      "auc": 0.75,
+      "precision_hold": 62.94,
+      "model_return": 9.309,
+      "always_hold_return": 5.653
+    },
+    {
+      "commodity": "Carrot",
+      "n": 4885,
+      "hold_rate": 41.78,
+      "auc": 0.771,
+      "precision_hold": 60.8,
+      "model_return": 6.946,
+      "always_hold_return": 3.183
+    },
+    {
+      "commodity": "Cauliflower",
+      "n": 6032,
+      "hold_rate": 47.48,
+      "auc": 0.744,
+      "precision_hold": 60.33,
+      "model_return": 9.613,
+      "always_hold_return": 5.265
+    },
+    {
+      "commodity": "Cotton",
+      "n": 1819,
+      "hold_rate": 51.24,
+      "auc": 0.624,
+      "precision_hold": 61.72,
+      "model_return": 0.521,
+      "always_hold_return": 0.312
+    },
+    {
+      "commodity": "Garlic",
+      "n": 3198,
+      "hold_rate": 48.03,
+      "auc": 0.698,
+      "precision_hold": 62.67,
+      "model_return": 5.755,
+      "always_hold_return": 3.929
+    },
+    {
+      "commodity": "Ginger(Green)",
+      "n": 5235,
+      "hold_rate": 49.11,
+      "auc": 0.665,
+      "precision_hold": 61.04,
+      "model_return": 6.155,
+      "always_hold_return": 5.741
+    },
+    {
+      "commodity": "Grapes",
+      "n": 1306,
+      "hold_rate": 31.93,
+      "auc": 0.781,
+      "precision_hold": 55.39,
+      "model_return": 3.16,
+      "always_hold_return": -0.781
+    },
+    {
+      "commodity": "Green Chilli",
+      "n": 6284,
+      "hold_rate": 40.45,
+      "auc": 0.755,
+      "precision_hold": 55.91,
+      "model_return": 4.346,
+      "always_hold_return": -0.912
+    },
+    {
+      "commodity": "Green Gram(Moong)(Whole)",
+      "n": 3190,
+      "hold_rate": 32.38,
+      "auc": 0.771,
+      "precision_hold": 59.91,
+      "model_return": 1.661,
+      "always_hold_return": -0.598
+    },
+    {
+      "commodity": "Groundnut",
+      "n": 1829,
+      "hold_rate": 43.9,
+      "auc": 0.72,
+      "precision_hold": 68.16,
+      "model_return": 2.879,
+      "always_hold_return": 0.776
+    },
+    {
+      "commodity": "Jowar(Sorghum)",
+      "n": 6947,
+      "hold_rate": 41.59,
+      "auc": 0.775,
+      "precision_hold": 63.82,
+      "model_return": 3.431,
+      "always_hold_return": 0.305
+    },
+    {
+      "commodity": "Maize",
+      "n": 5305,
+      "hold_rate": 49.92,
+      "auc": 0.746,
+      "precision_hold": 67.37,
+      "model_return": 1.893,
+      "always_hold_return": 0.734
+    },
+    {
+      "commodity": "Mango",
+      "n": 2990,
+      "hold_rate": 35.59,
+      "auc": 0.725,
+      "precision_hold": 59.54,
+      "model_return": 5.114,
+      "always_hold_return": -1.788
+    },
+    {
+      "commodity": "Methi(Leaves)",
+      "n": 3892,
+      "hold_rate": 50.41,
+      "auc": 0.707,
+      "precision_hold": 62.0,
+      "model_return": 91.357,
+      "always_hold_return": 87.159
+    },
+    {
+      "commodity": "Mousambi(Sweet Lime)",
+      "n": 1455,
+      "hold_rate": 41.24,
+      "auc": 0.757,
+      "precision_hold": 58.33,
+      "model_return": 6.917,
+      "always_hold_return": 2.497
+    },
+    {
+      "commodity": "Onion",
+      "n": 7240,
+      "hold_rate": 53.38,
+      "auc": 0.731,
+      "precision_hold": 67.97,
+      "model_return": 6.864,
+      "always_hold_return": 5.479
+    },
+    {
+      "commodity": "Orange",
+      "n": 1190,
+      "hold_rate": 40.17,
+      "auc": 0.726,
+      "precision_hold": 57.01,
+      "model_return": 5.477,
+      "always_hold_return": 2.569
+    },
+    {
+      "commodity": "Paddy(Common)",
+      "n": 1707,
+      "hold_rate": 45.4,
+      "auc": 0.808,
+      "precision_hold": 70.73,
+      "model_return": 1.847,
+      "always_hold_return": 0.434
+    },
+    {
+      "commodity": "Papaya",
+      "n": 2575,
+      "hold_rate": 37.13,
+      "auc": 0.761,
+      "precision_hold": 57.73,
+      "model_return": 6.327,
+      "always_hold_return": 3.062
+    },
+    {
+      "commodity": "Pomegranate",
+      "n": 3236,
+      "hold_rate": 36.68,
+      "auc": 0.75,
+      "precision_hold": 54.71,
+      "model_return": 3.939,
+      "always_hold_return": -0.14
+    },
+    {
+      "commodity": "Potato",
+      "n": 5689,
+      "hold_rate": 39.99,
+      "auc": 0.739,
+      "precision_hold": 51.27,
+      "model_return": 3.373,
+      "always_hold_return": 0.695
+    },
+    {
+      "commodity": "Red gram/Arhar/Tur(whole)",
+      "n": 7906,
+      "hold_rate": 36.58,
+      "auc": 0.719,
+      "precision_hold": 57.45,
+      "model_return": 0.85,
+      "always_hold_return": -0.92
+    },
+    {
+      "commodity": "Safflower",
+      "n": 460,
+      "hold_rate": 40.65,
+      "auc": 0.728,
+      "precision_hold": 54.31,
+      "model_return": 1.262,
+      "always_hold_return": -0.572
+    },
+    {
+      "commodity": "Soyabean",
+      "n": 7058,
+      "hold_rate": 51.79,
+      "auc": 0.566,
+      "precision_hold": 56.18,
+      "model_return": 0.952,
+      "always_hold_return": 0.975
+    },
+    {
+      "commodity": "Sunflower/Sunflower Seed",
+      "n": 361,
+      "hold_rate": 50.42,
+      "auc": 0.681,
+      "precision_hold": 70.51,
+      "model_return": 1.357,
+      "always_hold_return": 0.987
+    },
+    {
+      "commodity": "Tomato",
+      "n": 6489,
+      "hold_rate": 44.26,
+      "auc": 0.728,
+      "precision_hold": 59.88,
+      "model_return": 5.892,
+      "always_hold_return": 1.26
+    },
+    {
+      "commodity": "Turmeric",
+      "n": 1399,
+      "hold_rate": 37.03,
+      "auc": 0.697,
+      "precision_hold": 57.73,
+      "model_return": 1.099,
+      "always_hold_return": -0.295
+    },
+    {
+      "commodity": "Water Melon",
+      "n": 1735,
+      "hold_rate": 32.85,
+      "auc": 0.718,
+      "precision_hold": 51.56,
+      "model_return": 3.959,
+      "always_hold_return": -1.316
+    },
+    {
+      "commodity": "Wheat",
+      "n": 9461,
+      "hold_rate": 47.15,
+      "auc": 0.76,
+      "precision_hold": 66.33,
+      "model_return": 1.289,
+      "always_hold_return": -0.048
+    }
+  ],
+  "holding_cost_sensitivity": [
+    {
+      "multiplier": 0.5,
+      "hold_rate": 45.68,
+      "model_return": 6.858
+    },
+    {
+      "multiplier": 1.0,
+      "hold_rate": 43.62,
+      "model_return": 6.57
+    },
+    {
+      "multiplier": 2.0,
+      "hold_rate": 39.81,
+      "model_return": 5.995
+    }
+  ],
+  "holding_cost_pct_per_week": {
+    "Tomato": 3.0,
+    "Onion": 1.5,
+    "Paddy(Common)": 0.5,
+    "Wheat": 0.5,
+    "Soyabean": 0.5,
+    "Cotton": 0.4
+  },
+  "holding_cost_is_assumption": true,
+  "top_features": [
+    {
+      "feature": "commodity",
+      "gain": 6427
+    },
+    {
+      "feature": "district",
+      "gain": 5803
+    },
+    {
+      "feature": "weekofyear",
+      "gain": 4871
+    },
+    {
+      "feature": "modal_price",
+      "gain": 2361
+    },
+    {
+      "feature": "roll_mean_30",
+      "gain": 2155
+    },
+    {
+      "feature": "cv_30",
+      "gain": 2152
+    },
+    {
+      "feature": "roll_std_30",
+      "gain": 2130
+    },
+    {
+      "feature": "price_vs_mean_30",
+      "gain": 2121
+    },
+    {
+      "feature": "arr_roll_30",
+      "gain": 1824
+    },
+    {
+      "feature": "price_vs_mean_7",
+      "gain": 1777
+    },
+    {
+      "feature": "roll_mean_7",
+      "gain": 1554
+    },
+    {
+      "feature": "lag_30",
+      "gain": 1374
+    },
+    {
+      "feature": "roll_std_7",
+      "gain": 1329
+    },
+    {
+      "feature": "arr_roll_7",
+      "gain": 1317
+    },
+    {
+      "feature": "lag_14",
+      "gain": 1274
+    }
+  ],
+  "best_iteration": 500
+}

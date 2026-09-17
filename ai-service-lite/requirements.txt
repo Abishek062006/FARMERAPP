@@ -1,0 +1,7 @@
+flask==3.0.3
+gunicorn==23.0.0
+pandas==2.3.3
+scikit-learn==1.6.1
+lightgbm==4.6.0
+joblib==1.5.3
+numpy==1.26.4
