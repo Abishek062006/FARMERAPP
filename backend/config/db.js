@@ -5,7 +5,7 @@ const connectDB = async () => {
     console.log('🔄 Connecting to MongoDB...');
     
     // No options needed for Mongoose 6+
-    //configured db 
+    //configured mongodb connection string in .env file
     const conn = await mongoose.connect(process.env.MONGODB_URI);
 
     console.log('✅ MongoDB Connected:', conn.connection.host);
