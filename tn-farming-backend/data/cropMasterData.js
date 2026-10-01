@@ -52,6 +52,7 @@ const cropDatabase = {
     yield: '12-18 quintals/acre',
     season: ['summer'],
   },
+  //configured cropmasterdata 
   maize: {
     name: 'Maize',
     tamilName: 'மக்காச்சோளம்',
